@@ -57,6 +57,9 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
         Command::Pipeline { firmware, trace, target, drc, zephyr, no_evolve, disasm } => {
             handle_pipeline(firmware, trace.as_deref(), target, *drc, *zephyr, *no_evolve, *disasm, output)?;
         }
+        Command::Reconstruct { input, threshold, max_iterations, continuous, iter_output } => {
+            handle_reconstruct(input, *threshold, *max_iterations, *continuous, *iter_output, output)?;
+        }
         Command::Bir { input, compile, validate, to_legacy, dot } => {
             handle_bir(input, *compile, *validate, *to_legacy, *dot, output)?;
         }
@@ -473,6 +476,54 @@ fn handle_bir(input: &Path, compile: bool, validate: bool, to_legacy: bool, dot:
         let path = output.join("bir_graph.dot");
         fs::write(&path, dot_content)?;
         tracing::info!("BIR DOT graph written to {}", path.display());
+    }
+
+    Ok(())
+}
+
+fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, continuous: bool, verbose: bool, output: &Path) -> Result<()> {
+    let yaml = fs::read_to_string(input)?;
+    let spec = base_core::spec::types::HardwareSpec::from_yaml(&yaml)?;
+
+    fs::create_dir_all(output)?;
+    tracing::info!("=== B.A.S.E. Reconstruction Loop ===");
+    tracing::info!("Threshold: {:.0}%, Max iterations: {}, Continuous: {}",
+        threshold * 100.0, max_iterations, continuous);
+
+    let mut loop_ = base_core::loop_::FeedbackLoop::new(threshold, max_iterations);
+    let iterations = loop_.run(&spec);
+
+    for iter in &iterations {
+        if verbose {
+            let iter_dir = output.join(format!("iter_{:03}", iter.number));
+            fs::create_dir_all(&iter_dir)?;
+            let spec_path = iter_dir.join("hardware_spec.yaml");
+            fs::write(&spec_path, iter.spec.to_yaml()?)?;
+        }
+    }
+
+    let report = loop_.convergence_report();
+    let report_json = serde_json::json!({
+        "total_iterations": report.total_iterations,
+        "initial_pass_rate": report.initial_pass_rate,
+        "final_pass_rate": report.final_pass_rate,
+        "improvement": report.improvement,
+        "total_errors_found": report.total_errors_found,
+        "avg_errors_per_iteration": report.avg_errors_per_iteration,
+        "converged": report.converged,
+        "threshold": threshold,
+    });
+    fs::write(output.join("convergence_report.json"), serde_json::to_string_pretty(&report_json)?)?;
+
+    if let Some(last) = iterations.last() {
+        fs::write(output.join("hardware_spec_refined.yaml"), last.spec.to_yaml()?)?;
+    }
+
+    if report.converged {
+        tracing::info!("✅ Converged in {} iterations", report.total_iterations);
+    } else {
+        tracing::info!("⚠️ Did not converge — {:.1}% < {:.1}%",
+            report.final_pass_rate * 100.0, threshold * 100.0);
     }
 
     Ok(())

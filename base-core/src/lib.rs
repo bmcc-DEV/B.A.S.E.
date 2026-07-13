@@ -6,6 +6,7 @@ pub mod graphviz;
 pub mod solver;
 pub mod kg;
 pub mod twin;
+pub mod loop_;
 
 pub use spec::*;
 pub use inference::*;

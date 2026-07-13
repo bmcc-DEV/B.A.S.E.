@@ -148,6 +148,28 @@ pub enum Command {
         disasm: bool,
     },
 
+    /// Reconstruct: recursive refinement loop
+    Reconstruct {
+        /// Input HardwareSpec YAML
+        input: PathBuf,
+
+        /// Convergence threshold (0.0 — 1.0)
+        #[arg(long, default_value = "0.9")]
+        threshold: f64,
+
+        /// Maximum iterations
+        #[arg(long, default_value_t = 10)]
+        max_iterations: usize,
+
+        /// Continuous mode (loop forever)
+        #[arg(long)]
+        continuous: bool,
+
+        /// Output every iteration (detailed logs)
+        #[arg(long)]
+        iter_output: bool,
+    },
+
     /// BIR: Behavioral IR manipulation
     Bir {
         /// Input file (BSL source, BIR YAML, or firmware)
