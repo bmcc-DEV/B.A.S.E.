@@ -9,8 +9,6 @@ description = "B.A.S.E. Behavior Specification Language — parser and compiler"
 base-bir = { path = "../base-bir" }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
-pest = "2"
-pest_derive = "2"
 thiserror = "2"
 tracing = "0.1"
 

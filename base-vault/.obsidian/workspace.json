@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "09 - B.A.S.E. v2 Expansion/09.07 - Multi-Source Learning.md",
+                "file": "10 - B.A.S.E. v3.1 Evidence-Driven/10.01 - Evidence DB.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "09.07 - Multi-Source Learning"
+              "title": "10.01 - Evidence DB"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "09 - B.A.S.E. v2 Expansion/09.07 - Multi-Source Learning.md",
+                "file": "10 - B.A.S.E. v3.1 Evidence-Driven/10.01 - Evidence DB.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Links inversos para 09.07 - Multi-Source Learning"
+              "title": "Links inversos para 10.01 - Evidence DB"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "09 - B.A.S.E. v2 Expansion/09.07 - Multi-Source Learning.md",
+                "file": "10 - B.A.S.E. v3.1 Evidence-Driven/10.01 - Evidence DB.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Links de saída para 09.07 - Multi-Source Learning"
+              "title": "Links de saída para 10.01 - Evidence DB"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "09 - B.A.S.E. v2 Expansion/09.07 - Multi-Source Learning.md",
+                "file": "10 - B.A.S.E. v3.1 Evidence-Driven/10.01 - Evidence DB.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Sumário de 09.07 - Multi-Source Learning"
+              "title": "Sumário de 10.01 - Evidence DB"
             }
           }
         ]
@@ -184,11 +184,13 @@
   },
   "active": "65c85ce0902386ec",
   "lastOpenFiles": [
+    "10 - B.A.S.E. v3.1 Evidence-Driven/10.03 - Contract Engine.md",
+    "09 - B.A.S.E. v2 Expansion/09.00 - Foundation.md",
     "09 - B.A.S.E. v2 Expansion/09.04 - Genomes DB.md",
+    "09 - B.A.S.E. v2 Expansion/09.07 - Multi-Source Learning.md",
     "09 - B.A.S.E. v2 Expansion/09.02 - Temporal Contracts.md",
     "09 - B.A.S.E. v2 Expansion/09.00 - Index.md",
     "09 - B.A.S.E. v2 Expansion/09.01 - Behavioral IR.md",
-    "09 - B.A.S.E. v2 Expansion/09.00 - Foundation.md",
     "11 - B.A.S.E. v3.2 Scientific/11.03 - Trace Replay.md",
     "11 - B.A.S.E. v3.2 Scientific/11.02 - Event Graph.md",
     "11 - B.A.S.E. v3.2 Scientific/11.01 - Temporal Contracts.md",
@@ -198,7 +200,6 @@
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.06 - Migration Plan.md",
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.05 - Reference Design.md",
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.04 - Contract Solver.md",
-    "10 - B.A.S.E. v3.1 Evidence-Driven/10.03 - Contract Engine.md",
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.02 - Evidence Assessment.md",
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.01 - Evidence DB.md",
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.00 - Index.md",
@@ -211,7 +212,6 @@
     "09 - B.A.S.E. v2 Expansion/09.11 - BSL Language.md",
     "09 - B.A.S.E. v2 Expansion/09.10 - Evolution Engine.md",
     "09 - B.A.S.E. v2 Expansion/09.09 - Feedback Loop.md",
-    "09 - B.A.S.E. v2 Expansion/09.08 - Digital Twin.md",
     "09 - B.A.S.E. v2 Expansion"
   ]
 }
