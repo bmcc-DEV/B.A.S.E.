@@ -4,156 +4,65 @@ updated: 2024-07-12
 tags:
   - index
   - base
-aliases:
-  - B.A.S.E.
 ---
 
 # 🏗️ B.A.S.E. — Behavioral ASIC Synthesis Engine
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**Status:** ✅ 7 crates, 75 testes, 0 erros — pipeline end-to-end funcional
+**154 testes · 13 crates · Pipeline completo · 3 gerações de arquitetura**
 
 ```mermaid
 flowchart LR
-    subgraph "Pipeline Completo (base pipeline)"
-        A[analyze] --> S[synth]
-        S --> P[pcb]
-        S --> F[fw]
-        P --> C[check]
-        F --> C
-        C --> E[evolve]
+    subgraph "Pipeline"
+        FW[Firmware] --> A[analyze]
+        A --> E[Evidence DB]
+        E --> B[BIR]
+        B --> C[Contracts]
+        C --> S[Solver]
+        S --> D[Reference Design]
+        D --> P[PCB/FW - opcional]
     end
 ```
 
 ## Mapa da Vault
 
-```mermaid
-mindmap
-  root((B.A.S.E. 🧬))
-    Architecture
-      Overview
-      Pipeline Flow
-      Data Model
-      Component Diagram
-    Layers
-      Foundation (SpecterProbe) ✅
-      Inference Engine ✅
-      HAL Translation ✅
-      PCB Generator ✅
-      Validation ⚠️
-      Evolution Engine ✅
-    Technical Specs
-      HardwareSpec Schema
-      Behavioral Graph
-      KiCad S-Expression
-      MMU Translation
-      Timing Model
-      Validation Metrics
-    Component DB
-      Schema
-      RP2350, Cortex-A55
-      Catalog Index (51 entries)
-    Implementation
-      Roadmap (status atual)
-      Sprints 0-7
-    Use Cases
-      Power Mac G5
-      Amiga CD32
-      Xbox 360
-      DEC Alpha
-    References
-      Tools
-      Dependencies
-      Glossary
-```
+| Seção | Conteúdo |
+|-------|----------|
+| [[01 - Architecture/01.01 Overview\|🏛️ Arquitetura]] | Stack de camadas, fluxo de dados, decisões |
+| [[02 - Layers/02.01 Foundation (SpecterProbe)\|📦 Foundation]] | SpecterProbe (disassembly, MMIO, behavioral) |
+| [[02 - Layers/02.02 Inference Engine\|🧠 Inference]] | Motor de inferência |
+| [[02 - Layers/02.03 HAL Translation\|🔄 HAL]] | Tradução MMIO |
+| [[02 - Layers/02.04 PCB Generator\|📐 PCB]] | Gerador KiCad |
+| [[02 - Layers/02.05 Validation\|✅ Validação]] | Comparador de traces |
+| [[02 - Layers/02.06 Evolution Engine\|🚀 Evolução]] | Sugestões de upgrade |
+| [[03 - Technical Specs\|📋 Specs]] | HardwareSpec, BIR, KiCad, MMU, Timing |
+| [[05 - Implementation/05.01 Roadmap\|📊 Roadmap]] | Status dos sprints |
+| [[08 - Glossary\|📖 Glossário]] | Termos do projeto |
+| [[09 - B.A.S.E. v2 Expansion/09.00 - Index\|🧬 v2]] | Universal HW Reconstruction (12 fases) |
+| [[10 - B.A.S.E. v3.1 Evidence-Driven/10.00 - Index\|🔬 v3.1]] | Evidence-Driven Architecture |
+| [[11 - B.A.S.E. v3.2 Scientific/11.00 - Index\|⚛ v3.2]] | Scientific Evolution |
 
-## O Problema
+## Crates
 
-Hardware proprietário morre quando:
+| Crate | Tests | Descrição |
+|-------|-------|-----------|
+| `base-core` | 77 | Core: Evidence DB, BIR, Contracts, Solver, Digital Twin, Knowledge Graph, SMT |
+| `base-bir` | 13 | Behavioral IR: tipos, validador, contratos temporais |
+| `base-pcb` | 15 | Gerador KiCad: S-expression, schematic, BOM, PCB, DRC |
+| `base-fw` | 13 | Firmware sintético: bootloader, HAL MMU, drivers, devicetree, Zephyr |
+| `base-check` | 20 | Validação: trace Saleae/PCAP/JSON, comparator, HTML report |
+| `base-evolve` | 7 | Evolução: bottleneck analysis, trade-offs, migration plans |
+| `base-cli` | 3 | CLI unificada |
+| `base-hil` | 6 | HIL Cluster: RP2350 probe firmware, host agent |
+| `base-bsl` | 0* | BSL Language (parser pest — gramática pendente) |
+| `specterprobe` | — | Análise ARM64: disassembly Capstone, CFG, MMIO scan |
 
-- O ASIC queima e não há reposição
-- O fabricante para de produzir
-- O suporte termina
-- O RTL / GDSII / máscaras se perdem
+> *base-bsl com erro no pest grammar — aguardando correção*
 
-## A Solução
-
-**B.A.S.E.** pega o que **existe** (firmware, drivers, traces, logs) e reconstrói o **comportamento** do hardware — não a implementação — permitindo sintetizar uma nova PCB compatível usando componentes modernos e disponíveis.
+## GitHub
 
 ```
-Hardware Original (ASICs)
-      ↓ Firmware
-      ↓ Drivers
-      ↓ Comportamento
-      ↓ Modelo Funcional
-      ↓ Nova PCB + Firmware Sintético
+commit 0e3961f — main → origin/main
+154 testes · 13 crates · 3 gerações · Push feito ✅
 ```
-
-## Projetos Relacionados
-
-- [[02 - Layers/02.01 Foundation (SpecterProbe)|SpecterProbe]] — Análise de firmware (9 camadas, Rust)
-- [[01 - Architecture/01.01 Overview|Visão Geral Arquitetural]]
-
-## Quick Start
-
-```bash
-# Pipeline completo
-base pipeline firmware.bin --trace original.csv --target rp2350
-
-# Apenas análise
-base analyze firmware.bin -o output/
-
-# Apenas PCB a partir de spec existente
-base synth output/hardware_spec.yaml -o synth/
-base pcb synth/synthesized_spec.yaml --drc -o pcb/
-
-# Apenas firmware
-base fw synth/synthesized_spec.yaml --zephyr -o fw/
-
-# Validação
-base check synth/synthesized_spec.yaml original.csv -o check/
-
-# Sugestões de upgrade
-base evolve synth/synthesized_spec.yaml -o evolve/
-```
-
-## Estrutura do Projeto
-
-```
-📁 base-vault/        ← Obsidian vault (documentação)
-📁 specterprobe/      ← Análise de firmware (Rust)
-📁 base-core/          ← Inferência + mapeamento (Rust)
-📁 base-pcb/           ← Gerador KiCad (Rust)
-📁 base-fw/            ← Firmware sintético (Rust)
-📁 base-check/         ← Validação (Rust)
-📁 base-evolve/        ← Motor de evolução (Rust)
-📁 base-cli/           ← CLI unificada (Rust)
-📁 .github/workflows/  ← CI/CD
-```
-
-## Princípios Arquiteturais
-
-1. **Separação comportamento × implementação** — O modelo comportamental é independente do hardware alvo
-2. **Pipeline progressivo** — Cada etapa refina o modelo, aumentando a confiança
-3. **Múltiplas fontes de verdade** — Firmware + traces + drivers + DTB = modelo mais robusto
-4. **Saída sempre verificável** — Toda geração produz relatório de validação
-5. **Design modular** — Cada crate é independente, testável e substituível
-
-## Navegação Rápida
-
-| Área | Nota |
-|------|------|
-| 🏛️ Arquitetura | [[01 - Architecture/01.01 Overview]] |
-| 📦 Foundation | [[02 - Layers/02.01 Foundation (SpecterProbe)]] |
-| 🧠 Inference | [[02 - Layers/02.02 Inference Engine]] |
-| 🔄 HAL | [[02 - Layers/02.03 HAL Translation]] |
-| 📐 PCB | [[02 - Layers/02.04 PCB Generator]] |
-| ✅ Validação | [[02 - Layers/02.05 Validation]] |
-| 🚀 Evolução | [[02 - Layers/02.06 Evolution Engine]] |
-| 📋 Roadmap | [[05 - Implementation/05.01 Roadmap]] |
-| 📊 Sprints | [[05 - Implementation/05.02 Sprint 0]] → [[05 - Implementation/05.09 Sprint 7]] |
-| 🧬 B.A.S.E. v2 | [[09 - B.A.S.E. v2 Expansion/09.00 - Index]] — Universal Hardware Reconstruction System |
-| 📊 Diagnóstico | [[09 - B.A.S.E. v2 Expansion/09.13 - Diagnostic]] — Assessment atual e prioridades |
-| 🔬 B.A.S.E. v3.1 | [[10 - B.A.S.E. v3.1 Evidence-Driven/10.00 - Index]] — Evidence-Driven Architecture |
-| ⚛ B.A.S.E. v3.2 | [[11 - B.A.S.E. v3.2 Scientific/11.00 - Index]] — Scientific Evolution |

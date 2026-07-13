@@ -233,6 +233,8 @@ mod tests {
                 memory: None,
                 peripherals: std::collections::HashMap::new(),
             },
+            timing: None,
+            compatible_with: vec![],
             power: None,
             pins: None,
             availability: None,
