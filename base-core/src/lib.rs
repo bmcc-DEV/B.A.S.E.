@@ -5,6 +5,7 @@ pub mod mapping;
 pub mod graphviz;
 pub mod solver;
 pub mod kg;
+pub mod twin;
 
 pub use spec::*;
 pub use inference::*;
