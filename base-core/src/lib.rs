@@ -11,6 +11,7 @@ pub mod loop_;
 pub mod design;
 pub mod temporal;
 pub mod event_graph;
+pub mod replay;
 
 pub use spec::*;
 pub use inference::*;

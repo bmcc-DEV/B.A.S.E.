@@ -11,10 +11,14 @@
             "id": "65c85ce0902386ec",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Visualização em gráfico"
+              "type": "markdown",
+              "state": {
+                "file": "09 - B.A.S.E. v2 Expansion/09.00 - Index.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "09.00 - Index"
             }
           }
         ]
@@ -90,6 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "09 - B.A.S.E. v2 Expansion/09.00 - Index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -99,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Links inversos"
+              "title": "Links inversos para 09.00 - Index"
             }
           },
           {
@@ -108,11 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "09 - B.A.S.E. v2 Expansion/09.00 - Index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Links de saída"
+              "title": "Links de saída para 09.00 - Index"
             }
           },
           {
@@ -150,12 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "09 - B.A.S.E. v2 Expansion/09.00 - Index.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Sumário"
+              "title": "Sumário de 09.00 - Index"
             }
           }
         ]
@@ -177,6 +184,7 @@
   },
   "active": "65c85ce0902386ec",
   "lastOpenFiles": [
+    "09 - B.A.S.E. v2 Expansion/09.00 - Foundation.md",
     "11 - B.A.S.E. v3.2 Scientific/11.03 - Trace Replay.md",
     "11 - B.A.S.E. v3.2 Scientific/11.02 - Event Graph.md",
     "11 - B.A.S.E. v3.2 Scientific/11.01 - Temporal Contracts.md",
@@ -193,7 +201,6 @@
     "10 - B.A.S.E. v3.1 Evidence-Driven/10.00 - Index.md",
     "10 - B.A.S.E. v3.1 Evidence-Driven",
     "09 - B.A.S.E. v2 Expansion/09.13 - Diagnostic.md",
-    "09 - B.A.S.E. v2 Expansion/09.00 - Foundation.md",
     "00 - Index.md",
     "08 - Glossary.md",
     "09 - B.A.S.E. v2 Expansion/09.12 - Foundation Models.md",
