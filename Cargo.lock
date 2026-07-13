@@ -256,17 +256,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "base-learn"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base-core",
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "base-pcb"
 version = "0.1.0"
 dependencies = [
