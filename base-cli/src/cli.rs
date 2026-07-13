@@ -32,6 +32,10 @@ pub enum Command {
         /// Manual block classification override
         #[arg(long)]
         classify: Option<String>,
+
+        /// Export Graphviz DOT of behavioral graph
+        #[arg(long)]
+        dot: bool,
     },
 
     /// Synthesize HardwareSpec → component mapping

@@ -1,0 +1,7 @@
+# act configuration for local CI
+# Uncomment and adjust for your environment:
+# --container-architecture linux/amd64
+# --container-daemon-socket /run/podman/podman.sock
+
+# Pull the act GitHub runner image
+# act -j test --pull

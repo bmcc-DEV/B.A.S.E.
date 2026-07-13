@@ -34,8 +34,8 @@ use crate::cli::Command;
 
 pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
     match cmd {
-        Command::Analyze { firmware, mmio_traces, classify } => {
-            handle_analyze(firmware, mmio_traces.as_deref(), classify.as_deref(), output)
+        Command::Analyze { firmware, mmio_traces, classify, dot } => {
+            handle_analyze(firmware, mmio_traces.as_deref(), classify.as_deref(), *dot, output)
         }
         Command::Synth { input, component_db, max_bom_cost } => {
             handle_synth(input, component_db, *max_bom_cost, output)
@@ -60,7 +60,7 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
 
 // ─── Analyze ────────────────────────────────────────────
 
-fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Option<&str>, output: &Path) -> Result<()> {
+fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Option<&str>, dot: bool, output: &Path) -> Result<()> {
     tracing::info!("Reading firmware from {}", firmware.display());
     let data = fs::read(firmware)?;
 
@@ -71,6 +71,15 @@ fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Optio
     let path = output.join("hardware_spec.yaml");
     fs::write(&path, spec.to_yaml()?)?;
     tracing::info!("HardwareSpec written to {}", path.display());
+
+    if dot {
+        let dot_path = output.join("behavior_graph.dot");
+        let dot_content = base_core::graphviz::generate_dot(&spec, &firmware.to_string_lossy());
+        fs::write(&dot_path, &dot_content)?;
+        tracing::info!("Behavior graph DOT written to {}", dot_path.display());
+        tracing::info!("Render with: dot -Tpng -O {}.dot", dot_path.display());
+    }
+
     Ok(())
 }
 
@@ -347,7 +356,7 @@ fn handle_pipeline(
 
     // Step 1: Analyze
     tracing::info!("[1/6] Analyzing firmware...");
-    handle_analyze(firmware, None, None, &output.join("01_analyze"))?;
+    handle_analyze(firmware, None, None, true, &output.join("01_analyze"))?;
 
     // Step 2: Synth
     tracing::info!("[2/6] Synthesizing hardware mapping...");
