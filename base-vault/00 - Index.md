@@ -154,3 +154,4 @@ base evolve synth/synthesized_spec.yaml -o evolve/
 | 📋 Roadmap | [[05 - Implementation/05.01 Roadmap]] |
 | 📊 Sprints | [[05 - Implementation/05.02 Sprint 0]] → [[05 - Implementation/05.09 Sprint 7]] |
 | 🧬 B.A.S.E. v2 | [[09 - B.A.S.E. v2 Expansion/09.00 - Index]] — Universal Hardware Reconstruction System |
+| 📊 Diagnóstico | [[09 - B.A.S.E. v2 Expansion/09.13 - Diagnostic]] — Assessment atual e prioridades |

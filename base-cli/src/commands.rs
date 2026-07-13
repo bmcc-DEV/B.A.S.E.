@@ -78,11 +78,14 @@ fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Optio
     tracing::info!("HardwareSpec written to {}", path.display());
 
     if dot {
-        let dot_path = output.join("behavior_graph.dot");
-        let dot_content = base_core::graphviz::generate_dot(&spec, &firmware.to_string_lossy());
-        fs::write(&dot_path, &dot_content)?;
-        tracing::info!("Behavior graph DOT written to {}", dot_path.display());
-        tracing::info!("Render with: dot -Tpng -O {}.dot", dot_path.display());
+        let (beh_dot, ev_dot) = base_core::graphviz::generate_all(&spec, &firmware.to_string_lossy());
+        let beh_path = output.join("behavior_graph.dot");
+        fs::write(&beh_path, &beh_dot)?;
+        tracing::info!("Behavior graph DOT written to {}", beh_path.display());
+        let ev_path = output.join("event_graph.dot");
+        fs::write(&ev_path, &ev_dot)?;
+        tracing::info!("Event graph DOT written to {}", ev_path.display());
+        tracing::info!("Render with: dot -Tpng -O <file>.dot");
     }
 
     Ok(())
