@@ -1,8 +1,8 @@
-use crate::inference::extraction::{block_type_to_kind, extract_blocks, raw_to_register, BlockCluster, BlockType, MmioAccess, MmioAccessType};
+use crate::inference::extraction::{block_type_to_kind, extract_blocks, raw_to_register, MmioAccess, MmioAccessType};
 use crate::inference::fsm::{extract_fsm, fsm_to_protocol};
 use crate::inference::protocol::{heuristic_register_name, infer_protocol};
 use crate::spec::types::*;
-use crate::evidence::{EvidenceDb, EvidenceEntry, EvidenceType, IrqPolarity};
+use crate::evidence::{EvidenceDb, EvidenceEntry, EvidenceType};
 use std::collections::HashMap;
 
 /// Gera um HardwareSpec completo a partir de acessos MMIO brutos

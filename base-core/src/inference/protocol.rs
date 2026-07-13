@@ -1,4 +1,4 @@
-use crate::inference::extraction::{BlockCluster, BlockType, RawRegister};
+use crate::inference::extraction::{BlockCluster, RawRegister};
 use crate::spec::types::LatencyRange;
 use std::collections::HashMap;
 
@@ -126,7 +126,7 @@ fn extract_frequent_sequences(ngrams: &[(Vec<u32>, usize)], min_freq_ratio: f64)
 }
 
 /// Infere o papel de cada registrador baseado em posição e valores
-fn infer_register_roles(regs: &[RawRegister], sequences: &[InferredSequence]) -> HashMap<u32, RegisterRole> {
+fn infer_register_roles(regs: &[RawRegister], _sequences: &[InferredSequence]) -> HashMap<u32, RegisterRole> {
     let mut roles = HashMap::new();
 
     for reg in regs {

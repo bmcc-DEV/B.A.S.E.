@@ -3,7 +3,7 @@
 /// Diferente do Behavior Graph (estrutural: CPU→MMIO→GPU),
 /// o Event Graph mostra causalidade temporal:
 ///   WRITE(0x1000) ──150ns──► DMA_START ──2.3µs──► DMA_COMPLETE ──200ns──► IRQ
-use crate::temporal::{EventStep, SequenceContract, TraceEvent, TemporalVerifier};
+use crate::temporal::{SequenceContract, TraceEvent, TemporalVerifier};
 
 #[derive(Debug, Clone)]
 pub struct EventGraph {

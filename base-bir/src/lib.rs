@@ -4,4 +4,3 @@ pub mod serialize;
 pub mod contract;
 
 pub use types::*;
-pub use validate::*;

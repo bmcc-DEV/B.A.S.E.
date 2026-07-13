@@ -3,7 +3,7 @@
 /// Abandona YAML isolado. Transforma tudo em um grafo navegável.
 use std::collections::HashMap;
 
-use crate::spec::types::{self, HardwareSpec};
+use crate::spec::types::HardwareSpec;
 
 // ─── Node & Edge Types ────────────────────────────────
 
@@ -124,19 +124,19 @@ impl KnowledgeGraph {
         for (i, node) in self.nodes.iter().enumerate() {
             let nid = format!("n{}", i);
             match node {
-                KgNode::SoC { name } => {
+                KgNode::SoC { name: _ } => {
                     xml.push_str(&format!("<node id=\"{}\"><data key=\"kind\">SoC</data><data key=\"confidence\">1.0</data></node>", nid));
                 }
-                KgNode::Block { id, kind, base, confidence } => {
+                KgNode::Block { id: _, kind, base: _, confidence } => {
                     xml.push_str(&format!("<node id=\"{}\"><data key=\"kind\">{}</data><data key=\"confidence\">{}</data></node>", nid, kind, confidence));
                 }
-                KgNode::Register { name, offset, purpose } => {
+                KgNode::Register { name: _, offset: _, purpose: _ } => {
                     xml.push_str(&format!("<node id=\"{}\"><data key=\"kind\">Register</data><data key=\"confidence\">1.0</data></node>", nid));
                 }
-                KgNode::Interrupt { name, vector } => {
+                KgNode::Interrupt { name: _, vector: _ } => {
                     xml.push_str(&format!("<node id=\"{}\"><data key=\"kind\">Interrupt</data><data key=\"confidence\">1.0</data></node>", nid));
                 }
-                KgNode::Timing { name, min_ns, max_ns } => {
+                KgNode::Timing { name: _, min_ns: _, max_ns: _ } => {
                     xml.push_str(&format!("<node id=\"{}\"><data key=\"kind\">Timing</data><data key=\"confidence\">1.0</data></node>", nid));
                 }
             }

@@ -3,7 +3,7 @@
 /// Entrada: trace.csv + contracts.yaml
 /// Saída: contract_violations.json
 use serde::{Deserialize, Serialize};
-use crate::temporal::{SequenceContract, TraceEvent, TemporalVerifier, SequenceViolation, ReplayReport};
+use crate::temporal::{SequenceContract, TraceEvent, TemporalVerifier, SequenceViolation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplayEngine {
@@ -19,7 +19,7 @@ impl ReplayEngine {
     pub fn replay(&self, events: &[TraceEvent]) -> ReplayResult {
         let report = TemporalVerifier::verify(&self.contracts, events);
 
-        let mut summary = ReplaySummary {
+        let summary = ReplaySummary {
             total_contracts: self.contracts.len(),
             total_sequences_found: report.total_sequences_found,
             passed: report.passed,

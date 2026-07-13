@@ -1,4 +1,4 @@
-use crate::inference::extraction::{BlockCluster, RawRegister};
+use crate::inference::extraction::BlockCluster;
 use crate::inference::protocol::{InferredProtocol, RegisterRole};
 use crate::spec::types::{LatencyRange, Protocol, Transition, Trigger};
 use std::collections::HashMap;
@@ -77,9 +77,9 @@ fn build_states(control_vals: &[(u32, u64)], block: &BlockCluster) -> Vec<String
 }
 
 fn find_transitions(
-    block: &BlockCluster,
+    _block: &BlockCluster,
     control_vals: &[(u32, u64)],
-    states: &[String],
+    _states: &[String],
 ) -> Vec<Transition> {
     let mut transitions = Vec::new();
 

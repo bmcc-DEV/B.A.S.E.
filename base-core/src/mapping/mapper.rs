@@ -1,5 +1,5 @@
 use crate::component_db::{ComponentCategory, ComponentDb, ComponentEntry};
-use crate::mapping::solver::{check_constraints, extract_constraints, SolvedAssignment};
+use crate::mapping::solver::{check_constraints, extract_constraints};
 use crate::spec::types::{ComponentAssignment, FunctionalBlock, HardwareSpec, SynthesisConstraints, SynthesizedSpec};
 
 /// Mapeia blocos lógicos para componentes reais do DB

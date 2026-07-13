@@ -1,5 +1,4 @@
 use crate::types::*;
-use std::collections::HashMap;
 
 /// Verificador de contratos temporais.
 /// Valida se um trace (real ou simulado) satisfaz os contratos BIR.

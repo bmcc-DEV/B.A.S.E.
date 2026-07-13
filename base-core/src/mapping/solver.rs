@@ -1,5 +1,5 @@
-use crate::component_db::{ComponentCategory, ComponentDb, ComponentEntry};
-use crate::spec::types::{FunctionalBlock, HardwareSpec, TimingProfile, SystemConstraints};
+use crate::component_db::{ComponentCategory, ComponentEntry};
+use crate::spec::types::{FunctionalBlock, HardwareSpec};
 
 #[derive(Debug, Clone)]
 pub struct ConstraintSet {

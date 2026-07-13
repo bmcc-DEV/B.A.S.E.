@@ -168,7 +168,7 @@ impl FeedbackLoop {
                         tracing::info!("  Reclassified {} → {:?}", block, b.kind);
                     }
                 }
-                ErrorClass::MissingRegister { offset, address } => {
+                ErrorClass::MissingRegister { offset: _, address } => {
                     // Adiciona registro desconhecido ao bloco
                     if let Some(b) = refined.blocks.iter_mut().find(|b| {
                         b.base_address <= *address && b.base_address + b.size > *address

@@ -1,4 +1,4 @@
-use base_core::spec::types::{FunctionalBlock, HardwareSpec, RegisterPurpose, SynthesizedSpec};
+use base_core::spec::types::{FunctionalBlock, HardwareSpec, SynthesizedSpec};
 
 /// Gera HAL de tradução MMIO entre hardware original e novo
 pub struct HalGenerator;
@@ -61,7 +61,7 @@ impl HalGenerator {
         code
     }
 
-    fn generate_read_handler(&self, spec: &HardwareSpec) -> String {
+    fn generate_read_handler(&self, _spec: &HardwareSpec) -> String {
         let mut code = String::new();
         code.push_str("// MMIO Read Handler\n");
         code.push_str("// Reads from original address, translates to new hardware\n");

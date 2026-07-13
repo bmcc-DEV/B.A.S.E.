@@ -5,7 +5,7 @@
 /// - Ordenação de eventos sempre respeitada
 /// - Ausência de deadlock
 use serde::{Deserialize, Serialize};
-use crate::temporal::{SequenceContract, OrderConstraint, EventStep};
+use crate::temporal::{SequenceContract, OrderConstraint};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofResult {

@@ -187,7 +187,7 @@ fn calculate_block_confidence(accesses: &[&MmioAccess], regs: &[RawRegister]) ->
 }
 
 /// Converte BlockType para BlockKind
-pub fn block_type_to_kind(bt: BlockType, block: &BlockCluster) -> BlockKind {
+pub fn block_type_to_kind(bt: BlockType, _block: &BlockCluster) -> BlockKind {
     match bt {
         BlockType::Doorbell => BlockKind::Gpu,
         BlockType::Fifo => BlockKind::Dma,

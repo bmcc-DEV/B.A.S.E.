@@ -1,4 +1,4 @@
-use base_core::spec::types::{HardwareSpec, SynthesizedSpec};
+use base_core::spec::types::SynthesizedSpec;
 
 /// Gera o código do bootloader em C
 pub struct BootloaderGenerator;

@@ -1,4 +1,4 @@
-use base_core::spec::types::{FunctionalBlock, HardwareSpec, LatencyRange, SynthesizedSpec};
+use base_core::spec::types::SynthesizedSpec;
 
 /// Gerador de compensação de timing
 pub struct TimingCompensation;
