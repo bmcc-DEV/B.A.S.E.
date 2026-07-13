@@ -8,6 +8,8 @@ members = [
     "base-check",
     "base-evolve",
     "base-cli",
+    "base-bir",
+    "base-bsl",
 ]
 
 [workspace.package]

@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod disasm;
 
 fn main() {
     use clap::Parser;

@@ -18,6 +18,7 @@ base-pcb = { path = "../base-pcb" }
 base-fw = { path = "../base-fw" }
 base-check = { path = "../base-check" }
 base-evolve = { path = "../base-evolve" }
+specter-probe = { path = "../specterprobe" }
 
 [[bin]]
 name = "base"

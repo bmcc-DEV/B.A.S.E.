@@ -36,6 +36,10 @@ pub enum Command {
         /// Export Graphviz DOT of behavioral graph
         #[arg(long)]
         dot: bool,
+
+        /// Use Capstone disassembly (real) instead of heuristic binary scan
+        #[arg(long)]
+        disasm: bool,
     },
 
     /// Synthesize HardwareSpec → component mapping
@@ -138,5 +142,9 @@ pub enum Command {
         /// Skip evolution step
         #[arg(long)]
         no_evolve: bool,
+
+        /// Use Capstone disassembly (real) instead of heuristic scan
+        #[arg(long, default_value_t = true)]
+        disasm: bool,
     },
 }

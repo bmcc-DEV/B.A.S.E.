@@ -34,8 +34,8 @@ use crate::cli::Command;
 
 pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
     match cmd {
-        Command::Analyze { firmware, mmio_traces, classify, dot } => {
-            handle_analyze(firmware, mmio_traces.as_deref(), classify.as_deref(), *dot, output)
+        Command::Analyze { firmware, mmio_traces, classify, dot, disasm } => {
+            handle_analyze(firmware, mmio_traces.as_deref(), classify.as_deref(), *dot, *disasm, output)
         }
         Command::Synth { input, component_db, max_bom_cost } => {
             handle_synth(input, component_db, *max_bom_cost, output)
@@ -52,20 +52,25 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
         Command::Evolve { input, component_db, format } => {
             handle_evolve(input, component_db, format, output)
         }
-        Command::Pipeline { firmware, trace, target, drc, zephyr, no_evolve } => {
-            handle_pipeline(firmware, trace.as_deref(), target, *drc, *zephyr, *no_evolve, output)
+        Command::Pipeline { firmware, trace, target, drc, zephyr, no_evolve, disasm } => {
+            handle_pipeline(firmware, trace.as_deref(), target, *drc, *zephyr, *no_evolve, *disasm, output)
         }
     }
 }
 
 // ─── Analyze ────────────────────────────────────────────
 
-fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Option<&str>, dot: bool, output: &Path) -> Result<()> {
+fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Option<&str>, dot: bool, disasm: bool, output: &Path) -> Result<()> {
     tracing::info!("Reading firmware from {}", firmware.display());
     let data = fs::read(firmware)?;
 
     tracing::info!("Running behavioral inference on {} bytes", data.len());
-    let spec = generate_spec(&mock_mmio_from_binary(&data), &firmware.to_string_lossy());
+    let mmio_accesses = if disasm {
+        crate::disasm::analyze_with_disasm(&data)
+    } else {
+        mock_mmio_from_binary(&data)
+    };
+    let spec = generate_spec(&mmio_accesses, &firmware.to_string_lossy());
 
     fs::create_dir_all(output)?;
     let path = output.join("hardware_spec.yaml");
@@ -350,13 +355,14 @@ fn handle_pipeline(
     drc: bool,
     zephyr: bool,
     no_evolve: bool,
+    disasm: bool,
     output: &Path,
 ) -> Result<()> {
     tracing::info!("=== B.A.S.E. Pipeline ===");
 
     // Step 1: Analyze
     tracing::info!("[1/6] Analyzing firmware...");
-    handle_analyze(firmware, None, None, true, &output.join("01_analyze"))?;
+    handle_analyze(firmware, None, None, true, true, &output.join("01_analyze"))?;
 
     // Step 2: Synth
     tracing::info!("[2/6] Synthesizing hardware mapping...");

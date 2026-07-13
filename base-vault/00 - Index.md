@@ -153,3 +153,4 @@ base evolve synth/synthesized_spec.yaml -o evolve/
 | 🚀 Evolução | [[02 - Layers/02.06 Evolution Engine]] |
 | 📋 Roadmap | [[05 - Implementation/05.01 Roadmap]] |
 | 📊 Sprints | [[05 - Implementation/05.02 Sprint 0]] → [[05 - Implementation/05.09 Sprint 7]] |
+| 🧬 B.A.S.E. v2 | [[09 - B.A.S.E. v2 Expansion/09.00 - Index]] — Universal Hardware Reconstruction System |
