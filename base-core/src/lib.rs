@@ -9,6 +9,7 @@ pub mod kg;
 pub mod twin;
 pub mod loop_;
 pub mod design;
+pub mod temporal;
 
 pub use spec::*;
 pub use inference::*;
