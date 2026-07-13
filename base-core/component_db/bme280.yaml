@@ -1,0 +1,18 @@
+part: "BME280"
+manufacturer: "Bosch"
+description: "Temperature, humidity, pressure sensor, I2C/SPI"
+category: Sensor
+package: "LGA-8"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+    spi: 1
+power:
+  vcore: "1.8-3.6V @ 1µA"
+availability:
+  status: "production"
+  price_1k: 2.00
+  distributor: ["DigiKey", "Mouser"]

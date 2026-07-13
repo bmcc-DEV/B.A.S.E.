@@ -1,0 +1,17 @@
+part: "TJA1050"
+manufacturer: "NXP"
+description: "CAN transceiver, 5V, 1 Mbps"
+category: Connectivity
+package: "SOIC-8"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    can: 1
+power:
+  vcore: "5V @ 10mA"
+availability:
+  status: "production"
+  price_1k: 0.80
+  distributor: ["DigiKey", "Mouser"]

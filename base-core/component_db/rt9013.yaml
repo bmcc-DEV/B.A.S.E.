@@ -1,0 +1,16 @@
+part: "RT9013"
+manufacturer: "Richtek"
+description: "500mA LDO regulator, low noise"
+category: Pmic
+package: "SOT-23-5"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals: {}
+power:
+  vcore: "2.5-5.5V @ 500mA"
+availability:
+  status: "production"
+  price_1k: 0.25
+  distributor: ["DigiKey", "LCSC"]

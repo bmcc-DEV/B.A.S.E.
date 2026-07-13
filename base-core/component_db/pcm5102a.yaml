@@ -1,0 +1,18 @@
+part: "PCM5102A"
+manufacturer: "Texas Instruments"
+description: "I2S DAC, 112dB SNR, 384kHz, stereo"
+category: Audio
+package: "TSSOP-16"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  memory: ~
+  peripherals:
+    i2c: 1
+power:
+  vcore: "3.3V @ 10mA"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "Mouser"]

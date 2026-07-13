@@ -1,0 +1,24 @@
+part: "MSP430FR5994"
+manufacturer: "Texas Instruments"
+description: "Ultra-low-power MCU with FRAM, DMA, 256KB"
+category: Mcu
+package: "LQFP-64"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 16
+    architecture: "MSP430"
+  memory:
+    sram: "8KB"
+    flash: "256KB (FRAM)"
+  peripherals:
+    dma: 6
+    i2c: 2
+    spi: 4
+    uart: 2
+    timer: 6
+    adc: 2
+availability:
+  status: "production"
+  price_1k: 5.00
+  distributor: ["DigiKey", "Mouser"]

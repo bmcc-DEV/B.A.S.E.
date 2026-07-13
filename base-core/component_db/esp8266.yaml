@@ -1,0 +1,23 @@
+part: "ESP8266EX"
+manufacturer: "Espressif"
+description: "WiFi MCU, 32-bit LX106, 80-160MHz"
+category: Mcu
+package: "QFN-32"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 160
+    architecture: "Xtensa LX106"
+  memory:
+    sram: "160KB"
+    flash: "4MB (external)"
+  peripherals:
+    i2c: 1
+    spi: 2
+    uart: 2
+    timer: 2
+    wifi: 1
+availability:
+  status: "production"
+  price_1k: 1.00
+  distributor: ["DigiKey", "LCSC"]

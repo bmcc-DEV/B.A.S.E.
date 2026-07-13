@@ -1,0 +1,23 @@
+part: "ATmega328P"
+manufacturer: "Microchip"
+description: "Popular 8-bit MCU, Arduino Uno core"
+category: Mcu
+package: "DIP-28 / TQFP-32"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 20
+    architecture: "AVR"
+  memory:
+    sram: "2KB"
+    flash: "32KB"
+  peripherals:
+    i2c: 1
+    spi: 1
+    uart: 1
+    timer: 3
+    adc: 6
+availability:
+  status: "production"
+  price_1k: 2.00
+  distributor: ["DigiKey", "Mouser", "LCSC"]

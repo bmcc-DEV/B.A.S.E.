@@ -1,0 +1,18 @@
+part: "CP2102N"
+manufacturer: "Silicon Labs"
+description: "USB to UART bridge, up to 3 Mbps"
+category: Connectivity
+package: "QFN-20"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    usb: 1
+    uart: 1
+power:
+  vcore: "3.3V @ 20mA"
+availability:
+  status: "production"
+  price_1k: 1.20
+  distributor: ["DigiKey", "Mouser"]

@@ -1,0 +1,17 @@
+part: "ESP-PSRAM64H"
+manufacturer: "Espressif"
+description: "64Mb (8MB) PSRAM, QSPI interface"
+category: Memory
+package: "QFN-16"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 1
+power:
+  vcore: "1.8V @ 30mA"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "LCSC"]

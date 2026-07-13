@@ -1,0 +1,16 @@
+part: "MT41K256M16"
+manufacturer: "Micron"
+description: "4Gb (512MB) DDR3 SDRAM, 1600 Mbps"
+category: Memory
+package: "BGA-96"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 800
+  peripherals: {}
+power:
+  vcore: "1.5V @ 200mA"
+availability:
+  status: "production"
+  price_1k: 3.00
+  distributor: ["DigiKey", "Mouser"]

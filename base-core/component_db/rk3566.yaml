@@ -1,0 +1,28 @@
+part: "RK3566"
+manufacturer: "Rockchip"
+description: "Quad Cortex-A55 SoC with Mali-G52 GPU, 4K video"
+category: Cpu
+package: "BGA-364"
+features:
+  cpu:
+    cores: 4
+    max_mhz: 2000
+    architecture: "ARMv8.2-A"
+  memory:
+    sram: "256KB"
+    flash: "external"
+  peripherals:
+    dma: 16
+    i2c: 6
+    spi: 4
+    uart: 10
+    usb: 3
+    ethernet: 1
+    pcie: 1
+    gpu: 1
+power:
+  vcore: "1.1V @ 2W"
+availability:
+  status: "production"
+  price_1k: 12.00
+  distributor: ["DigiKey", "LCSC"]

@@ -1,0 +1,16 @@
+part: "MT48LC16M16A2"
+manufacturer: "Micron"
+description: "256Mb (32MB) SDRAM, 133/167 MHz"
+category: Memory
+package: "TSOP-54"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 167
+  peripherals: {}
+power:
+  vcore: "3.3V @ 150mA"
+availability:
+  status: "production"
+  price_1k: 2.00
+  distributor: ["DigiKey", "Mouser"]

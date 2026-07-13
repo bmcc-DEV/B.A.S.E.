@@ -1,0 +1,18 @@
+part: "XC6SLX9"
+manufacturer: "Xilinx (AMD)"
+description: "Spartan-6 FPGA, 9312 LUTs, 576KB block RAM"
+category: Fpga
+package: "QFG-144"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 4
+power:
+  vcore: "1.2V @ 50mA"
+  vccio: "3.3V"
+availability:
+  status: "production (end-of-life)"
+  price_1k: 15.00
+  distributor: ["DigiKey", "Mouser"]

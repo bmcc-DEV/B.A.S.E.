@@ -1,0 +1,17 @@
+part: "MAX98357"
+manufacturer: "Maxim Integrated"
+description: "I2S class D amplifier, 3.2W output"
+category: Audio
+package: "TDFN-12"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+power:
+  vcore: "5V @ 1A"
+availability:
+  status: "production"
+  price_1k: 2.00
+  distributor: ["DigiKey", "Mouser"]

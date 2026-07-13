@@ -1,0 +1,18 @@
+part: "RTL8211"
+manufacturer: "Realtek"
+description: "Gigabit Ethernet PHY, RGMII interface"
+category: Connectivity
+package: "QFN-32"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    ethernet: 1
+power:
+  vcore: "1.8V @ 50mA"
+  vccio: "3.3V"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "Mouser"]

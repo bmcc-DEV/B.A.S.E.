@@ -1,0 +1,25 @@
+part: "TM4C123GH6PM"
+manufacturer: "Texas Instruments"
+description: "Cortex-M4F MCU with USB OTG, 256KB flash"
+category: Mcu
+package: "LQFP-64"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 80
+    architecture: "ARMv7E-M"
+  memory:
+    sram: "32KB"
+    flash: "256KB"
+  peripherals:
+    dma: 8
+    i2c: 4
+    spi: 4
+    uart: 8
+    usb: 1
+    timer: 6
+    adc: 2
+availability:
+  status: "production"
+  price_1k: 8.00
+  distributor: ["DigiKey", "Mouser"]

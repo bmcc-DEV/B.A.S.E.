@@ -1,0 +1,18 @@
+part: "SSD1306"
+manufacturer: "Solomon Systech"
+description: "128x64 OLED display driver, I2C/SPI"
+category: Other
+package: "SOIC-28"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+    spi: 1
+power:
+  vcore: "3.3V @ 20mA"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "LCSC"]

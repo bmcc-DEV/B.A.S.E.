@@ -1,0 +1,27 @@
+part: "RP2040"
+manufacturer: "Raspberry Pi"
+description: "Dual Cortex-M0+ MCU, PIO, USB 1.1"
+category: Mcu
+package: "QFN-56"
+features:
+  cpu:
+    cores: 2
+    max_mhz: 133
+    architecture: "ARMv6-M"
+  memory:
+    sram: "264KB"
+    flash: "16MB (external QSPI)"
+  peripherals:
+    dma: 4
+    pio: 2
+    i2c: 2
+    spi: 2
+    uart: 2
+    usb: 1
+    timer: 4
+    pwm: 8
+    adc: 4
+availability:
+  status: "production"
+  price_1k: 0.70
+  distributor: ["DigiKey", "Mouser", "LCSC"]

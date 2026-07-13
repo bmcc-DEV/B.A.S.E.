@@ -1,0 +1,17 @@
+part: "SN65HVD230"
+manufacturer: "Texas Instruments"
+description: "CAN transceiver, 3.3V, 1 Mbps"
+category: Connectivity
+package: "SOIC-8"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    can: 1
+power:
+  vcore: "3.3V @ 10mA"
+availability:
+  status: "production"
+  price_1k: 1.00
+  distributor: ["DigiKey", "Mouser"]

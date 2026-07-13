@@ -1,0 +1,20 @@
+part: "VS1053B"
+manufacturer: "VLSI Solution"
+description: "Audio codec DSP, MP3/Ogg/WMA decoder, SPI"
+category: Audio
+package: "LQFP-44"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 0
+    architecture: "VLSI DSP"
+  memory:
+    sram: "32KB"
+  peripherals:
+    spi: 1
+power:
+  vcore: "3.3V @ 30mA"
+availability:
+  status: "production"
+  price_1k: 5.00
+  distributor: ["DigiKey", "Mouser"]

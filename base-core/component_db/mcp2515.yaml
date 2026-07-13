@@ -1,0 +1,18 @@
+part: "MCP2515"
+manufacturer: "Microchip"
+description: "SPI to CAN bus controller"
+category: Connectivity
+package: "SOIC-18"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 1
+    can: 1
+power:
+  vcore: "5V @ 10mA"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "Mouser"]

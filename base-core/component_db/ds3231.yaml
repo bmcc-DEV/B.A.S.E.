@@ -1,0 +1,17 @@
+part: "DS3231"
+manufacturer: "Maxim Integrated"
+description: "Precision RTC, I2C, ±2ppm accuracy"
+category: Other
+package: "SOIC-16"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+power:
+  vcore: "3.3V @ 0.2mA"
+availability:
+  status: "production"
+  price_1k: 2.50
+  distributor: ["DigiKey", "Mouser"]

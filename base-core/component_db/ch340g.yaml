@@ -1,0 +1,18 @@
+part: "CH340G"
+manufacturer: "WCH"
+description: "USB to UART bridge, low cost"
+category: Connectivity
+package: "SOP-16"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    usb: 1
+    uart: 1
+power:
+  vcore: "5V @ 10mA"
+availability:
+  status: "production"
+  price_1k: 0.30
+  distributor: ["LCSC", "AliExpress"]

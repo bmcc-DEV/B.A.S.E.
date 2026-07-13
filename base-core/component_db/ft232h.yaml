@@ -1,0 +1,19 @@
+part: "FT232H"
+manufacturer: "FTDI"
+description: "USB to FIFO bridge, 40 MBps"
+category: Connectivity
+package: "QFN-32"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    usb: 1
+    spi: 1
+    uart: 1
+power:
+  vcore: "3.3V @ 50mA"
+availability:
+  status: "production"
+  price_1k: 5.00
+  distributor: ["DigiKey", "Mouser"]

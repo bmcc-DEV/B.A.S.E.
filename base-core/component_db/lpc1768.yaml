@@ -1,0 +1,26 @@
+part: "LPC1768"
+manufacturer: "NXP"
+description: "Cortex-M3 MCU with Ethernet, USB, DMA"
+category: Mcu
+package: "LQFP-80"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 100
+    architecture: "ARMv7-M"
+  memory:
+    sram: "64KB"
+    flash: "512KB"
+  peripherals:
+    dma: 8
+    i2c: 3
+    spi: 3
+    uart: 4
+    usb: 1
+    ethernet: 1
+    timer: 4
+    adc: 2
+availability:
+  status: "production"
+  price_1k: 10.00
+  distributor: ["DigiKey", "Mouser"]

@@ -1,0 +1,25 @@
+part: "SAMD51"
+manufacturer: "Microchip"
+description: "Cortex-M4 MCU with USB, DMA, 32-bit timer"
+category: Mcu
+package: "TQFP-64"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 120
+    architecture: "ARMv7E-M"
+  memory:
+    sram: "256KB"
+    flash: "1MB"
+  peripherals:
+    dma: 6
+    i2c: 2
+    spi: 3
+    uart: 4
+    usb: 1
+    timer: 6
+    adc: 2
+availability:
+  status: "production"
+  price_1k: 5.50
+  distributor: ["DigiKey", "Mouser"]

@@ -1,0 +1,19 @@
+part: "CS42L51"
+manufacturer: "Cirrus Logic"
+description: "Stereo audio codec, I2C control, 24-bit, 96kHz"
+category: Audio
+package: "QFN-32"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+    dsp: 1
+power:
+  vcore: "1.8V @ 15mA"
+  vccio: "3.3V"
+availability:
+  status: "production"
+  price_1k: 3.00
+  distributor: ["DigiKey", "Mouser"]

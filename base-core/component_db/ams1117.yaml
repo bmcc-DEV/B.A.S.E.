@@ -1,0 +1,16 @@
+part: "AMS1117-3.3"
+manufacturer: "AMS"
+description: "3.3V LDO voltage regulator, 1A"
+category: Pmic
+package: "SOT-223"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals: {}
+power:
+  vcore: "4.75-12V @ 1A (3.3V out)"
+availability:
+  status: "production"
+  price_1k: 0.15
+  distributor: ["DigiKey", "Mouser", "LCSC"]

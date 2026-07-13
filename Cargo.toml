@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "specterprobe",
+    "base-core",
+    "base-pcb",
+    "base-fw",
+    "base-check",
+    "base-evolve",
+    "base-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0"

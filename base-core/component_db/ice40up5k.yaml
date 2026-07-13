@@ -1,0 +1,19 @@
+part: "Lattice-ICE40UP5K"
+manufacturer: "Lattice Semiconductor"
+description: "Ultra-low power FPGA, 5280 LUTs, 1Mb SPRAM"
+category: Fpga
+package: "QFN-48"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 2
+    i2c: 1
+power:
+  vcore: "1.2V @ 10mA"
+  vccio: "3.3V"
+availability:
+  status: "production"
+  price_1k: 8.00
+  distributor: ["DigiKey", "Mouser"]

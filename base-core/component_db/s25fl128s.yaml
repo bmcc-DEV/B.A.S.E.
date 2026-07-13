@@ -1,0 +1,17 @@
+part: "S25FL128S"
+manufacturer: "Cypress"
+description: "128Mb (16MB) SPI NOR flash"
+category: Memory
+package: "SOIC-16"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 1
+power:
+  vcore: "3.3V @ 15mA"
+availability:
+  status: "production"
+  price_1k: 1.20
+  distributor: ["DigiKey", "Mouser"]

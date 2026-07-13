@@ -1,0 +1,24 @@
+part: "STM32F103C8"
+manufacturer: "STMicroelectronics"
+description: "Cortex-M3 MCU, 'Blue Pill', cost-effective"
+category: Mcu
+package: "LQFP-48"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 72
+    architecture: "ARMv7-M"
+  memory:
+    sram: "20KB"
+    flash: "64KB"
+  peripherals:
+    dma: 7
+    i2c: 2
+    spi: 2
+    uart: 3
+    timer: 4
+    adc: 2
+availability:
+  status: "production"
+  price_1k: 2.00
+  distributor: ["DigiKey", "Mouser", "LCSC"]

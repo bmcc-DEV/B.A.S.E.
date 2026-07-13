@@ -1,0 +1,24 @@
+[package]
+name = "base-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "B.A.S.E. CLI — unified command-line interface"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+anyhow = "1"
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base-core = { path = "../base-core" }
+base-pcb = { path = "../base-pcb" }
+base-fw = { path = "../base-fw" }
+base-check = { path = "../base-check" }
+base-evolve = { path = "../base-evolve" }
+
+[[bin]]
+name = "base"
+path = "src/main.rs"

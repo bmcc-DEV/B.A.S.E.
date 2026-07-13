@@ -1,0 +1,17 @@
+part: "ADS1115"
+manufacturer: "Texas Instruments"
+description: "16-bit ADC, 4-channel, I2C, PGA"
+category: Sensor
+package: "MSOP-10"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+power:
+  vcore: "2.0-5.5V @ 0.15mA"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "Mouser", "LCSC"]

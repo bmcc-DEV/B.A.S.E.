@@ -1,0 +1,17 @@
+part: "W25Q128JV"
+manufacturer: "Winbond"
+description: "128Mb (16MB) QSPI flash memory"
+category: Memory
+package: "SOIC-8"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 1
+power:
+  vcore: "3.3V @ 20mA"
+availability:
+  status: "production"
+  price_1k: 0.80
+  distributor: ["DigiKey", "Mouser", "LCSC"]

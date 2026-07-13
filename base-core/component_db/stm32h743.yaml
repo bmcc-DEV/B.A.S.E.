@@ -1,0 +1,26 @@
+part: "STM32H743"
+manufacturer: "STMicroelectronics"
+description: "High-performance Cortex-M7 MCU with DSP, FPU, DMA"
+category: Mcu
+package: "LQFP-176"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 480
+    architecture: "ARMv7E-M"
+  memory:
+    sram: "1MB"
+    flash: "2MB"
+  peripherals:
+    dma: 16
+    i2c: 4
+    spi: 6
+    uart: 8
+    usb: 2
+    timer: 12
+    adc: 3
+    crypto: 1
+availability:
+  status: "production"
+  price_1k: 12.00
+  distributor: ["DigiKey", "Mouser", "Farnell"]

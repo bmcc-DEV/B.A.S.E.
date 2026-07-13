@@ -1,0 +1,17 @@
+part: "USB3320"
+manufacturer: "Microchip"
+description: "USB 2.0 ULPI PHY, 480 Mbps"
+category: Connectivity
+package: "QFN-32"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    usb: 1
+power:
+  vcore: "3.3V @ 25mA"
+availability:
+  status: "production"
+  price_1k: 3.00
+  distributor: ["DigiKey", "Mouser"]

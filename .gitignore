@@ -1,0 +1,11 @@
+/target
+**/*.log
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.kicad_pro
+*.kicad_prl
+*.kicad_pcb-bak

@@ -1,0 +1,18 @@
+part: "ENC28J60"
+manufacturer: "Microchip"
+description: "SPI Ethernet controller, 10 Mbps"
+category: Connectivity
+package: "SSOP-28"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    spi: 1
+    ethernet: 1
+power:
+  vcore: "3.3V @ 100mA"
+availability:
+  status: "production"
+  price_1k: 3.00
+  distributor: ["DigiKey", "Mouser"]

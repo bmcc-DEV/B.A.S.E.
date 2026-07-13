@@ -1,0 +1,14 @@
+{
+  "baseTheme": "obsidian",
+  "alwaysUpdateLinks": true,
+  "promptDelete": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "",
+  "attachmentFolderPath": "Assets",
+  "showLineNumber": false,
+  "spellcheck": true,
+  "tabSize": 2,
+  "vimMode": false,
+  "showFrontmatter": false,
+  "showInlineTitle": true
+}

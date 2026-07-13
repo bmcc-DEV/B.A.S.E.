@@ -1,0 +1,18 @@
+part: "CMSIS-DAP"
+manufacturer: "ARM"
+description: "Debug interface, SWD/JTAG, USB-HID"
+category: Connectivity
+package: "N/A (firmware)"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    usb: 1
+    swd: 1
+power:
+  vcore: "3.3V @ 50mA"
+availability:
+  status: "reference design"
+  price_1k: 0
+  distributor: []

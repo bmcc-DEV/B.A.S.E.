@@ -1,0 +1,16 @@
+part: "TPS5430"
+manufacturer: "Texas Instruments"
+description: "3A step-down converter, 5.5-36V input"
+category: Pmic
+package: "SOIC-8"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals: {}
+power:
+  vcore: "5.5-36V @ 3A"
+availability:
+  status: "production"
+  price_1k: 2.50
+  distributor: ["DigiKey", "Mouser"]

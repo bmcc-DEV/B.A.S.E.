@@ -1,0 +1,21 @@
+[package]
+name = "base-check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "B.A.S.E. Validation — trace replay, comparison engine, metrics"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+csv = "1"
+anyhow = "1"
+tracing = "0.1"
+chrono = "0.4"
+tempfile = "3"
+base-core = { path = "../base-core" }
+
+[lib]
+name = "base_check"
+path = "src/lib.rs"

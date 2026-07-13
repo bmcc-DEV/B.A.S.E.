@@ -1,0 +1,17 @@
+part: "MPU6050"
+manufacturer: "TDK InvenSense"
+description: "6-axis MEMS IMU (gyro + accelerometer), I2C"
+category: Sensor
+package: "QFN-24"
+features:
+  cpu:
+    cores: 0
+    max_mhz: 0
+  peripherals:
+    i2c: 1
+power:
+  vcore: "3.3V @ 3.5mA"
+availability:
+  status: "production"
+  price_1k: 2.50
+  distributor: ["DigiKey", "Mouser"]

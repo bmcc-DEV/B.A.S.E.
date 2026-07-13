@@ -1,0 +1,25 @@
+part: "CH32V203"
+manufacturer: "WCH"
+description: "RISC-V MCU with USB, DMA, multiple peripherals"
+category: Mcu
+package: "LQFP-48"
+features:
+  cpu:
+    cores: 1
+    max_mhz: 144
+    architecture: "RISC-V RV32IMAC"
+  memory:
+    sram: "64KB"
+    flash: "128KB"
+  peripherals:
+    dma: 4
+    i2c: 2
+    spi: 3
+    uart: 3
+    usb: 1
+    timer: 4
+    adc: 2
+availability:
+  status: "production"
+  price_1k: 0.80
+  distributor: ["LCSC", "DigiKey"]

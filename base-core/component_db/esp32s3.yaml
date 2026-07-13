@@ -1,0 +1,27 @@
+part: "ESP32-S3"
+manufacturer: "Espressif"
+description: "Dual-core Xtensa LX7 MCU with WiFi, BLE, USB OTG"
+category: Mcu
+package: "QFN-56"
+features:
+  cpu:
+    cores: 2
+    max_mhz: 240
+    architecture: "Xtensa LX7"
+  memory:
+    sram: "512KB"
+    flash: "16MB (external)"
+  peripherals:
+    dma: 5
+    i2c: 2
+    spi: 4
+    uart: 3
+    usb: 1
+    timer: 4
+    pwm: 8
+    adc: 2
+    crypto: 1
+availability:
+  status: "production"
+  price_1k: 3.50
+  distributor: ["DigiKey", "Mouser", "LCSC"]

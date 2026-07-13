@@ -1,0 +1,31 @@
+part: "RP2350A"
+manufacturer: "Raspberry Pi"
+description: "Dual Cortex-M33 + dual RISC-V hazard3, PIO, USB 1.1"
+category: Mcu
+package: "QFN-56"
+features:
+  cpu:
+    cores: 4
+    max_mhz: 150
+    architecture: "ARMv8-M + RISC-V"
+  memory:
+    sram: "520KB"
+    flash: "4MB (external QSPI)"
+  peripherals:
+    dma: 8
+    pio: 2
+    i2c: 2
+    spi: 2
+    uart: 2
+    usb: 1
+    timer: 4
+    pwm: 8
+    adc: 4
+power:
+  vcore: "1.1V @ 150mA"
+  vccio: "3.3V @ 50mA"
+  vusb: "5V"
+availability:
+  status: "production"
+  price_1k: 1.50
+  distributor: ["DigiKey", "Mouser", "Farnell"]
