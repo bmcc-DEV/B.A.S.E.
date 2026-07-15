@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**Path to Real ativo · [[12 - Path to Real/12.00 - Index|Seção 12]] · Maturity Matrix em [[12 - Path to Real/12.02 - Maturity Matrix|12.02]]**
+**v0.2 · Path to Real R0–R6 ✅ · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
