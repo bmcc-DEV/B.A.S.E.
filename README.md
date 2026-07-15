@@ -7,7 +7,7 @@
 
 **Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
 
-> **v0.2** ([Path to Real](base-vault/12%20-%20Path%20to%20Real/12.00%20-%20Index.md) · [Pilot Case Study](base-vault/12%20-%20Path%20to%20Real/12.20%20-%20Pilot%20Case%20Study.md)):
+> **v0.2** ([Pilot Case Study](base-vault/12%20-%20Path%20to%20Real/12.20%20-%20Pilot%20Case%20Study.md)) · **plano v0.3** ([Path to v0.3](base-vault/13%20-%20Path%20to%20v0.3/13.00%20-%20Index.md)):
 > análise auditável + Reference Design no wedge UART. **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC.
 
 ---
@@ -26,7 +26,7 @@ Fonte da verdade: vault Obsidian → [**Maturity Matrix**](base-vault/12%20-%20P
 | `pipeline` | Orquestra estágios verdes; `--pcb` / `--evolve` opt-in |
 | `evolve` | Scaffold — off por default |
 
-Plano de execução: [Master Plan](base-vault/12%20-%20Path%20to%20Real/12.01%20-%20Master%20Plan.md) · [Sprint Board](base-vault/12%20-%20Path%20to%20Real/12.04%20-%20Sprint%20Board.md)
+Planos: [v0.2 Master](base-vault/12%20-%20Path%20to%20Real/12.01%20-%20Master%20Plan.md) · [v0.3 Master](base-vault/13%20-%20Path%20to%20v0.3/13.01%20-%20Master%20Plan.md) · [Sprint Board v0.3](base-vault/13%20-%20Path%20to%20v0.3/13.04%20-%20Sprint%20Board.md)
 
 ---
 
