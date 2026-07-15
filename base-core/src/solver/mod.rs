@@ -250,6 +250,87 @@ mod tests {
         assert!(result.satisfied);
     }
 
+    fn bare_mcu(pins: Option<Vec<crate::component_db::PinDef>>) -> ComponentEntry {
+        ComponentEntry {
+            part: "TEST_MCU".into(),
+            manufacturer: "Test".into(),
+            description: "MCU".into(),
+            category: ComponentCategory::Mcu,
+            package: None,
+            features: crate::component_db::ComponentFeatures {
+                cpu: Some(crate::component_db::CpuFeature {
+                    cores: 1,
+                    max_mhz: 100,
+                    architecture: None,
+                }),
+                memory: None,
+                peripherals: HashMap::new(),
+            },
+            timing: None,
+            compatible_with: vec![],
+            power: None,
+            pins,
+            availability: None,
+        }
+    }
+
+    #[test]
+    fn test_gpio_pin_aware_uses_pins_len() {
+        let pins = (0..30)
+            .map(|i| crate::component_db::PinDef {
+                number: i,
+                name: format!("GP{i}"),
+                functions: vec!["gpio".into()],
+            })
+            .collect();
+        let comp = bare_mcu(Some(pins));
+        let req = ContractRequirement {
+            contract: "gpio".into(),
+            params: vec![ContractParam::Count {
+                name: "gpio".into(),
+                min: 16,
+            }],
+        };
+        let result = verify_contract(&comp, &req);
+        assert!(result.satisfied);
+        assert!(result.detail.contains("30 >= 16"));
+    }
+
+    #[test]
+    fn test_gpio_pin_aware_fails_when_short() {
+        let pins = vec![crate::component_db::PinDef {
+            number: 0,
+            name: "GP0".into(),
+            functions: vec!["gpio".into()],
+        }];
+        let comp = bare_mcu(Some(pins));
+        let req = ContractRequirement {
+            contract: "gpio".into(),
+            params: vec![ContractParam::Count {
+                name: "gpio".into(),
+                min: 16,
+            }],
+        };
+        let result = verify_contract(&comp, &req);
+        assert!(!result.satisfied);
+        assert!(result.detail.contains("1 < 16"));
+    }
+
+    #[test]
+    fn test_gpio_omitted_mcu_fallback_32() {
+        let comp = bare_mcu(None);
+        let req = ContractRequirement {
+            contract: "gpio".into(),
+            params: vec![ContractParam::Count {
+                name: "gpio".into(),
+                min: 16,
+            }],
+        };
+        let result = verify_contract(&comp, &req);
+        assert!(result.satisfied);
+        assert!(result.detail.contains("32 >="));
+    }
+
     #[test]
     fn test_find_solution() {
         let db = mock_db();

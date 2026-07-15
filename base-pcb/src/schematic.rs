@@ -33,11 +33,13 @@ impl SchematicGenerator {
         body.push(self.make_power_symbol("VCC_3V3", 200, 0));
         body.push(self.make_power_symbol("VCC_5V", 400, 0));
 
-        // Component symbols
+        // Component symbols (+ anotações de pin UART quando o DB tem pins)
         let mut ref_counter = 0u64;
         for assignment in &spec.assignments {
-            let symbol = self.make_component_symbol(assignment, &mut ref_counter);
+            let (symbol, annotations) =
+                self.make_component_symbol(assignment, &mut ref_counter);
             body.push(symbol);
+            body.extend(annotations);
         }
 
         // Wires (nets)
@@ -94,33 +96,35 @@ impl SchematicGenerator {
             )
     }
 
+    /// Símbolo + labels de função UART (anotação lógica — **não** netlist elétrico).
     fn make_component_symbol(
         &self,
         assignment: &ComponentAssignment,
         ref_counter: &mut u64,
-    ) -> SExpr {
+    ) -> (SExpr, Vec<SExpr>) {
         *ref_counter += 1;
         let ref_name = format!("U{}", ref_counter);
         let x = (*ref_counter as i64 * 200) % 1000;
         let y = (*ref_counter as i64 / 5) * 200;
 
-        // Look up component info from DB
-        let (lib_id, value) = self
+        let entry = self
             .component_db
             .as_ref()
-            .and_then(|db| db.by_name(&assignment.component))
-            .map(|entry| {
-                let lib = format!("{}:{}", entry.manufacturer.replace(' ', "_"), entry.part);
-                (lib, entry.part.clone())
+            .and_then(|db| db.by_name(&assignment.component));
+
+        let (lib_id, value) = entry
+            .map(|e| {
+                let lib = format!("{}:{}", e.manufacturer.replace(' ', "_"), e.part);
+                (lib, e.part.clone())
             })
             .unwrap_or_else(|| {
                 (
-                    format!("Connector:Generic"),
+                    "Connector:Generic".to_string(),
                     assignment.component.clone(),
                 )
             });
 
-        sexpr("symbol")
+        let mut symbol = sexpr("symbol")
             .atom(&format!("(lib_id \"{}\")", lib_id))
             .atom(&format!("(at {} {})", x, y))
             .atom("(unit 1)")
@@ -145,7 +149,51 @@ impl SchematicGenerator {
                     .atom("Footprint")
                     .atom(&format!("Package:{}", lib_id))
                     .list(sexpr("at").atom(&format!("{} {}", x, y.saturating_add(200)))),
-            )
+            );
+
+        let mut annotations = Vec::new();
+        if assignment.interface.eq_ignore_ascii_case("uart") {
+            if let Some(pins) = entry.and_then(|e| e.pins.as_ref()) {
+                let uart_pins: Vec<_> = pins
+                    .iter()
+                    .filter(|p| {
+                        p.functions.iter().any(|f| {
+                            f.contains("uart") && (f.contains("_tx") || f.contains("_rx"))
+                        })
+                    })
+                    .take(4) // TX/RX mínimos (até 2 UARTs anotados)
+                    .collect();
+                for (i, pin) in uart_pins.iter().enumerate() {
+                    let py = y + (i as i64) * 20;
+                    let px = x - 40;
+                    symbol = symbol.list(
+                        sexpr("pin")
+                            .atom(&pin.number.to_string())
+                            .atom(&format!("(xy {} {})", px, py))
+                            .list(sexpr("name").atom(&pin.name)),
+                    );
+                    if let Some(func) = pin
+                        .functions
+                        .iter()
+                        .find(|f| f.contains("uart") && (f.contains("_tx") || f.contains("_rx")))
+                    {
+                        annotations.push(
+                            sexpr("label")
+                                .atom(func)
+                                .atom(&format!("(at {} {})", px.saturating_sub(20), py))
+                                .list(
+                                    sexpr("fields").list(
+                                        sexpr("effects")
+                                            .list(sexpr("font").atom("(size 1.27 1.27)")),
+                                    ),
+                                ),
+                        );
+                    }
+                }
+            }
+        }
+
+        (symbol, annotations)
     }
 
     fn make_wire(&self, net: &NetSegment) -> SExpr {
@@ -162,17 +210,29 @@ impl SchematicGenerator {
     }
 
     fn collect_net_names(&self, assignments: &[ComponentAssignment]) -> Vec<String> {
-        let mut names: Vec<String> = assignments
-            .iter()
-            .flat_map(|a| {
-                vec![
-                    format!("{}_DATA", a.interface.to_uppercase()),
-                    format!("{}_IRQ", a.block_id),
-                    "VCC_3V3".to_string(),
-                    "GND".to_string(),
-                ]
-            })
-            .collect();
+        let mut names: Vec<String> = Vec::new();
+        for a in assignments {
+            names.push(format!("{}_DATA", a.interface.to_uppercase()));
+            names.push(format!("{}_IRQ", a.block_id));
+            names.push("VCC_3V3".into());
+            names.push("GND".into());
+            if a.interface.eq_ignore_ascii_case("uart") {
+                if let Some(pins) = self
+                    .component_db
+                    .as_ref()
+                    .and_then(|db| db.by_name(&a.component))
+                    .and_then(|e| e.pins.as_ref())
+                {
+                    for p in pins {
+                        for f in &p.functions {
+                            if f.contains("uart") && (f.contains("_tx") || f.contains("_rx")) {
+                                names.push(f.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
         names.sort();
         names.dedup();
         names
@@ -245,5 +305,105 @@ mod tests {
         let spec = mock_spec();
         let sch = gen.generate(&spec);
         assert!(sch.contains("Raspberry_Pi"), "Should use DB lib_id");
+    }
+
+    #[test]
+    fn test_schematic_uart_pin_annotations() {
+        let mut db = base_core::component_db::ComponentDb::new();
+        db.add_entry(base_core::component_db::ComponentEntry {
+            part: "RP2040".into(),
+            manufacturer: "Raspberry Pi".into(),
+            description: "MCU".into(),
+            category: base_core::component_db::ComponentCategory::Mcu,
+            package: Some("QFN-56".into()),
+            features: base_core::component_db::ComponentFeatures {
+                cpu: Some(base_core::component_db::CpuFeature {
+                    cores: 2,
+                    max_mhz: 133,
+                    architecture: None,
+                }),
+                memory: None,
+                peripherals: std::collections::HashMap::new(),
+            },
+            timing: None,
+            compatible_with: vec![],
+            power: None,
+            pins: Some(vec![
+                base_core::component_db::PinDef {
+                    number: 0,
+                    name: "GP0".into(),
+                    functions: vec!["gpio".into(), "uart0_tx".into()],
+                },
+                base_core::component_db::PinDef {
+                    number: 1,
+                    name: "GP1".into(),
+                    functions: vec!["gpio".into(), "uart0_rx".into()],
+                },
+            ]),
+            availability: None,
+        });
+        let gen = SchematicGenerator::new(Some(db));
+        let spec = SynthesizedSpec {
+            original: HardwareSpec::empty(),
+            assignments: vec![ComponentAssignment {
+                block_id: "uart_0".into(),
+                component: "RP2040".into(),
+                interface: "uart".into(),
+                config: serde_json::json!({}),
+            }],
+            netlist: None,
+            constraints: SynthesisConstraints {
+                max_bom_cost: None,
+                preferred_manufacturer: None,
+                preferred_package: None,
+            },
+        };
+        let sch = gen.generate(&spec);
+        assert!(sch.contains("NOT FABRICABLE"));
+        assert!(sch.contains("GP0"), "pin name annotation");
+        assert!(sch.contains("uart0_tx"), "UART TX label");
+        assert!(sch.contains("uart0_rx"), "UART RX label");
+    }
+
+    #[test]
+    fn test_schematic_omitted_pins_no_uart_labels() {
+        let mut db = base_core::component_db::ComponentDb::new();
+        db.add_entry(base_core::component_db::ComponentEntry {
+            part: "BareMCU".into(),
+            manufacturer: "Acme".into(),
+            description: "MCU".into(),
+            category: base_core::component_db::ComponentCategory::Mcu,
+            package: None,
+            features: base_core::component_db::ComponentFeatures {
+                cpu: None,
+                memory: None,
+                peripherals: std::collections::HashMap::new(),
+            },
+            timing: None,
+            compatible_with: vec![],
+            power: None,
+            pins: None,
+            availability: None,
+        });
+        let gen = SchematicGenerator::new(Some(db));
+        let spec = SynthesizedSpec {
+            original: HardwareSpec::empty(),
+            assignments: vec![ComponentAssignment {
+                block_id: "uart_0".into(),
+                component: "BareMCU".into(),
+                interface: "uart".into(),
+                config: serde_json::json!({}),
+            }],
+            netlist: None,
+            constraints: SynthesisConstraints {
+                max_bom_cost: None,
+                preferred_manufacturer: None,
+                preferred_package: None,
+            },
+        };
+        let sch = gen.generate(&spec);
+        assert!(sch.contains("NOT FABRICABLE"));
+        assert!(!sch.contains("uart0_tx"));
+        assert!(!sch.contains("(name \"GP0\")") && !sch.contains("GP0"));
     }
 }

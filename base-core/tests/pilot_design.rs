@@ -56,6 +56,15 @@ fn pilot_analyze_synth_design_picks_mcu_and_meets_contracts() {
     assert_ne!(part.as_str(), "ECP5-12F");
     assert_eq!(synthesized.assignments[0].interface, "uart");
 
+    // S3 — wedges pin-aware: RP2040 no DB tem pins; gpio count = pins.len()
+    let rp2040 = db.by_name("RP2040").expect("RP2040 in component_db");
+    let pins = rp2040.pins.as_ref().expect("RP2040 pins for S3");
+    assert!(pins.len() >= 30, "expected GP0–GP29, got {}", pins.len());
+    assert!(
+        pins.iter().any(|p| p.functions.iter().any(|f| f == "uart0_tx")),
+        "RP2040 must declare uart0_tx"
+    );
+
     // Netlist nominal (não elétrico — nós lógicos, não copper)
     let nl = generate_netlist(&synthesized, &db);
     assert!(!nl.is_empty());

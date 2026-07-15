@@ -86,7 +86,7 @@ Default `cargo test` / CI principal **não** exige Z3. Com libz3 no sistema:
 ```bash
 # Debian/Ubuntu: sudo apt-get install -y libz3-dev
 cargo test -p base-core --features solver_z3 --lib smt
-cargo build -p base-cli --features base-core/solver_z3
+# CLI usa simbólico por default; Z3 entra ao linkar base-core com solver_z3
 ```
 
 Job isolado: [`.github/workflows/formal.yml`](.github/workflows/formal.yml) (`workflow_dispatch` + nightly semanal). Detalhes: [SMT Real](base-vault/11%20-%20B.A.S.E.%20v3.2%20Scientific/11.04%20-%20SMT%20Real.md).
