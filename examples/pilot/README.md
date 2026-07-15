@@ -21,7 +21,8 @@ a fonte da verdade comportamental é `mmio.json` + `trace.csv` + `contracts.yaml
 
 | Arquivo | Papel |
 |---------|-------|
-| `fw.bin` | Placeholder binário (pequeno) |
+| `fw.bin` | Blob AArch64-LE raw (`gen_fw.py`) — Capstone encontra `0x40034000` |
+| `gen_fw.py` | Regenera `fw.bin` sem toolchain ARM |
 | `SHA256SUMS` | Integridade das fixtures |
 | `mmio.json` | Acessos MMIO (ground truth para `analyze --mmio-traces`) |
 | `pilot.bsl` | Spec BSL → BIR + contratos Saleae |

@@ -20,7 +20,13 @@ mkdir -p "$OUT"
 echo "== bir compile + validate =="
 "$BASE" bir "$PILOT/pilot.bsl" --compile --validate -o "$OUT/bir"
 
-echo "== analyze =="
+echo "== analyze (Capstone --disasm, S1) =="
+"$BASE" analyze "$PILOT/fw.bin" --disasm -o "$OUT/analyze_disasm"
+# Capstone must hit UART page without heuristic/traces
+grep -E 'base_address: (1073954816|0x40034000)' "$OUT/analyze_disasm/hardware_spec.yaml" >/dev/null \
+  || grep -q '40034000' "$OUT/analyze_disasm/hardware_spec.yaml"
+
+echo "== analyze (mmio-traces + classify, v0.2 path) =="
 "$BASE" analyze "$PILOT/fw.bin" \
   --mmio-traces "$PILOT/mmio.json" \
   --classify uart \

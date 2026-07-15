@@ -63,10 +63,14 @@ pub fn scan_functions(functions: &[Function]) -> Vec<MmioAccess> {
 }
 
 fn reg_key(r: &Reg) -> String {
+    // W/X aliases: Capstone str/ldr use Xn as base; mov often writes Wn
     match r {
-        Reg::X(n) => format!("x{}", n),
-        Reg::W(n) => format!("w{}", n),
+        Reg::X(n) | Reg::W(n) => format!("r{}", n),
         Reg::R(n) => format!("r{}", n),
+        Reg::Fp => "fp".into(),
+        Reg::Lr => "lr".into(),
+        Reg::Sp => "sp".into(),
+        Reg::Xzr | Reg::Wzr => "zr".into(),
         _ => format!("{:?}", r),
     }
 }
@@ -140,5 +144,37 @@ fn size_bytes(sz: crate::lift::types::Size) -> u8 {
         crate::lift::types::Size::B32 => 4,
         crate::lift::types::Size::B64 => 8,
         crate::lift::types::Size::B128 => 16,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lift::lift_binary;
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// Bytes from `python3 examples/pilot/gen_fw.py`
+    fn uart_fw() -> Vec<u8> {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/pilot/fw.bin");
+        fs::read(path).unwrap_or_else(|_| {
+            hex::decode("a001209021008052010000b9020440b901008052011800b921088052010000b9c0035fd6")
+                .expect("static fw hex")
+        })
+    }
+
+    #[test]
+    fn pilot_uart_blob_resolves_0x40034000() {
+        let fw = uart_fw();
+        assert_eq!(fw.len(), 36);
+        let lift = lift_binary(&fw);
+        assert!(!lift.functions.is_empty());
+        let acc = scan_functions(&lift.functions);
+        let addrs: Vec<u64> = acc.iter().map(|a| a.address).collect();
+        assert!(
+            addrs.contains(&0x40034000) && addrs.contains(&0x40034004) && addrs.contains(&0x40034018),
+            "expected Capstone MMIO UART regs, got {:?}",
+            addrs
+        );
     }
 }

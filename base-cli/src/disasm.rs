@@ -105,41 +105,62 @@ pub fn analyze_with_disasm(data: &[u8]) -> Vec<MmioAccess> {
         lift_output.lifted_functions,
     );
 
-    // Passo 2: Análise estática → MMIO candidates
+    // Passo 2: MMIO scanner (Adrp/Mov tracking → endereço absoluto)
+    // Preferível a lift::analysis (que usava só displacement).
+    let scanned = specter_probe::mmio::scanner::scan_functions(&lift_output.functions);
     let analysis = specter_probe::lift::analysis::analyze(&lift_output.functions);
 
     tracing::info!(
-        "Analysis: {} MMIO candidates, {} syscalls, {} call edges",
+        "Analysis: {} MMIO via scanner, {} legacy candidates, {} syscalls, {} call edges",
+        scanned.len(),
         analysis.mmio_candidates.len(),
         analysis.syscalls.len(),
         analysis.call_graph.len(),
     );
 
     // Passo 3: Converter para formato base-core
-    let mut accesses: Vec<MmioAccess> = analysis.mmio_candidates.iter().map(|mc| {
-        MmioAccess {
+    let mut accesses: Vec<MmioAccess> = scanned
+        .iter()
+        .map(|mc| MmioAccess {
             address: mc.address,
-            value: Some(1), // valor observado na escrita
-            access_type: match mc.access_type.as_str() {
-                "write" => MmioAccessType::Write,
-                _ => MmioAccessType::Read,
+            value: Some(1),
+            access_type: match mc.access_type {
+                specter_probe::mmio::types::AccessType::Write => MmioAccessType::Write,
+                specter_probe::mmio::types::AccessType::Read => MmioAccessType::Read,
             },
-            function_name: mc.function.clone(),
+            function_name: mc.function_name.clone(),
             instruction_addr: mc.instruction_addr,
-        }
-    }).collect();
+        })
+        .collect();
 
-    // Se o disassembly não encontrou candidatos, fallback para heurística
+    // Se o scanner não resolveu, tenta candidatos legacy; senão heurística
     if accesses.is_empty() {
-        tracing::warn!("No MMIO candidates from disassembly, falling back to heuristic scan");
+        accesses = analysis
+            .mmio_candidates
+            .iter()
+            .map(|mc| MmioAccess {
+                address: mc.address,
+                value: Some(1),
+                access_type: match mc.access_type.as_str() {
+                    "write" => MmioAccessType::Write,
+                    _ => MmioAccessType::Read,
+                },
+                function_name: mc.function.clone(),
+                instruction_addr: mc.instruction_addr,
+            })
+            .collect();
+    }
+
+    if accesses.is_empty() {
+        tracing::warn!("No MMIO candidates from Capstone scanner, falling back to heuristic scan");
         return heuristic_scan(data);
     }
 
-    // Deduplica por endereço
+    // Deduplica por endereço (mantém primeiro = ordem de aparecimento)
     accesses.sort_by_key(|a| a.address);
     accesses.dedup_by_key(|a| a.address);
 
-    tracing::info!("Found {} unique MMIO addresses via disassembly", accesses.len());
+    tracing::info!("Found {} unique MMIO addresses via Capstone", accesses.len());
     accesses
 }
 

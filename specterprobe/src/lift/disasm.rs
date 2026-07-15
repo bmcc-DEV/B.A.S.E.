@@ -78,29 +78,30 @@ fn disasm_arm64(data: &[u8]) -> Vec<Instruction> {
     instructions
 }
 
+/// Capstone 0.14 / capstone-sys ARM64 register IDs:
+/// FP=2, LR=3, SP=5, WZR=8, XZR=9, W0..=W30=187..=217, X0..=X28=218..=246
 fn cap_reg_to_reg64(r: capstone::RegId) -> Reg {
-    let n = r.0;
-    if n >= 1 && n <= 28 {
-        Reg::X(n as u8)
-    } else if n == 29 {
-        Reg::Fp
-    } else if n == 30 {
-        Reg::Lr
-    } else if n == 31 {
-        Reg::Xzr
-    } else if n >= 65 && n <= 92 {
-        Reg::W((n - 65) as u8)
-    } else if n == 93 {
-        Reg::Wzr
-    } else {
-        Reg::X(n.min(31) as u8)
+    let n = r.0 as u16;
+    match n {
+        2 => Reg::Fp,   // also X29
+        3 => Reg::Lr,   // also X30
+        5 => Reg::Sp,
+        8 => Reg::Wzr,
+        9 => Reg::Xzr,
+        187..=217 => Reg::W((n - 187) as u8),
+        218..=246 => Reg::X((n - 218) as u8),
+        _ => {
+            tracing::debug!("unknown Capstone ARM64 RegId {}", n);
+            Reg::Xzr
+        }
     }
 }
 
 fn arm64_op_size(op: &capstone::arch::arm64::Arm64Operand) -> Size {
     match &op.op_type {
         capstone::arch::arm64::Arm64OperandType::Reg(id) => {
-            if id.0 >= 65 && id.0 <= 93 {
+            let n = id.0 as u16;
+            if (187..=217).contains(&n) || n == 8 {
                 Size::B32
             } else {
                 Size::B64
@@ -223,7 +224,7 @@ fn decode_arm64_insn(
             let sz = arm64_op_size(&ops[0]);
             InstKind::Sub(sz, dst, src, op2)
         }
-        "mov" if ops.len() >= 2 => {
+        "mov" | "movz" | "movn" if ops.len() >= 2 => {
             let dst = match &ops[0].op_type {
                 Arm64OperandType::Reg(r) => cap_reg_to_reg64(*r),
                 _ => return InstKind::Unknown("MOV".into()),
