@@ -1,0 +1,33 @@
+name: Formal (Z3)
+
+# Isolado do CI default — Z3 opcional não pode quebrar `cargo test --workspace`.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # segunda 06:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "base-core/**"
+      - ".github/workflows/formal.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  z3:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install system Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libz3-dev
+
+      - name: Formal tests (solver_z3)
+        run: cargo test -p base-core --features solver_z3 --lib smt

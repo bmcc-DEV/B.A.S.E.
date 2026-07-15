@@ -1,6 +1,7 @@
 # B.A.S.E. — Behavioral ASIC Synthesis Engine
 
 [![CI](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/ci.yml/badge.svg)](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/ci.yml)
+[![Formal](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/formal.yml/badge.svg)](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/formal.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE.md)
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
@@ -20,7 +21,7 @@ Fonte da verdade: vault Obsidian → [**Maturity Matrix**](base-vault/12%20-%20P
 |------|--------|
 | `analyze` + Evidence DB + `--disasm` / `--mmio-traces` | Útil no wedge ARM |
 | `design` / `synth` + component DB + contratos | Funcional; depende da qualidade do spec |
-| `replay` / `prove` (simbólico) / `event-graph` / `bir` | Auditável com fixtures |
+| `replay` / `prove` (simbólico; Z3 opcional) / `event-graph` / `bir` | Auditável com fixtures |
 | `fw` | Skeleton **host-testable** (`make host`) — não firmware de produção |
 | `pcb` | **Engineering draft** KiCad — *not fabricable* |
 | `pipeline` | Orquestra estágios verdes; `--pcb` / `--evolve` opt-in |
@@ -75,8 +76,20 @@ base design output/hardware_spec.yaml -o output/design/
 
 ```bash
 base replay trace.csv --contracts contracts.yaml -o violations.json
-base prove contracts.yaml -o proof/   # simbólico; Z3 via --features solver_z3
+base prove contracts.yaml -o proof/   # simbólico por default
 ```
+
+### Prova formal Z3 (opcional)
+
+Default `cargo test` / CI principal **não** exige Z3. Com libz3 no sistema:
+
+```bash
+# Debian/Ubuntu: sudo apt-get install -y libz3-dev
+cargo test -p base-core --features solver_z3 --lib smt
+cargo build -p base-cli --features base-core/solver_z3
+```
+
+Job isolado: [`.github/workflows/formal.yml`](.github/workflows/formal.yml) (`workflow_dispatch` + nightly semanal). Detalhes: [SMT Real](base-vault/11%20-%20B.A.S.E.%20v3.2%20Scientific/11.04%20-%20SMT%20Real.md).
 
 ---
 

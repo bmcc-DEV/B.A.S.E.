@@ -76,18 +76,21 @@ impl SmtProver {
 
         #[cfg(feature = "solver_z3")]
         {
-            return Self::prove_with_z3(contract, &smt_lib);
+            Self::prove_with_z3(contract, &smt_lib)
         }
 
-        Self::prove_symbolic(contract, &smt_lib)
+        #[cfg(not(feature = "solver_z3"))]
+        {
+            Self::prove_symbolic(contract, &smt_lib)
+        }
     }
 
     #[cfg(feature = "solver_z3")]
     fn prove_with_z3(contract: &SequenceContract, smt_lib: &str) -> ProofResult {
-        let ctx = z3::Context::new(&z3::Config::new());
-        let solver = z3::Solver::new(&ctx);
-        let n = contract.steps.len();
+        use z3::ast::Int;
+        use z3::{SatResult, Solver};
 
+        let n = contract.steps.len();
         if n == 0 {
             return ProofResult {
                 contract: contract.name.clone(),
@@ -98,40 +101,41 @@ impl SmtProver {
             };
         }
 
-        let mut vars = Vec::new();
-        for i in 0..n {
-            let sym = z3::Symbol::from_string(&ctx, &format!("t{}", i));
-            vars.push(z3::ast::Int::new_const(&ctx, &sym));
-        }
+        let solver = Solver::new();
+        let vars: Vec<Int> = (0..n).map(|i| Int::new_const(format!("t{i}"))).collect();
 
-        let zero = z3::ast::Int::from_i64(&ctx, 0);
-        solver.assert(&vars[0]._eq(&zero));
+        solver.assert(vars[0].eq(Int::from_i64(0)));
 
         if contract.order == OrderConstraint::Strict {
             for i in 0..n.saturating_sub(1) {
-                solver.assert(&vars[i].lt(&vars[i + 1]));
+                solver.assert(vars[i].lt(&vars[i + 1]));
             }
         }
 
         if contract.max_step_ns > 0 {
-            let max = z3::ast::Int::from_i64(&ctx, contract.max_step_ns as i64);
+            let max = Int::from_i64(contract.max_step_ns as i64);
             for i in 0..n.saturating_sub(1) {
-                solver.assert(&vars[i + 1].sub(&vars[i]).le(&max));
+                let gap = &vars[i + 1] - &vars[i];
+                solver.assert(gap.le(&max));
             }
         }
 
         if n >= 2 && contract.max_total_ns > 0 {
-            let max = z3::ast::Int::from_i64(&ctx, contract.max_total_ns as i64);
-            solver.assert(&vars[n - 1].sub(&vars[0]).le(&max));
+            let max = Int::from_i64(contract.max_total_ns as i64);
+            let total = &vars[n - 1] - &vars[0];
+            solver.assert(total.le(&max));
         }
 
         let sat = solver.check();
-        let satisfiable = sat == z3::SatResult::Sat;
+        let satisfiable = sat == SatResult::Sat;
 
         let model = if satisfiable {
-            solver.get_model().map(|m| format!("{:?}", m))
+            solver
+                .get_model()
+                .map(|m| format!("z3:sat {:?}", m))
+                .or_else(|| Some("z3:sat".into()))
         } else {
-            Some(format!("{:?}", sat))
+            Some(format!("z3:{sat:?}"))
         };
 
         ProofResult {
@@ -460,7 +464,37 @@ mod tests {
         let result = SmtProver::prove(&contract);
         assert!(result.proved);
         assert!(result.smt_lib.contains("dma_xfer"));
+        #[cfg(not(feature = "solver_z3"))]
         assert!(result.model.as_ref().unwrap().contains("symbolic"));
+        #[cfg(feature = "solver_z3")]
+        assert!(result.model.as_ref().unwrap().contains("z3:sat"));
+    }
+
+    #[cfg(feature = "solver_z3")]
+    #[test]
+    fn test_z3_sat() {
+        let result = SmtProver::prove(&sample_contract());
+        assert!(result.proved);
+        assert!(result.satisfiable);
+        let model = result.model.expect("z3 model");
+        assert!(model.contains("z3:sat"), "expected z3 sat model, got {model}");
+    }
+
+    #[cfg(feature = "solver_z3")]
+    #[test]
+    fn test_z3_unsat() {
+        let mut contract = sample_contract();
+        // 4 passos Strict ⇒ min total 3; max_total=2 ⇒ UNSAT
+        contract.max_total_ns = 2;
+        contract.max_step_ns = 3000;
+        let result = SmtProver::prove(&contract);
+        assert!(!result.proved);
+        assert!(!result.satisfiable);
+        let model = result.model.expect("z3 unsat tag");
+        assert!(
+            model.contains("Unsat") || model.contains("UNSAT"),
+            "expected z3 unsat, got {model}"
+        );
     }
 
     #[test]
