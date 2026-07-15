@@ -26,6 +26,12 @@ jobs:
       - name: Run all tests
         run: cargo test --workspace
 
+      - name: Pilot smoke (Path to Real R0)
+        run: |
+          cargo build -p base-cli
+          chmod +x examples/pilot/run.sh
+          ./examples/pilot/run.sh
+
       - name: Check documentation
         run: cargo doc --no-deps --workspace
 

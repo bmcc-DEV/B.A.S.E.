@@ -12,6 +12,8 @@ members = [
     "base-bsl",
     "base-hil",
 ]
+# base-learn exists on disk but is intentionally out of the default workspace
+# until ONNX/classifier integration is wired.
 
 [workspace.package]
 version = "0.1.0"

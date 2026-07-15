@@ -112,26 +112,30 @@ impl TemporalVerifier {
         }
     }
 
-    /// Encontra ocorrências de um padrão de eventos no trace
+    /// Encontra ocorrências de um padrão de eventos no trace.
+    /// Permite eventos "ruído" entre passos do contrato (subsequência monotônica).
     pub fn find_patterns<'a>(events: &'a [TraceEvent], steps: &[EventStep]) -> Vec<Vec<&'a TraceEvent>> {
         let mut occurrences = Vec::new();
+        if steps.is_empty() {
+            return occurrences;
+        }
         let mut i = 0;
 
         while i < events.len() {
             if Self::matches(&events[i], &steps[0]) {
                 let mut seq = vec![&events[i]];
+                let mut k = i + 1;
                 let mut j = 1;
-                while j < steps.len() && i + j < events.len() {
-                    if Self::matches(&events[i + j], &steps[j]) {
-                        seq.push(&events[i + j]);
-                    } else {
-                        break;
+                while j < steps.len() && k < events.len() {
+                    if Self::matches(&events[k], &steps[j]) {
+                        seq.push(&events[k]);
+                        j += 1;
                     }
-                    j += 1;
+                    k += 1;
                 }
                 if seq.len() == steps.len() {
                     occurrences.push(seq);
-                    i += steps.len();
+                    i = k;
                     continue;
                 }
             }

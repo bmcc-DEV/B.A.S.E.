@@ -1,0 +1,26 @@
+# Allowlist of HardwareSpec fields that must remain stable for the pilot wedge.
+# CI (pilot_analyze.rs) checks presence of required_top_level keys in YAML output.
+
+required_top_level:
+  - version
+  - source
+  - cpu
+  - memory
+  - blocks
+  - interrupts
+  - dma_channels
+  - constraints
+  - confidence
+
+required_block_fields:
+  - id
+  - kind
+  - base_address
+  - size
+  - registers
+  - confidence
+
+pilot_notes:
+  classify: uart
+  base_address: 0x40034000
+  mmio_source: mmio.json

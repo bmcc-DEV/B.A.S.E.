@@ -1,0 +1,30 @@
+[
+  {
+    "address": 1073954816,
+    "value": 1,
+    "access_type": "write",
+    "function_name": "uart_init",
+    "instruction_addr": 0
+  },
+  {
+    "address": 1073954820,
+    "value": null,
+    "access_type": "read",
+    "function_name": "uart_status",
+    "instruction_addr": 4
+  },
+  {
+    "address": 1073954840,
+    "value": 0,
+    "access_type": "write",
+    "function_name": "uart_clear_irq",
+    "instruction_addr": 8
+  },
+  {
+    "address": 1073954816,
+    "value": 65,
+    "access_type": "write",
+    "function_name": "uart_putc",
+    "instruction_addr": 12
+  }
+]

@@ -25,6 +25,8 @@ power:
   vcore: "1.1V @ 150mA"
   vccio: "3.3V @ 50mA"
   vusb: "5V"
+# pins omitidos de propósito: contract solver assume ≥32 GPIO para MCU (Path to Real R3).
+# Preferência UART: peripherals.uart > 0; mapper escolhe MCU barato com uart sobre FPGA.
 availability:
   status: "production"
   price_1k: 1.50

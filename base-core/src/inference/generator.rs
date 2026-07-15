@@ -1,6 +1,7 @@
 use crate::inference::extraction::{block_type_to_kind, extract_blocks, raw_to_register, MmioAccess, MmioAccessType};
 use crate::inference::fsm::{extract_fsm, fsm_to_protocol};
 use crate::inference::protocol::{heuristic_register_name, infer_protocol};
+use crate::loop_::evidence_confidence;
 use crate::spec::types::*;
 use crate::evidence::{EvidenceDb, EvidenceEntry, EvidenceType};
 use std::collections::HashMap;
@@ -25,22 +26,31 @@ pub fn generate_spec_with_evidence(accesses: &[MmioAccess], source: &str) -> (Ha
         let id = format!("ev_{:04}", i);
         let mut context = HashMap::new();
         context.insert("function".into(), access.function_name.clone());
+        context.insert("instr".into(), format!("0x{:x}", access.instruction_addr));
         let etype = match access.access_type {
             MmioAccessType::Read => EvidenceType::MmioRead { address: access.address },
-            MmioAccessType::Write => EvidenceType::MmioWrite { address: access.address, value: access.value },
+            MmioAccessType::Write => EvidenceType::MmioWrite {
+                address: access.address,
+                value: access.value,
+            },
         };
-        evidence.add(EvidenceEntry { id, evidence_type: etype, context });
+        evidence.add(EvidenceEntry {
+            id,
+            evidence_type: etype,
+            context,
+        });
     }
 
     let clusters = extract_blocks(accesses);
-    let mut total_confidence = 0.0f64;
 
     for cluster in &clusters {
         let protocol = infer_protocol(cluster);
         let fsm = extract_fsm(cluster, &protocol);
         let protocol_type = fsm_to_protocol(&fsm);
 
-        let mut registers: Vec<Register> = cluster.registers.iter()
+        let mut registers: Vec<Register> = cluster
+            .registers
+            .iter()
             .map(|r| {
                 let mut reg = raw_to_register(r);
                 let role = protocol.register_roles.get(&r.offset);
@@ -48,7 +58,8 @@ pub fn generate_spec_with_evidence(accesses: &[MmioAccess], source: &str) -> (Ha
                     reg.name = Some(heuristic_register_name(r.offset, *role));
                 }
                 reg
-            }).collect();
+            })
+            .collect();
         registers.sort_by_key(|r| r.offset);
 
         let timing = TimingProfile {
@@ -57,10 +68,13 @@ pub fn generate_spec_with_evidence(accesses: &[MmioAccess], source: &str) -> (Ha
                 protocol.timing.avg_step_latency_ns * 10,
                 protocol.timing.avg_step_latency_ns,
             )),
-            processing: None, interrupt_response: None, dma_setup: None, polling_interval: None,
+            processing: None,
+            interrupt_response: None,
+            dma_setup: None,
+            polling_interval: None,
         };
 
-        let block = FunctionalBlock {
+        let mut block = FunctionalBlock {
             id: format!("{:?}_{:x}", cluster.block_type, cluster.base_address >> 12),
             kind: block_type_to_kind(cluster.block_type, cluster),
             base_address: cluster.base_address,
@@ -72,12 +86,15 @@ pub fn generate_spec_with_evidence(accesses: &[MmioAccess], source: &str) -> (Ha
             dependencies: Vec::new(),
             confidence: cluster.confidence,
         };
-
-        total_confidence += cluster.confidence;
+        block.confidence = evidence_confidence(&block);
         spec.blocks.push(block);
     }
 
-    spec.confidence = if clusters.is_empty() { 0.0 } else { total_confidence / clusters.len() as f64 };
+    spec.confidence = if spec.blocks.is_empty() {
+        0.0
+    } else {
+        spec.blocks.iter().map(|b| b.confidence).sum::<f64>() / spec.blocks.len() as f64
+    };
 
     (spec, evidence)
 }
@@ -88,7 +105,13 @@ mod tests {
     use crate::inference::extraction::MmioAccess;
 
     fn mock_mmio(addr: u64, val: u64, at: MmioAccessType) -> MmioAccess {
-        MmioAccess { address: addr, value: Some(val), access_type: at, function_name: "test".into(), instruction_addr: addr }
+        MmioAccess {
+            address: addr,
+            value: Some(val),
+            access_type: at,
+            function_name: "test".into(),
+            instruction_addr: addr,
+        }
     }
 
     #[test]
@@ -96,6 +119,9 @@ mod tests {
         let evidence = generate_evidence(&[], "test");
         assert_eq!(evidence.source, "test");
         assert!(evidence.entries.is_empty());
+        let spec = generate_spec(&[], "empty.bin");
+        assert!(spec.blocks.is_empty());
+        assert_eq!(spec.confidence, 0.0);
     }
 
     #[test]
@@ -115,7 +141,8 @@ mod tests {
             mock_mmio(0x10000004, 0, MmioAccessType::Read),
         ];
         let (spec, evidence) = generate_spec_with_evidence(&accesses, "test");
-        assert!(!spec.blocks.is_empty() || spec.blocks.is_empty());
+        assert!(!spec.blocks.is_empty());
         assert_eq!(evidence.count(), 2);
+        assert!(spec.blocks[0].confidence > 0.0);
     }
 }

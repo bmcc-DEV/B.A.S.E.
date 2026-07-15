@@ -1,0 +1,22 @@
+# Unsatisfiable under strict integer order: 4 steps ⇒ min total gap = 3 ns
+- name: impossible_total
+  steps:
+    - event_type: mmio_write
+      address: 0x40034000
+      value: 1
+      tolerance_ns: 0
+    - event_type: mmio_read
+      address: 0x40034004
+      value: null
+      tolerance_ns: 0
+    - event_type: mmio_write
+      address: 0x40034018
+      value: 0
+      tolerance_ns: 0
+    - event_type: irq
+      address: 0x10
+      value: null
+      tolerance_ns: 0
+  max_total_ns: 2
+  max_step_ns: 100
+  order: Strict

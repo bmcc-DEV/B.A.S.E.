@@ -3,10 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use base_core::component_db::ComponentDb;
-use base_core::inference::generate_spec;
 use base_core::inference::extraction::{MmioAccess, MmioAccessType};
 use base_core::mapping::mapper::ComponentMapper;
-use base_core::mapping::netlist;
 use base_core::spec::types::*;
 
 use base_pcb::schematic::SchematicGenerator;
@@ -79,22 +77,62 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
 
 // ─── Analyze ────────────────────────────────────────────
 
-fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Option<&str>, dot: bool, disasm: bool, output: &Path) -> Result<()> {
+fn handle_analyze(firmware: &Path, mmio_traces: Option<&Path>, classify: Option<&str>, dot: bool, disasm: bool, output: &Path) -> Result<()> {
     tracing::info!("Reading firmware from {}", firmware.display());
     let data = fs::read(firmware)?;
 
     tracing::info!("Running behavioral inference on {} bytes", data.len());
-    let mmio_accesses = if disasm {
+    let mut mmio_accesses = if let Some(traces) = mmio_traces {
+        load_mmio_traces(traces)?
+    } else if disasm {
         crate::disasm::analyze_with_disasm(&data)
     } else {
-        mock_mmio_from_binary(&data)
+        tracing::warn!("Heuristic MMIO scan (no --disasm / --mmio-traces)");
+        let accesses = mock_mmio_from_binary(&data);
+        tracing::warn!("Heuristic candidates: {}", accesses.len());
+        accesses
     };
-    let spec = generate_spec(&mmio_accesses, &firmware.to_string_lossy());
+
+    if let Some(kind) = classify {
+        tracing::info!("Applying classify override: {}", kind);
+        for a in &mut mmio_accesses {
+            a.function_name = format!("{}_{}", kind, a.function_name);
+        }
+    }
+
+    let (mut spec, evidence) = base_core::inference::generate_spec_with_evidence(
+        &mmio_accesses,
+        &firmware.to_string_lossy(),
+    );
+    if let Some(kind) = classify {
+        apply_classify_override(&mut spec, kind);
+        // Recompute evidence-based confidence after kind override
+        for b in &mut spec.blocks {
+            b.confidence = base_core::loop_::evidence_confidence(b);
+        }
+        if !spec.blocks.is_empty() {
+            spec.confidence = spec.blocks.iter().map(|b| b.confidence).sum::<f64>()
+                / spec.blocks.len() as f64;
+        }
+    }
 
     fs::create_dir_all(output)?;
     let path = output.join("hardware_spec.yaml");
     fs::write(&path, spec.to_yaml()?)?;
-    tracing::info!("HardwareSpec written to {}", path.display());
+    tracing::info!(
+        "HardwareSpec written to {} ({} blocks, confidence={:.2})",
+        path.display(),
+        spec.blocks.len(),
+        spec.confidence
+    );
+
+    let ev_path = output.join("evidence_db.yaml");
+    fs::write(&ev_path, evidence.to_yaml()?)?;
+    tracing::info!(
+        "Evidence DB written to {} ({} entries)",
+        ev_path.display(),
+        evidence.entries.len()
+    );
 
     if dot {
         let (beh_dot, ev_dot) = base_core::graphviz::generate_all(&spec, &firmware.to_string_lossy());
@@ -108,6 +146,38 @@ fn handle_analyze(firmware: &Path, _mmio_traces: Option<&Path>, _classify: Optio
     }
 
     Ok(())
+}
+
+fn load_mmio_traces(path: &Path) -> Result<Vec<MmioAccess>> {
+    let text = fs::read_to_string(path)?;
+    let accesses: Vec<MmioAccess> = if path.extension().and_then(|e| e.to_str()) == Some("yaml")
+        || path.extension().and_then(|e| e.to_str()) == Some("yml")
+    {
+        serde_yaml::from_str(&text)?
+    } else {
+        serde_json::from_str(&text)?
+    };
+    tracing::info!("Loaded {} MMIO accesses from {}", accesses.len(), path.display());
+    Ok(accesses)
+}
+
+fn apply_classify_override(spec: &mut HardwareSpec, kind: &str) {
+    let block_kind = match kind.to_lowercase().as_str() {
+        "gpu" => BlockKind::Gpu,
+        "audio" => BlockKind::Audio,
+        "dma" => BlockKind::Dma,
+        "usb" => BlockKind::Usb,
+        "uart" => BlockKind::Uart,
+        "spi" => BlockKind::Spi,
+        "i2c" => BlockKind::I2c,
+        "ethernet" => BlockKind::Ethernet,
+        _ => return,
+    };
+    for block in &mut spec.blocks {
+        // Override explícito do usuário — aplica a todos os blocos
+        block.kind = block_kind;
+        block.confidence = (block.confidence + 0.25).min(0.95);
+    }
 }
 
 fn mock_mmio_from_binary(data: &[u8]) -> Vec<MmioAccess> {
@@ -133,7 +203,7 @@ fn mock_mmio_from_binary(data: &[u8]) -> Vec<MmioAccess> {
 
 // ─── Synth ──────────────────────────────────────────────
 
-fn handle_synth(input: &Path, component_db: &Path, _max_bom_cost: Option<f64>, output: &Path) -> Result<()> {
+fn handle_synth(input: &Path, component_db: &Path, max_bom_cost: Option<f64>, output: &Path) -> Result<()> {
     tracing::info!("Loading HardwareSpec from {}", input.display());
     let yaml = fs::read_to_string(input)?;
     let spec = HardwareSpec::from_yaml(&yaml)?;
@@ -144,20 +214,27 @@ fn handle_synth(input: &Path, component_db: &Path, _max_bom_cost: Option<f64>, o
         tracing::info!("Loaded {} components", db.len());
     }
 
+    if let Some(budget) = max_bom_cost {
+        tracing::info!("BOM budget: ${:.2}", budget);
+    }
+
     let mapper = ComponentMapper::new(db);
-    let synthesized = mapper.map_spec(&spec);
+    let mut synthesized = mapper.map_spec_with_budget(&spec, max_bom_cost);
 
     let netlist_segments = base_core::mapping::netlist::generate_netlist(
         &synthesized,
         &ComponentDb::new(),
     );
-    let mut synthesized = synthesized;
     synthesized.netlist = Some(netlist_segments);
 
     fs::create_dir_all(output)?;
     let path = output.join("synthesized_spec.yaml");
     fs::write(&path, serde_yaml::to_string(&synthesized)?)?;
-    tracing::info!("SynthesizedSpec written to {}", path.display());
+    tracing::info!(
+        "SynthesizedSpec written to {} ({} assignments)",
+        path.display(),
+        synthesized.assignments.len()
+    );
     Ok(())
 }
 
@@ -252,13 +329,16 @@ fn handle_fw(input: &Path, target: &str, zephyr: bool, output: &Path) -> Result<
     let drv = drv_gen.generate_baremetal(&spec);
     fs::write(output.join("drivers.c"), &drv)?;
 
+    let main_c = drv_gen.generate_main(&spec);
+    fs::write(output.join("main.c"), &main_c)?;
+
     let mk = drv_gen.generate_build_system(&spec);
     fs::write(output.join("Makefile"), &mk)?;
 
     let ld = drv_gen.generate_linker_script(&spec);
     fs::write(output.join("linker.ld"), &ld)?;
 
-    tracing::info!("Firmware generated in {}", output.display());
+    tracing::info!("Firmware generated in {} (host: make -C {} host)", output.display(), output.display());
 
     // Zephyr module
     if zephyr {
@@ -384,7 +464,7 @@ fn handle_pipeline(
 
     // Step 1: Analyze
     tracing::info!("[1/6] Analyzing firmware...");
-    handle_analyze(firmware, None, None, true, true, &output.join("01_analyze"))?;
+    handle_analyze(firmware, None, None, true, disasm, &output.join("01_analyze"))?;
 
     // Step 2: Synth
     tracing::info!("[2/6] Synthesizing hardware mapping...");
@@ -452,15 +532,25 @@ fn handle_replay(trace_path: &Path, contracts_path: Option<PathBuf>, bir_path: O
     tracing::info!("Parsed {} events from trace", events.len());
     if events.is_empty() { anyhow::bail!("No events found in trace"); }
 
-    let contracts = if let Some(cp) = &contracts_path {
+    let contracts: Vec<base_core::temporal::SequenceContract> = if let Some(cp) = &contracts_path {
         serde_yaml::from_str(&fs::read_to_string(cp)?)?
-    } else if bir_path.is_some() {
-        tracing::info!("Extracting contracts from BIR...");
-        vec![]
+    } else if let Some(bp) = &bir_path {
+        tracing::info!("Extracting contracts from BIR {}", bp.display());
+        let bir_yaml = fs::read_to_string(bp)?;
+        let device = base_bir::types::BirDevice::from_yaml(&bir_yaml)
+            .map_err(|e| anyhow::anyhow!("Invalid BIR: {}", e))?;
+        let temporal = base_bir::bir_to_sequence_contracts(&device);
+        if temporal.is_empty() {
+            anyhow::bail!("BIR {} has no extractable contracts/events", bp.display());
+        }
+        // Serialize via YAML bridge to SequenceContract
+        let yaml = serde_yaml::to_string(&temporal)?;
+        serde_yaml::from_str(&yaml)?
     } else {
         anyhow::bail!("Need --contracts or --bir");
     };
 
+    tracing::info!("Using {} contracts", contracts.len());
     let engine = base_core::replay::ReplayEngine::new(contracts);
     let result = engine.replay(&events);
     tracing::info!("Replay: {} sequences, {} passed, {} violations",
@@ -476,26 +566,84 @@ fn handle_replay(trace_path: &Path, contracts_path: Option<PathBuf>, bir_path: O
 fn handle_prove(contracts_path: &Path, smt_output: Option<PathBuf>, deadlock: bool, output_dir: &Path) -> Result<()> {
     let yaml = fs::read_to_string(contracts_path)?;
     let contracts: Vec<base_core::temporal::SequenceContract> = serde_yaml::from_str(&yaml)?;
+    fs::create_dir_all(output_dir)?;
 
     if deadlock {
         let result = base_core::smt::SmtProver::deadlock_free(&contracts);
         let out = smt_output.unwrap_or_else(|| output_dir.join("deadlock_proof.smt"));
         fs::write(&out, &result.smt_lib)?;
-        tracing::info!("Deadlock proof: proved={}", result.proved);
+        let report_path = output_dir.join("deadlock_result.json");
+        fs::write(&report_path, serde_json::to_string_pretty(&result)?)?;
+        tracing::info!(
+            "Deadlock proof: proved={} satisfiable={} → {}",
+            result.proved,
+            result.satisfiable,
+            report_path.display()
+        );
+        if let Some(m) = &result.model {
+            tracing::info!("  model: {}", m);
+        }
     } else {
         let report = base_core::smt::SmtProver::prove_all(&contracts);
-        tracing::info!("Proved {}/{} contracts", report.contracts_proved, contracts.len());
+        let out = smt_output.unwrap_or_else(|| output_dir.join("proof_report.json"));
+        fs::write(&out, serde_json::to_string_pretty(&report)?)?;
+        // Also dump concatenated SMT for inspection
+        let mut smt_all = String::new();
+        for r in &report.results {
+            smt_all.push_str(&r.smt_lib);
+            smt_all.push_str("\n\n");
+        }
+        fs::write(output_dir.join("contracts_proof.smt"), &smt_all)?;
+        tracing::info!(
+            "Proved {}/{} contracts → {}",
+            report.contracts_proved,
+            contracts.len(),
+            out.display()
+        );
+        for r in &report.results {
+            tracing::info!(
+                "  {}: proved={} sat={} {:?}",
+                r.contract,
+                r.proved,
+                r.satisfiable,
+                r.model
+            );
+        }
     }
     Ok(())
 }
 
-fn handle_design(input: &Path, _pcb: bool, output: &Path) -> Result<()> {
+fn handle_design(input: &Path, pcb: bool, output: &Path) -> Result<()> {
     let yaml = fs::read_to_string(input)?;
     let spec = base_core::spec::types::HardwareSpec::from_yaml(&yaml)?;
-    let design = base_core::design::ReferenceDesign::new(&spec.source, &spec.source);
+
+    let mut db = ComponentDb::new();
+    let db_path = Path::new("base-core/component_db");
+    if db_path.exists() {
+        db.load_directory(db_path)?;
+        tracing::info!("Loaded {} components for design", db.len());
+    }
+
+    let design = base_core::design::ReferenceDesign::from_hardware_spec(&spec, &db);
     fs::create_dir_all(output)?;
     fs::write(output.join("reference_design.yaml"), design.to_yaml()?)?;
-    tracing::info!("Reference design written");
+    tracing::info!(
+        "Reference design: cpu={}, parts={}, contracts {}/{} satisfied",
+        design.architecture.cpu.part,
+        design.bom.total_parts,
+        design.contracts.satisfied,
+        design.contracts.total
+    );
+
+    if pcb {
+        tracing::info!("Generating engineering-draft PCB from design mapping...");
+        let mapper = ComponentMapper::new(db);
+        let synthesized = mapper.map_spec(&spec);
+        let synth_path = output.join("synthesized_spec.yaml");
+        fs::write(&synth_path, serde_yaml::to_string(&synthesized)?)?;
+        handle_pcb(&synth_path, "reference", false, &output.join("pcb"))?;
+    }
+
     Ok(())
 }
 
@@ -504,7 +652,11 @@ fn handle_event_graph(contracts_path: &Path, trace_path: &Path, format: &str, ou
     let contracts: Vec<base_core::temporal::SequenceContract> = serde_yaml::from_str(&contracts_yaml)?;
     let csv = fs::read_to_string(trace_path)?;
     let events = base_core::replay::parse_saleae_csv(&csv);
-    let graph = base_core::event_graph::EventGraph::from_trace(&contracts, &events, trace_path.to_str().unwrap_or("trace"));
+    let title = trace_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("trace");
+    let graph = base_core::event_graph::EventGraph::from_trace(&contracts, &events, title);
     fs::create_dir_all(output)?;
     match format { "mermaid" => fs::write(output.join("event_graph.mmd"), graph.to_mermaid())?, _ => fs::write(output.join("event_graph.dot"), graph.to_dot())?, }
     tracing::info!("Event graph written");
@@ -515,16 +667,20 @@ fn handle_bir(input: &Path, compile: bool, validate: bool, to_legacy: bool, dot:
     let content = fs::read_to_string(input)?;
     fs::create_dir_all(output)?;
 
-    if compile {
-        // BSL → BIR compilation requires base-bsl feature
-        anyhow::bail!("BSL compilation: add base-bsl dependency or use `base bir input.bir.yaml --validate`");
-    }
+    let device = if compile {
+        tracing::info!("Compiling BSL → BIR");
+        let device = base_bsl::compile(&content)
+            .map_err(|e| anyhow::anyhow!("BSL compile error: {:?}", e))?;
+        let bir_path = output.join("compiled.bir.yaml");
+        fs::write(&bir_path, device.to_yaml().map_err(|e| anyhow::anyhow!("{}", e))?)?;
+        tracing::info!("BIR written to {}", bir_path.display());
+        device
+    } else {
+        base_bir::types::BirDevice::from_yaml(&content)
+            .map_err(|e| anyhow::anyhow!("Invalid BIR YAML: {}", e))?
+    };
 
-    // Load BIR YAML for operations
-    let device = base_bir::types::BirDevice::from_yaml(&content)
-        .map_err(|e| anyhow::anyhow!("Invalid BIR YAML: {}", e))?;
-
-    if validate {
+    if validate || (!compile && !to_legacy && !dot) {
         let result = device.validate();
         tracing::info!("BIR validation: {} errors, {} warnings",
             result.errors.len(), result.warnings.len());
@@ -553,6 +709,14 @@ fn handle_bir(input: &Path, compile: bool, validate: bool, to_legacy: bool, dot:
         tracing::info!("BIR DOT graph written to {}", path.display());
     }
 
+    // Always export extractable temporal contracts for replay/prove
+    let temporal = base_bir::bir_to_sequence_contracts(&device);
+    if !temporal.is_empty() {
+        let cpath = output.join("contracts.yaml");
+        fs::write(&cpath, serde_yaml::to_string(&temporal)?)?;
+        tracing::info!("Extracted {} temporal contracts → {}", temporal.len(), cpath.display());
+    }
+
     Ok(())
 }
 
@@ -561,11 +725,16 @@ fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, conti
     let spec = base_core::spec::types::HardwareSpec::from_yaml(&yaml)?;
 
     fs::create_dir_all(output)?;
+    let effective_max = if continuous {
+        max_iterations.max(1000)
+    } else {
+        max_iterations
+    };
     tracing::info!("=== B.A.S.E. Reconstruction Loop ===");
     tracing::info!("Threshold: {:.0}%, Max iterations: {}, Continuous: {}",
-        threshold * 100.0, max_iterations, continuous);
+        threshold * 100.0, effective_max, continuous);
 
-    let mut loop_ = base_core::loop_::FeedbackLoop::new(threshold, max_iterations);
+    let mut loop_ = base_core::loop_::FeedbackLoop::new(threshold, effective_max);
     let iterations = loop_.run(&spec);
 
     for iter in &iterations {

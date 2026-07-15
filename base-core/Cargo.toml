@@ -25,6 +25,7 @@ solver_ilp = ["good_lp"]
 
 [dev-dependencies]
 tempfile = "3"
+base-bsl = { path = "../base-bsl" }
 
 [lib]
 name = "base_core"

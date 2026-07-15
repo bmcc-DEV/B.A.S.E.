@@ -20,6 +20,7 @@ base-check = { path = "../base-check" }
 base-evolve = { path = "../base-evolve" }
 specter-probe = { path = "../specterprobe" }
 base-bir = { path = "../base-bir" }
+base-bsl = { path = "../base-bsl" }
 
 [[bin]]
 name = "base"

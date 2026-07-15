@@ -3,21 +3,41 @@
 [![CI](https://github.com/Eternet-Mycelium-Network/B.A.S.E./actions/workflows/ci.yml/badge.svg)](https://github.com/Eternet-Mycelium-Network/B.A.S.E./actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE.md)
 
-**Transform hardware behavior into new PCB + firmware.**
-
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**160+ testes · 13 crates · 12 comandos CLI · 3 gerações de arquitetura**
+**Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
+
+> **v0.2 em construção** ([Path to Real](base-vault/12%20-%20Path%20to%20Real/12.00%20-%20Index.md)):
+> análise auditável + design de referência. **Não** é (ainda) gerador de PCB fabricável nem substituto drop-in de ASIC.
 
 ---
 
-## Pipeline
+## O que funciona hoje
 
-```bash
+Fonte da verdade: vault Obsidian → [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.02%20-%20Maturity%20Matrix.md)
+
+| Área | Estado |
+|------|--------|
+| `analyze` + Evidence DB + `--disasm` / `--mmio-traces` | Útil no wedge ARM |
+| `design` / `synth` + component DB + contratos | Funcional; depende da qualidade do spec |
+| `replay` / `prove` (simbólico) / `event-graph` / `bir` | Auditável com fixtures |
+| `fw` | Skeleton **host-testable** (`make host`) — não firmware de produção |
+| `pcb` | **Engineering draft** KiCad — *not fabricable* |
+| `evolve` / pipeline completa “ASIC pronto” | Experimental / overclaim — evitar |
+
+Plano de execução: [Master Plan](base-vault/12%20-%20Path%20to%20Real/12.01%20-%20Master%20Plan.md) · [Sprint Board](base-vault/12%20-%20Path%20to%20Real/12.04%20-%20Sprint%20Board.md)
+
+---
+
+## Pipeline (alvo)
+
+```text
 Firmware → analyze → Evidence DB → BIR → Contracts → Solver → Reference Design
                                                               ↓
-                                                         [PCB/FW — opcional]
+                                                    [PCB/FW draft — opcional]
 ```
+
+---
 
 ## Quick Start
 
@@ -27,62 +47,63 @@ cd B.A.S.E.
 cargo build -p base-cli
 ```
 
-### Análise com disassembly real
+### Piloto (fixtures — start here)
+
+```bash
+# Ver examples/pilot/README.md
+cargo build -p base-cli
+./target/debug/base analyze examples/pilot/fw.bin \
+  --mmio-traces examples/pilot/mmio.json --classify uart \
+  -o examples/pilot/out/analyze
+./target/debug/base design examples/pilot/out/analyze/hardware_spec.yaml \
+  -o examples/pilot/out/design
+./target/debug/base prove examples/pilot/contracts.yaml \
+  -o examples/pilot/out/prove
+./target/debug/base replay examples/pilot/trace.csv \
+  --contracts examples/pilot/contracts.yaml \
+  -o examples/pilot/out/violations.json
+```
+
+### Análise
 
 ```bash
 base analyze firmware.bin --disasm --dot -o output/
-# → 520 funções, 35K instruções, 757 MMIO candidates
-# → behavior_graph.dot + event_graph.dot
+# → hardware_spec.yaml + evidence_db.yaml (+ DOT se --dot)
 ```
 
-### Pipeline completa
+### Reference Design (saída principal)
 
 ```bash
-base pipeline firmware.bin --disasm -o output/
+base design output/hardware_spec.yaml -o output/design/
+# → reference_design.yaml (engineering draft de arquitetura)
 ```
 
-### Replay de trace contra contratos
+### Replay / prova
 
 ```bash
-base replay trace.csv --contracts contracts.yaml
-# → contract_violations.json (Passo 11)
-```
-
-### Prova formal via SMT
-
-```bash
-base prove contracts.yaml --deadlock
-# → deadlock_proof.smt (Passo 12)
-```
-
-### Reference Design
-
-```bash
-base design hardware_spec.yaml
-# → reference_design.yaml (saída principal)
+base replay trace.csv --contracts contracts.yaml -o violations.json
+base prove contracts.yaml -o proof/   # simbólico; Z3 via --features solver_z3
 ```
 
 ---
 
-## Arquitetura (v3.2 — Evidence-Driven + Scientific)
+## Arquitetura
 
 ```mermaid
 flowchart LR
-    FW[Firmware] --> SP[SpecterProbe<br/>Disassembly]
-    SP --> EVD[Evidence DB<br/>Fatos puros]
+    FW[Firmware] --> SP[SpecterProbe]
+    SP --> EVD[Evidence DB]
     EVD --> BIR[BIR]
     BIR --> TC[Temporal Contracts]
     TC --> SOLVER[Contract Solver]
     SOLVER --> RD[Reference Design]
-    RD --> PCB[PCB — Optional]
-    TC --> EG[Event Graph<br/>Causal]
+    RD --> PCB[PCB draft — optional]
+    TC --> EG[Event Graph]
     CSV[Trace] --> REPLAY[Trace Replay]
-    TC --> REPLAY --> SMT[SMT Proving]
+    TC --> REPLAY --> SMT[SMT / symbolic]
 ```
 
-### Fundamento Matemático
-
-O B.A.S.E. é informado pela **Paleocomputação Estrutural** (Anacroclastia), uma disciplina formal que trata binários como artefatos geológicos de um processo de erosão compilatória. A métrica de **Tensão Ψ** quantifica a distância entre evidência observada e modelo:
+### Tensão Ψ
 
 ```text
 Ψ(B, H) = ∫ δ(ω_obs, ω_H) dμ
@@ -91,36 +112,30 @@ confidence = max(0, 1 - Ψ/(1+Ψ))
 
 ---
 
-## 12 Comandos CLI
+## CLI
 
-| Comando | Descrição |
-|---------|-----------|
-| `analyze` | Analyze firmware → produce HardwareSpec + Evidence DB |
-| `synth` | Synthesize HardwareSpec → component mapping |
-| `pcb` | Generate KiCad PCB (engineering draft) |
-| `fw` | Generate bootloader, HAL, drivers, devicetree, Zephyr |
-| `check` | Validate new hardware against original traces |
-| `evolve` | Analyze bottlenecks and suggest upgrades |
-| `pipeline` | Run full end-to-end pipeline |
-| `reconstruct` | Recursive refinement loop until convergence |
-| `replay` | Replay trace against temporal contracts |
-| `prove` | Prove contracts via SMT (Z3) |
-| `design` | Generate reference design (saída principal) |
-| `event-graph` | Export causal event graph (DOT/Mermaid) |
-| `bir` | BIR: validate, compile, export |
+| Comando | Notas |
+|---------|-------|
+| `analyze` | HardwareSpec + Evidence DB |
+| `synth` / `design` | Mapping + Reference Design |
+| `replay` / `prove` / `event-graph` | Contratos temporais |
+| `bir` | Validate / compile BSL / export |
+| `fw` | Draft C + `make host` |
+| `pcb` | Draft KiCad (experimental) |
+| `check` / `evolve` / `pipeline` / `reconstruct` | Ver Maturity Matrix |
 
 ---
 
-## Mercados
+## Mercados (realista)
 
-| Mercado | Problema | Solução B.A.S.E. |
-|---------|----------|-----------------|
-| 🏭 Preservação Industrial | ASICs de máquinas antigas param de ser fabricados | PCB + firmware compatível com componentes modernos |
-| 🔒 Forense / Segurança | Análise de firmware sem código fonte | HardwareSpec + Event Graph + Contratos |
-| 🎓 Educação / Pesquisa | Ferramentas didáticas para engenharia reversa | Pipeline visual (DOT/Mermaid) + métrica formal Ψ |
-| ☁️ SaaS | PMEs sem engenheiro de firmware | Análise como serviço (envia firmware, recebe design) |
+| Mercado | Papel v0.2 |
+|---------|------------|
+| Forense / segurança | **Wedge principal** — Evidence + contratos + design |
+| Educação / pesquisa | Pipeline visual + Ψ |
+| Preservação industrial | Consultoria humana + tool assist — não turnkey |
+| SaaS PME | Depois do piloto Path to Real (R6) |
 
-Mais detalhes em [`COMMERCIAL.md`](COMMERCIAL.md).
+Detalhes: [`COMMERCIAL.md`](COMMERCIAL.md).
 
 ---
 
@@ -128,4 +143,4 @@ Mais detalhes em [`COMMERCIAL.md`](COMMERCIAL.md).
 
 AGPLv3 — [LICENSE.md](LICENSE.md)
 
-Para uso proprietário sem compartilhamento de modificações, licença comercial disponível.
+Uso proprietário sem compartilhar modificações: licença comercial disponível.

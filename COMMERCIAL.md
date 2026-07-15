@@ -1,10 +1,13 @@
 # B.A.S.E. — Estratégia Comercial
 
 > [README.md](README.md) · [LICENSE.md](LICENSE.md) · **Estratégia Comercial**
+>
+> **Nota v0.2 (Path to Real):** ofertas abaixo distinguem o que o software entrega
+> sozinho vs. o que exige engenheiro humano. Claims de “PCB drop-in” / “ASIC substituído”
+> estão **arquivados** até o piloto R6 e aceite de cliente industrial.
 
-> *Behavioral ASIC Synthesis Engine*
-> Licença: AGPLv3 — uso comercial permitido, modificações devem ser compartilhadas.
-> Para uso proprietário sem compartilhamento: licença comercial disponível.
+> Licença: AGPLv3 — uso comercial permitido; modificações em serviço de rede devem ser compartilhadas.
+> Uso proprietário fechado: licença comercial (consultar).
 
 ---
 
@@ -14,147 +17,92 @@
 |-----|---------|-------|
 | Open source / pesquisa | AGPLv3 | Gratuito |
 | Empresa ≤ 10 funcionários | AGPLv3 | Gratuito |
-| Empresa > 10 funcionários (uso interno) | AGPLv3 | Gratuito (modificações devem ser públicas) |
-| **Produto proprietário** (incorporar B.A.S.E. em produto fechado) | **Comercial** | **Consultar** |
-| **Serviço gerenciado** (B.A.S.E. como backend SaaS) | **Comercial** | **Consultar** |
-
-A AGPLv3 exige que modificações sejam distribuídas para usuários da rede. Para empresas que querem usar B.A.S.E. internamente sem publicar modificações, a licença AGPLv3 padrão já cobre — o requisito de compartilhamento só se aplica se o software for **disponibilizado como serviço de rede**.
+| Empresa > 10 funcionários (uso interno) | AGPLv3 | Gratuito (modificações públicas se serviço de rede) |
+| **Produto proprietário** | **Comercial** | **Consultar** |
+| **Serviço gerenciado (SaaS)** | **Comercial** | **Consultar** |
 
 ---
 
-## Mercado 1 — Preservação Industrial
+## Mercado 1 — Forense / Segurança (**wedge atual**)
 
 ### Problema
-Máquinas industriais com 20-40 anos de vida útil têm ASICs que param de ser fabricados. Quando o ASIC queima, a máquina para. Fabricante original não existe mais.
+Analisar firmware embedded sem código-fonte: IoT, roteadores, sensores.
 
-### Solução B.A.S.E.
-```bash
-base pipeline firmware_do_ASIC.bin --disasm -o replacement_pcb/
-# → PCB compatível com componentes modernos
-# → Firmware sintético (HAL + drivers)
-# → BOM com componentes disponíveis
-```
-
-### Clientes típicos
-- Indústria automotiva (ECUs, sensores)
-- Máquinas CNC / robótica
-- Equipamentos médicos
-- Automação industrial
-- Aviação / defesa (sistemas legados)
-
-### Precificação
-| Serviço | Preço |
-|---------|-------|
-| Análise de firmware + relatório de viabilidade | R$ 5.000 |
-| Port completo (PCB + firmware + validação) | R$ 30.000 — 150.000 |
-| Contrato de suporte anual (atualizações de BOM) | R$ 10.000/ano |
-
----
-
-## Mercado 2 — Forense / Segurança
-
-### Problema
-Analistas de segurança precisam entender o comportamento de firmware de IoT, roteadores, câmeras, e dispositivos embedded sem acesso ao código fonte.
-
-### Solução B.A.S.E.
+### O que B.A.S.E. entrega hoje
 ```bash
 base analyze firmware.bin --disasm --dot -o analysis/
-# → HardwareSpec com blocos funcionais
-# → Event Graph causal (WRITE → DMA → IRQ)
-# → Evidence DB com fatos observados
-# → Contratos temporais verificados via SMT
+base design analysis/hardware_spec.yaml -o analysis/design/
+base replay trace.csv --contracts contracts.yaml
+# → Evidence DB, HardwareSpec, Reference Design, violações de contrato
 ```
 
-### Clientes típicos
-- Equipes de Red Team / CTI
-- Laboratórios de IoT security
-- Fabricantes de hardware (auditoria de fornecedores)
-- Seguros cibernéticos (due diligence)
+### Não inclui (ainda)
+- Prova criminal “pronta para tribunal” sem revisão humana
+- Z3 formal em todas as builds (simbólico default; Z3 opcional)
 
-### Precificação
+### Precificação orientativa
 | Serviço | Preço |
 |---------|-------|
-| Análise forense de firmware (por dispositivo) | R$ 8.000 |
-| Scan contínuo de firmware (assinatura mensal, 50 dispositivos/mês) | R$ 15.000/mês |
-| Integração B.A.S.E. + SIEM / SOAR | R$ 30.000 |
+| Análise + relatório de viabilidade | R$ 5.000 — 8.000 |
+| Scan / assinatura (quando SaaS existir) | sob proposta |
+
+---
+
+## Mercado 2 — Preservação Industrial (**consultoria + tool**)
+
+### Problema
+ASICs legados sem reposição.
+
+### Posicionamento honesto
+B.A.S.E. **acelera** diagnóstico e Reference Design. Port completo (PCB fabricável + FW em silício + certificação) é **projeto de engenharia** com humanos no loop — não um botão `pipeline`.
+
+```bash
+base analyze firmware.bin --disasm -o study/
+base design study/hardware_spec.yaml -o study/design/
+# → insumos para engenheiro; PCB gerado = engineering draft
+```
+
+### Precificação orientativa
+| Serviço | Preço |
+|---------|-------|
+| Análise + relatório de viabilidade | R$ 5.000 |
+| Port completo (time humano + tool) | R$ 30.000 — 150.000 |
+| Suporte anual BOM | R$ 10.000/ano |
 
 ---
 
 ## Mercado 3 — Educação / Pesquisa
 
-### Problema
-Cursos de engenharia reversa, arquitetura de computadores e sistemas embarcados precisam de ferramentas didáticas que mostrem a **essência** do hardware.
+### Solução
+Pipeline visual (DOT/Mermaid), contratos, métrica Ψ — ver [examples/pilot](examples/pilot/).
 
-### Solução B.A.S.E.
-```bash
-# Alunos podem:
-base analyze firmware.bin --disasm --dot -o lab/
-# → Visualizar o grafo comportamental
-# → Entender a relação entre firmware e hardware
-# → Modificar o firmware e ver como a análise muda
-```
-
-### Clientes típicos
-- Universidades (engenharia da computação, ciência da computação)
-- Cursos técnicos de eletrônica
-- Bootcamps de segurança
-- Pesquisadores de paleocomputação
-
-### Precificação
 | Serviço | Preço |
 |---------|-------|
-| Licença educacional (por instituição, 50 alunos) | R$ 5.000/ano |
-| Kit didático (B.A.S.E. + exemplos + apostila) | R$ 15.000 |
-| Workshop presencial (2 dias) | R$ 20.000 |
+| Licença educacional (instituição) | R$ 5.000/ano |
+| Workshop 2 dias | R$ 20.000 |
 
 ---
 
-## Mercado 4 — Serviço Gerenciado (SaaS)
+## Mercado 4 — SaaS (**depois do R6**)
 
-### Problema
-Pequenas e médias empresas não têm engenheiro de firmware especializado, mas precisam de análise de hardware.
-
-### Solução B.A.S.E.
-```text
-Cliente envia firmware.zip
-              ↓
-Plataforma B.A.S.E. Cloud
-              ↓
-Relatório entregue em 24h:
-  → hardware_spec.yaml
-  → reference_design.yaml
-  → BOM com componentes disponíveis
-  → Relatório de tensão Ψ
-```
-
-### Precificação
-| Plano | Preço | Inclui |
-|-------|-------|--------|
-| **Starter** — 1 análise/mês | R$ 500/mês | HardwareSpec + BOM |
-| **Professional** — 10 análises/mês | R$ 3.000/mês | + PCB + firmware |
-| **Enterprise** — ilimitado | R$ 15.000/mês | + Suporte prioritário + SLA 24h |
+Adiado até existir piloto documentado e Maturity Matrix estável.
+Não vender “PCB + firmware prontos” no plano Starter.
 
 ---
 
-## Canais de Venda
+## Canais
 
-| Canal | Como |
+| Canal | Foco |
 |-------|------|
-| **GitHub Sponsors** | Doações recorrentes para desenvolvimento open source |
-| **Parcerias com faculdades** | Licenciar para laboratórios de engenharia |
-| **LinkedIn / Twitter** | Demonstrar casos de uso com hardwares reais (Power Mac, Amiga, etc.) |
-| **Eventos de segurança** | BHack, Defcon, YSTS — show de reverse engineering |
-| **Indicação** | Programa de afiliados para engenheiros que indicarem clientes |
+| GitHub / vault Obsidian | Transparência técnica |
+| Eventos de segurança | Demo forense com piloto |
+| Parcerias acadêmicas | Ψ + paleocomputação |
+| Cases G5 / Xbox / Alpha | Pesquisa — **não** claim de produto |
 
 ---
 
-## Próximo Passo Imediato
+## Próximo passo imediato
 
-```bash
-# 1. Adicionar badge de licença e contato comercial no README
-# 2. Criar landing page (paleocomputacao.com.br)
-# 3. Primeiro case study: Amiga CD32 ou Power Mac G5
-# 4. Publicar no crates.io
-```
-
-Quer que eu implemente algum desses passos?
+1. Executar Path to Real R0–R6 (`base-vault/12 - Path to Real/`)
+2. Publicar case study do wedge MCU ARM
+3. Só então reabrir pricing SaaS / port turnkey

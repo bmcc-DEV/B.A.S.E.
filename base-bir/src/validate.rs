@@ -44,9 +44,12 @@ impl BirDevice {
             }
         }
 
-        // 4. Verificar contratos referenciam eventos existentes
-        let event_names: std::collections::HashSet<&str> =
+        // 4. Verificar contratos referenciam eventos OU interrupções existentes
+        let mut event_names: std::collections::HashSet<&str> =
             self.events.iter().map(|e| e.name.as_str()).collect();
+        for irq in &self.interrupts {
+            event_names.insert(irq.name.as_str());
+        }
 
         for contract in &self.contracts {
             for order in &contract.must_occur_before {

@@ -54,6 +54,36 @@ fn parse_num(tokens: &[String], pos: &mut usize) -> Result<u64, BslError> {
     } else { Err(BslError::ParseError("Expected number".into())) }
 }
 
+/// Parse `5us`, `5 us`, `5000ns`, `2ms` → nanoseconds.
+fn parse_duration_ns(tokens: &[String], pos: &mut usize) -> Result<u64, BslError> {
+    if *pos >= tokens.len() {
+        return Err(BslError::ParseError("Expected duration".into()));
+    }
+    let tok = tokens[*pos].clone();
+    *pos += 1;
+    let digits: String = tok.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let suffix_in_tok: String = tok.chars().skip_while(|c| c.is_ascii_digit()).collect();
+    let val: u64 = digits
+        .parse()
+        .map_err(|_| BslError::ParseError(format!("Invalid duration: {}", tok)))?;
+    let unit = if !suffix_in_tok.is_empty() {
+        suffix_in_tok
+    } else if *pos < tokens.len()
+        && matches!(tokens[*pos].as_str(), "ns" | "us" | "ms")
+    {
+        let u = tokens[*pos].clone();
+        *pos += 1;
+        u
+    } else {
+        "ns".into()
+    };
+    Ok(match unit.as_str() {
+        "us" => val.saturating_mul(1_000),
+        "ms" => val.saturating_mul(1_000_000),
+        _ => val,
+    })
+}
+
 fn is_hex(s: &str) -> bool { s.starts_with("0x") || s.starts_with("0X") }
 
 pub fn compile(source: &str) -> Result<BirDevice, BslError> {
@@ -116,18 +146,28 @@ pub fn compile(source: &str) -> Result<BirDevice, BslError> {
             }
             "interrupts" => {
                 pos += 1; expect(&tokens, &mut pos, "{")?;
-                let mut vec = 1u8;
+                let mut auto_vec = 1u8;
                 while pos < tokens.len() && tokens[pos] != "}" {
                     let irqn = parse_name(&tokens, &mut pos)?;
                     expect(&tokens, &mut pos, ":")?;
                     let _typ = tokens[pos].clone(); pos += 1;
                     let pol = tokens[pos].clone(); pos += 1;
+                    // Optional numeric vector: `UART_IRQ: level high 16;`
+                    let vector = if pos < tokens.len() && tokens[pos].chars().all(|c| c.is_ascii_digit()) {
+                        let v = parse_num(&tokens, &mut pos)? as u8;
+                        auto_vec = v.saturating_add(1);
+                        v
+                    } else {
+                        let v = auto_vec;
+                        auto_vec = auto_vec.saturating_add(1);
+                        v
+                    };
                     expect(&tokens, &mut pos, ";")?;
                     device.interrupts.push(BirInterrupt {
-                        name: irqn, vector: vec, irq_type: IrqType::Level,
+                        name: irqn, vector,
+                        irq_type: IrqType::Level,
                         polarity: if pol == "high" { IrqPolarity::High } else { IrqPolarity::Low },
                     });
-                    vec += 1;
                 }
                 if pos < tokens.len() { pos += 1; }
             }
@@ -159,10 +199,7 @@ pub fn compile(source: &str) -> Result<BirDevice, BslError> {
                         contract.must_occur_before.push(CausalOrder { event_a: a, event_b: b, max_delta_ns: None });
                     } else if tokens[pos] == "window" {
                         pos += 1; expect(&tokens, &mut pos, ":")?;
-                        let val = parse_num(&tokens, &mut pos)?;
-                        let unit = if pos < tokens.len() { tokens[pos].clone() } else { "ns".into() };
-                        if pos < tokens.len() && (tokens[pos] == "ns" || tokens[pos] == "us" || tokens[pos] == "ms") { pos += 1; }
-                        contract.window_ns = Some(match unit.as_str() { "us" => val * 1000, "ms" => val * 1_000_000, _ => val });
+                        contract.window_ns = Some(parse_duration_ns(&tokens, &mut pos)?);
                         expect(&tokens, &mut pos, ";")?;
                     } else {
                         let ev = parse_name(&tokens, &mut pos)?;
@@ -205,6 +242,14 @@ mod tests {
         let dev = compile(src).expect("Should compile with contract");
         assert_eq!(dev.contracts.len(), 1);
         assert_eq!(dev.contracts[0].must_occur_before.len(), 1);
+        assert_eq!(dev.contracts[0].window_ns, Some(10_000));
+    }
+
+    #[test]
+    fn test_parse_duration_glued_unit() {
+        let t = tokenize("5us ;");
+        let mut pos = 0;
+        assert_eq!(parse_duration_ns(&t, &mut pos).unwrap(), 5_000);
     }
 
     #[test]

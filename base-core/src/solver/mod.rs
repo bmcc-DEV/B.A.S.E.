@@ -94,20 +94,40 @@ pub fn verify_contract(comp: &ComponentEntry, req: &ContractRequirement) -> Cont
             let has = match name.as_str() {
                 "dma" => comp.features.peripherals.get("dma").copied().unwrap_or(0) > 0,
                 "mmio" => true, // todo MCU tem MMIO
-                "interrupt" => comp.features.peripherals.get("dma").is_some() // heuristic
-                    || comp.features.cpu.is_some(),
+                "interrupt" => matches!(
+                    comp.category,
+                    ComponentCategory::Mcu | ComponentCategory::Cpu | ComponentCategory::Fpga
+                ) || comp.features.cpu.is_some(),
                 _ => false,
             };
             (has, if has { format!("has {}", name) } else { format!("missing {}", name) })
         }
         ContractParam::Count { name, min } => {
             let count = match name.as_str() {
-                "gpio" => comp.pins.as_ref().map_or(0, |p| p.len() as u32),
+                "gpio" => match &comp.pins {
+                    Some(pins) => pins.len() as u32,
+                    // Pinout omitido no YAML: MCU/CPU tipicamente cobrem UART/SPI GPIO
+                    None if matches!(
+                        comp.category,
+                        ComponentCategory::Mcu | ComponentCategory::Cpu
+                    ) =>
+                    {
+                        32
+                    }
+                    None => 0,
+                },
                 "dma_channels" => comp.features.peripherals.get("dma").copied().unwrap_or(0),
                 _ => 0,
             };
             let ok = count >= *min;
-            (ok, if ok { format!("{} >= {}", count, min) } else { format!("{} < {}", count, min) })
+            (
+                ok,
+                if ok {
+                    format!("{} >= {} ({})", count, min, comp.part)
+                } else {
+                    format!("{} < {} ({})", count, min, comp.part)
+                },
+            )
         }
         ContractParam::Numeric { name, min, max } => {
             let val = match name.as_str() {

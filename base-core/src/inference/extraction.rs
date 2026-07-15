@@ -1,7 +1,8 @@
 use crate::spec::types::{AccessType, BlockKind, Register, RegisterPurpose};
+use serde::{Deserialize, Serialize};
 
 /// Dados brutos de um acesso MMIO (entrada para inferência)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MmioAccess {
     pub address: u64,
     pub value: Option<u64>,
@@ -10,7 +11,8 @@ pub struct MmioAccess {
     pub instruction_addr: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum MmioAccessType {
     Read,
     Write,

@@ -145,11 +145,14 @@ pub fn analyze_with_disasm(data: &[u8]) -> Vec<MmioAccess> {
 
 /// Fallback: scan heurístico de bytes brutos (funciona em qualquer binário)
 fn heuristic_scan(data: &[u8]) -> Vec<MmioAccess> {
+    tracing::warn!(
+        "Falling back to heuristic MMIO scan ({} bytes) — prefer --mmio-traces or richer Capstone hits",
+        data.len()
+    );
     let mut accesses = Vec::new();
     for chunk in data.chunks(4) {
         if chunk.len() == 4 {
             let val = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-            // Procura valores que parecem endereços MMIO
             if is_likely_mmio(val) {
                 accesses.push(MmioAccess {
                     address: val as u64,
@@ -163,6 +166,7 @@ fn heuristic_scan(data: &[u8]) -> Vec<MmioAccess> {
     }
     accesses.truncate(500);
     accesses.dedup_by_key(|a| a.address);
+    tracing::warn!("Heuristic MMIO candidates: {}", accesses.len());
     accesses
 }
 
@@ -220,17 +224,48 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_with_disasm_empty() {
+    fn test_analyze_empty_no_crash() {
         let accesses = analyze_with_disasm(&[]);
-        assert!(accesses.is_empty() || accesses.len() > 0);
+        assert!(accesses.is_empty());
+    }
+
+    #[test]
+    fn test_analyze_no_mmio_binary() {
+        // Pure zeros / random small — should not panic
+        let data = vec![0u8; 64];
+        let accesses = analyze_with_disasm(&data);
+        assert!(accesses.len() <= 500);
     }
 
     #[test]
     fn test_disasm_arm64_binary() {
-        // ARM64: add x0, x0, #1; ret
         let data = vec![0x00, 0x04, 0x00, 0x91, 0xC0, 0x03, 0x5F, 0xD6];
-        let accesses = analyze_with_disasm(&data);
-        // Should not crash, might find nothing (small test binary)
-        let _ = accesses;
+        let _ = analyze_with_disasm(&data);
+    }
+
+    #[test]
+    fn test_strip_dhtb_header() {
+        let mut data = vec![0u8; 0x220];
+        data[0..4].copy_from_slice(b"DHTB");
+        data[0x200..0x204].copy_from_slice(&[0xC0, 0x03, 0x5F, 0xD6]);
+        let clean = strip_headers(&data);
+        assert_eq!(clean.len(), 0x20);
+        assert_eq!(&clean[0..4], &[0xC0, 0x03, 0x5F, 0xD6]);
+    }
+
+    #[test]
+    fn test_strip_android_header() {
+        let mut data = vec![0u8; 2000];
+        data[0..8].copy_from_slice(b"ANDROID!");
+        let clean = strip_headers(&data);
+        assert_eq!(clean.len(), 2000 - 1648);
+    }
+
+    #[test]
+    fn test_strip_mtk_header() {
+        let mut data = vec![0u8; 64];
+        data[0..4].copy_from_slice(&[0xA0, 0x0A, 0x1A, 0x00]);
+        let clean = strip_headers(&data);
+        assert_eq!(clean.len(), 32);
     }
 }

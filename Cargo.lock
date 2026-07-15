@@ -185,6 +185,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base-bir",
+ "base-bsl",
  "base-check",
  "base-core",
  "base-evolve",
@@ -205,6 +206,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base-bir",
+ "base-bsl",
  "good_lp",
  "hex",
  "serde",

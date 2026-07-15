@@ -79,6 +79,35 @@ impl EvidenceDb {
         }
     }
 
+    /// Constrói Evidence DB a partir de acessos MMIO observados (fatos puros).
+    pub fn from_mmio_accesses(
+        accesses: &[crate::inference::extraction::MmioAccess],
+        source: &str,
+    ) -> Self {
+        use crate::inference::extraction::MmioAccessType;
+        let mut db = Self::new(source);
+        for (i, a) in accesses.iter().enumerate() {
+            let evidence_type = match a.access_type {
+                MmioAccessType::Write => EvidenceType::MmioWrite {
+                    address: a.address,
+                    value: a.value,
+                },
+                MmioAccessType::Read => EvidenceType::MmioRead {
+                    address: a.address,
+                },
+            };
+            let mut context = HashMap::new();
+            context.insert("function".into(), a.function_name.clone());
+            context.insert("instr".into(), format!("0x{:x}", a.instruction_addr));
+            db.add(EvidenceEntry {
+                id: format!("mmio_{}", i),
+                evidence_type,
+                context,
+            });
+        }
+        db
+    }
+
     pub fn add(&mut self, entry: EvidenceEntry) {
         self.entries.push(entry);
     }

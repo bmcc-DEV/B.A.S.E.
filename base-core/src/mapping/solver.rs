@@ -6,6 +6,8 @@ pub struct ConstraintSet {
     pub timing: TimingConstraint,
     pub pinout: PinoutConstraint,
     pub power: PowerConstraint,
+    /// Peripheral key no component DB a favorecer (ex.: "uart")
+    pub preferred_peripheral: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,12 +70,26 @@ pub fn extract_constraints(block: &FunctionalBlock, spec: &HardwareSpec) -> Cons
         package_preference: None,
     };
 
+    let preferred_peripheral = match block.kind {
+        crate::spec::types::BlockKind::Uart => Some("uart".into()),
+        crate::spec::types::BlockKind::Spi => Some("spi".into()),
+        crate::spec::types::BlockKind::I2c => Some("i2c".into()),
+        crate::spec::types::BlockKind::Usb => Some("usb".into()),
+        crate::spec::types::BlockKind::Dma => Some("dma".into()),
+        _ => None,
+    };
+
     let power = PowerConstraint {
         max_watts: spec.constraints.max_power_watts.max(1.0),
         voltage_rails: vec!["3.3V".into(), "1.8V".into()],
     };
 
-    ConstraintSet { timing, pinout, power }
+    ConstraintSet {
+        timing,
+        pinout,
+        power,
+        preferred_peripheral,
+    }
 }
 
 /// Verifica se um componente satisfaz as constraints
@@ -110,18 +126,61 @@ pub fn check_constraints(
         scores.push(if iface_ok { 1.0 } else { 0.0 });
     }
 
-    // GPIO count
-    let gpio_count = component.pins.as_ref().map_or(0, |p| p.len() as u32);
-    let gpio_ok = gpio_count >= constraints.pinout.min_gpio;
-    satisfied &= gpio_ok;
-    scores.push(if gpio_ok { 1.0 } else { (gpio_count as f64 / constraints.pinout.min_gpio as f64).min(0.5) });
+    // GPIO count — se o YAML do componente não tem pinout, não invalida o match
+    match &component.pins {
+        Some(pins) => {
+            let gpio_count = pins.len() as u32;
+            let gpio_ok = gpio_count >= constraints.pinout.min_gpio;
+            satisfied &= gpio_ok;
+            scores.push(if gpio_ok {
+                1.0
+            } else {
+                (gpio_count as f64 / constraints.pinout.min_gpio.max(1) as f64).min(0.5)
+            });
+        }
+        None => {
+            // Pinout ausente: MCU/CPU assumem GPIO suficiente; FPGA fica neutro
+            match component.category {
+                ComponentCategory::Mcu | ComponentCategory::Cpu => scores.push(0.85),
+                _ => scores.push(0.55),
+            }
+        }
+    }
 
-    let match_score = if scores.is_empty() { 0.5 } else { scores.iter().sum::<f64>() / scores.len() as f64 };
+    // Preferência por peripheral (uart/spi/…)
+    if let Some(ref pref) = constraints.preferred_peripheral {
+        if component.features.peripherals.get(pref).copied().unwrap_or(0) > 0 {
+            scores.push(1.0);
+        } else {
+            scores.push(0.35);
+        }
+    }
+
+    // Preferência de categoria: MCU > CPU > FPGA para blocos lógicos
+    scores.push(match component.category {
+        ComponentCategory::Mcu => 0.95,
+        ComponentCategory::Cpu => 0.8,
+        ComponentCategory::Fpga => 0.45,
+        _ => 0.5,
+    });
+
+    let match_score = if scores.is_empty() {
+        0.5
+    } else {
+        (scores.iter().sum::<f64>() / scores.len() as f64).clamp(0.0, 1.0)
+    };
+
+    let mut interface = infer_interface(component, &constraints.pinout.required_interfaces);
+    if let Some(ref pref) = constraints.preferred_peripheral {
+        if component.features.peripherals.contains_key(pref) {
+            interface = pref.clone();
+        }
+    }
 
     SolvedAssignment {
         block_id: String::new(),
         component: component.clone(),
-        interface: infer_interface(component, &constraints.pinout.required_interfaces),
+        interface,
         match_score,
         constraint_satisfied: satisfied,
     }
@@ -134,7 +193,7 @@ fn infer_interface(component: &ComponentEntry, required: &[String]) -> String {
         }
     }
     match component.category {
-        ComponentCategory::Mcu => "spi".into(),
+        ComponentCategory::Mcu => "uart".into(),
         ComponentCategory::Cpu => "memory_bus".into(),
         ComponentCategory::Connectivity => "spi".into(),
         ComponentCategory::Audio => "i2c".into(),

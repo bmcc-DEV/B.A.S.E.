@@ -1,6 +1,6 @@
 ---
 created: 2024-07-12
-updated: 2024-07-12
+updated: 2026-07-15
 tags:
   - index
   - base
@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**154 testes · 13 crates · Pipeline completo · 3 gerações de arquitetura**
+**Path to Real ativo · [[12 - Path to Real/12.00 - Index|Seção 12]] · Maturity Matrix em [[12 - Path to Real/12.02 - Maturity Matrix|12.02]]**
 
 ```mermaid
 flowchart LR
@@ -42,6 +42,8 @@ flowchart LR
 | [[09 - B.A.S.E. v2 Expansion/09.00 - Index\|🧬 v2]] | Universal HW Reconstruction (12 fases) |
 | [[10 - B.A.S.E. v3.1 Evidence-Driven/10.00 - Index\|🔬 v3.1]] | Evidence-Driven Architecture |
 | [[11 - B.A.S.E. v3.2 Scientific/11.00 - Index\|⚛ v3.2]] | Scientific Evolution |
+| [[12 - Path to Real/12.00 - Index\|🛤️ Path to Real]] | Plano para tornar o produto auditável (R0–R6) |
+| [[12 - Path to Real/12.01 - Master Plan\|📌 Master Plan]] | Norte v0.2 + métricas + anti-overclaim |
 
 ## Crates
 

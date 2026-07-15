@@ -1,0 +1,9 @@
+flowchart LR
+    evuart_init_to_irq_1_0[WRITE 0x40034000 = 1, 0ns]
+    evuart_init_to_irq_1_1[READ 0x40034004, 150ns]
+    evuart_init_to_irq_1_2[/IRQ 0x10, 500ns/]
+    evuart_init_to_irq_1_0 -->|150ns| evuart_init_to_irq_1_1
+    evuart_init_to_irq_1_1 -->|350ns| evuart_init_to_irq_1_2
+    evuart_tx_byte_1_0[WRITE 0x40034000 = 65, 1000ns]
+    evuart_tx_byte_1_1[/IRQ 0x10, 1200ns/]
+    evuart_tx_byte_1_0 -->|200ns| evuart_tx_byte_1_1

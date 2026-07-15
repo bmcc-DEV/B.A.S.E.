@@ -10,6 +10,17 @@
 *.kicad_prl
 *.kicad_pcb-bak
 
-*Firmware.zip
+# Large / non-source blobs (keep out of git)
+Firmware.zip
+**/Firmware.zip
+*.zip
+!**/fixtures/**/*.zip
+PaleoComputação.pdf
 *.pdf
 
+# Pilot ephemeral outputs
+examples/pilot/out/
+
+# Build / IDE
+**/*.elf
+**/firmware_host
