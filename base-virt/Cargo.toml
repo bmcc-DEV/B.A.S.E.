@@ -14,6 +14,7 @@ thiserror = "2"
 tracing = "0.1"
 base-core = { path = "../base-core" }
 base-vm = { path = "../base-vm" }
+base-bir = { path = "../base-bir" }
 
 [lib]
 name = "base_virt"

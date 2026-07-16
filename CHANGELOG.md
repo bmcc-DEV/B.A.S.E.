@@ -7,6 +7,8 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 ### Added
 - **Path to v1.6 F0** — Twin↔guest (`base virt twin`) + vault `26 - Path to v1.6/`
 - Spec stub MAME `hardware_spec_mame_stub.yaml` (`0xA00000`) alinhado ao sample
+- **F1** BIR DigitalTwin replay — `base virt bir-twin`
+- **F2** QMP `savevm`/`loadvm`/`probe-savevm` via human-monitor-command
 
 ### Added (pré-v1.5, já em main)
 - Módulo `base-core::honesty` · filogenia / StratAlign / paleo · `base-port` platform DTB

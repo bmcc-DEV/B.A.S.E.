@@ -463,13 +463,17 @@ pub enum VirtCommand {
         #[arg(long)]
         socket: PathBuf,
 
-        /// Command: stop | cont | status | inject-nmi | reset | quit | probe | raw
+        /// Command: stop | cont | status | inject-nmi | reset | quit | probe | savevm | loadvm | probe-savevm | raw
         #[arg(default_value = "status")]
         cmd: String,
 
         /// JSON for `raw` (e.g. '{"execute":"query-status"}')
         #[arg(long)]
         raw: Option<String>,
+
+        /// Snapshot tag for savevm/loadvm/probe-savevm (default: base_snap)
+        #[arg(long, default_value = "base_snap")]
+        tag: String,
     },
 
     /// Study↔Live (E4): Forth OBSERVE/SCORE/REFINE over NDJSON/Evidence (+ optional QMP gate)
@@ -504,6 +508,19 @@ pub enum VirtCommand {
         /// Evidence YAML or NDJSON (guest)
         #[arg(long)]
         evidence: PathBuf,
+    },
+
+    /// BIR DigitalTwin replay from Spec+Evidence (v1.6 F1)
+    BirTwin {
+        #[arg(long)]
+        spec: PathBuf,
+
+        #[arg(long)]
+        evidence: PathBuf,
+
+        /// Optional FunctionalBlock id (default: first block)
+        #[arg(long)]
+        block: Option<String>,
     },
 }
 

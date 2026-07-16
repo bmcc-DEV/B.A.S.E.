@@ -1,8 +1,9 @@
 //! Specter Live — VM comportamental (QEMU primário).
 //!
-//! Ingest → Ψ → study · Plugin/QMP · TraceSource · Twin↔guest (v1.6).
+//! Ingest → Ψ → study · Plugin/QMP · TraceSource · Twin↔guest · BIR twin (v1.6).
 //! ≠ OS turnkey · ≠ HIL production.
 
+pub mod bir_bridge;
 pub mod live;
 pub mod qemu;
 pub mod qmp;
@@ -12,12 +13,13 @@ pub mod study_live;
 pub mod trace;
 pub mod twin_guest;
 
+pub use bir_bridge::{replay_bir_twin, spec_block_to_bir, BirTwinReplayReport};
 pub use live::{run_live_windows, LiveConfig, LiveWindowScore};
 pub use qemu::{
     format_plugin_cli, launch_qemu, resolve_qemu_bin, spawn_qemu_live, QemuLaunchOpts,
     QemuLaunchResult, QemuLiveSession,
 };
-pub use qmp::{probe_session, QmpClient, QmpError};
+pub use qmp::{probe_savevm, probe_session, QmpClient, QmpError};
 pub use session::{VirtSessionReport, VirtSessionWindow};
 pub use source::{
     ingest_libretro, ingest_mame, ingest_path_with_format, ingest_with_format, LibretroSource,

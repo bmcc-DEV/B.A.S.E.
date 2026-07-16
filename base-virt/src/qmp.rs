@@ -132,6 +132,30 @@ impl QmpClient {
         self.execute("quit", None)
     }
 
+    /// HMP passthrough (savevm/loadvm and friends).
+    pub fn human_monitor(&mut self, command_line: &str) -> Result<Value, QmpError> {
+        self.execute(
+            "human-monitor-command",
+            Some(json!({ "command-line": command_line })),
+        )
+    }
+
+    /// Snapshot save via HMP `savevm TAG`.
+    pub fn savevm(&mut self, tag: &str) -> Result<Value, QmpError> {
+        self.human_monitor(&format!("savevm {tag}"))
+    }
+
+    /// Snapshot load via HMP `loadvm TAG`.
+    pub fn loadvm(&mut self, tag: &str) -> Result<Value, QmpError> {
+        self.human_monitor(&format!("loadvm {tag}"))
+    }
+
+    /// Optional: QEMU `inject-nmi` already exists; soft IRQ inject via HMP when supported.
+    pub fn inject_irq_hmp(&mut self, irq: u32) -> Result<Value, QmpError> {
+        // Best-effort; many machines ignore this — report QMP error to caller.
+        self.human_monitor(&format!("irq {irq}"))
+    }
+
     pub fn close(self) {
         let _ = self.writer.shutdown(Shutdown::Both);
     }
@@ -153,6 +177,29 @@ pub fn probe_session(path: &Path) -> Result<Value, QmpError> {
         "generates_os": false,
         "auto_fix_complete": false,
         "honesty": base_core::HONESTY_NOTE,
+    }))
+}
+
+/// Probe F2: stop → savevm → loadvm → cont (requer guest com snapshot support).
+pub fn probe_savevm(path: &Path, tag: &str) -> Result<Value, QmpError> {
+    let mut c = QmpClient::connect_unix_wait(path, Duration::from_secs(10))?;
+    let _ = c.stop()?;
+    let save = c.savevm(tag);
+    let load = if save.is_ok() {
+        c.loadvm(tag)
+    } else {
+        Err(QmpError::Protocol("savevm failed".into()))
+    };
+    let _ = c.cont();
+    Ok(json!({
+        "ok": save.is_ok() && load.is_ok(),
+        "tag": tag,
+        "savevm": save.as_ref().map(|v| v.clone()).unwrap_or_else(|e| json!({"error": e.to_string()})),
+        "loadvm": load.as_ref().map(|v| v.clone()).unwrap_or_else(|e| json!({"error": e.to_string()})),
+        "generates_os": false,
+        "auto_fix_complete": false,
+        "honesty": base_core::HONESTY_NOTE,
+        "note": "savevm/loadvm via human-monitor-command — machine-dependent",
     }))
 }
 

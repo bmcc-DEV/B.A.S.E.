@@ -292,6 +292,7 @@ name = "base-virt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base-bir",
  "base-core",
  "base-vm",
  "serde",

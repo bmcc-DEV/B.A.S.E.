@@ -1877,11 +1877,24 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                 session.qemu_exit
             );
         }
-        VirtCommand::Qmp { socket, cmd, raw } => {
+        VirtCommand::Qmp {
+            socket,
+            cmd,
+            raw,
+            tag,
+        } => {
             match cmd.as_str() {
                 "probe" => {
                     let probe = base_virt::probe_session(socket)?;
                     fs::write(output.join("qmp_probe.json"), serde_json::to_string_pretty(&probe)?)?;
+                    println!("{}", serde_json::to_string_pretty(&probe)?);
+                }
+                "probe-savevm" => {
+                    let probe = base_virt::probe_savevm(socket, tag)?;
+                    fs::write(
+                        output.join("qmp_savevm_probe.json"),
+                        serde_json::to_string_pretty(&probe)?,
+                    )?;
                     println!("{}", serde_json::to_string_pretty(&probe)?);
                 }
                 "raw" => {
@@ -1914,8 +1927,10 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                         "inject-nmi" | "nmi" => c.inject_nmi()?,
                         "reset" => c.system_reset()?,
                         "quit" => c.quit()?,
+                        "savevm" => c.savevm(tag)?,
+                        "loadvm" => c.loadvm(tag)?,
                         _ => anyhow::bail!(
-                            "unknown qmp cmd '{other}' (stop|cont|status|inject-nmi|reset|quit|probe|raw)"
+                            "unknown qmp cmd '{other}' (stop|cont|status|inject-nmi|reset|quit|probe|probe-savevm|savevm|loadvm|raw)"
                         ),
                     };
                     fs::write(output.join("qmp_response.json"), serde_json::to_string_pretty(&resp)?)?;
@@ -1993,6 +2008,38 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                 report.hits,
                 report.misses,
                 report.psi_confidence
+            );
+        }
+        VirtCommand::BirTwin {
+            spec,
+            evidence,
+            block,
+        } => {
+            let spec = HardwareSpec::from_yaml(&fs::read_to_string(spec)?)?;
+            let ev = base_virt::load_evidence_flexible(evidence)?;
+            let (bir, report) =
+                base_virt::replay_bir_twin(&spec, &ev, block.as_deref())?;
+            fs::write(output.join("bir_device.yaml"), bir.to_yaml()?)?;
+            fs::write(
+                output.join("bir_twin_report.json"),
+                serde_json::to_string_pretty(&report)?,
+            )?;
+            let md = format!(
+                "# BIR Twin replay (v1.6 F1)\n\n{}\n\n- device: {}\n- base: 0x{:x}\n- writes_applied: {}\n- writes_skipped: {}\n- twin_steps: {}\n- registers: {:?}\n- generates_os: false\n",
+                base_core::HONESTY_BANNER,
+                report.device_name,
+                report.base_address,
+                report.writes_applied,
+                report.writes_skipped,
+                report.twin_steps,
+                report.register_snapshot,
+            );
+            fs::write(output.join("CASE_SUMMARY_BIR_TWIN.md"), md)?;
+            tracing::info!(
+                "BIR twin: applied={} skipped={} regs={:?}",
+                report.writes_applied,
+                report.writes_skipped,
+                report.register_snapshot
             );
         }
     }
