@@ -1,0 +1,155 @@
+; engineering_draft — NOT FABRICABLE
+(kicad_sch "(version 20231121)" "(generator "base-pcb")")
+  (title_block
+    (title "engineering_draft — NOT FABRICABLE")
+    (date 2026-07-15)
+    (rev draft)
+    (company B.A.S.E.))
+  (symbol "(lib_id "power:GND")" "(at 0 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference #GND
+      (at "0 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (pin 1 "(xy 0 0)"))
+  (symbol "(lib_id "power:VCC_3V3")" "(at 200 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference #VCC_3V3
+      (at "200 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (pin 1 "(xy 200 0)"))
+  (symbol "(lib_id "power:VCC_5V")" "(at 400 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference #VCC_5V
+      (at "400 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (pin 1 "(xy 400 0)"))
+  (symbol "(lib_id "STMicroelectronics:STM32F103C8")" "(at 200 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference U1
+      (at "200 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Value STM32F103C8
+      (at "200 100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Footprint Package:STMicroelectronics:STM32F103C8
+      (at "200 200"))
+    (pin 25 "(xy 160 0)"
+      (name PB12))
+    (pin 26 "(xy 160 20)"
+      (name PB13))
+    (pin 27 "(xy 160 40)"
+      (name PB14))
+    (pin 28 "(xy 160 60)"
+      (name PB15)))
+  (label spi2_nss "(at 140 0)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label spi2_sck "(at 140 20)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label spi2_miso "(at 140 40)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label spi2_mosi "(at 140 60)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (symbol "(lib_id "STMicroelectronics:STM32F103C8")" "(at 400 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference U2
+      (at "400 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Value STM32F103C8
+      (at "400 100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Footprint Package:STMicroelectronics:STM32F103C8
+      (at "400 200"))
+    (pin 12 "(xy 360 0)"
+      (name PA2))
+    (pin 13 "(xy 360 20)"
+      (name PA3))
+    (pin 30 "(xy 360 40)"
+      (name PA9))
+    (pin 31 "(xy 360 60)"
+      (name PA10)))
+  (label usart2_tx "(at 340 0)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label usart2_rx "(at 340 20)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label usart1_tx "(at 340 40)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label usart1_rx "(at 340 60)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (symbol "(lib_id "STMicroelectronics:STM32F103C8")" "(at 600 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference U3
+      (at "600 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Value STM32F103C8
+      (at "600 100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Footprint Package:STMicroelectronics:STM32F103C8
+      (at "600 200"))
+    (pin 42 "(xy 560 0)"
+      (name PB6))
+    (pin 43 "(xy 560 20)"
+      (name PB7)))
+  (label i2c1_scl "(at 540 0)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label i2c1_sda "(at 540 20)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (net "(code 0)" "(name "GND")")
+  (net "(code 1)" "(name "I2C_DATA")")
+  (net "(code 2)" "(name "RegisterFile_40003_IRQ")")
+  (net "(code 3)" "(name "RegisterFile_40005_IRQ")")
+  (net "(code 4)" "(name "RegisterFile_40013_IRQ")")
+  (net "(code 5)" "(name "SPI_DATA")")
+  (net "(code 6)" "(name "UART_DATA")")
+  (net "(code 7)" "(name "VCC_3V3")")
+  (net "(code 8)" "(name "i2c1_scl")")
+  (net "(code 9)" "(name "i2c1_sda")")
+  (net "(code 10)" "(name "i2c_scl")")
+  (net "(code 11)" "(name "i2c_sda")")
+  (net "(code 12)" "(name "spi2_cs")")
+  (net "(code 13)" "(name "spi2_miso")")
+  (net "(code 14)" "(name "spi2_mosi")")
+  (net "(code 15)" "(name "spi2_nss")")
+  (net "(code 16)" "(name "spi2_rx")")
+  (net "(code 17)" "(name "spi2_sck")")
+  (net "(code 18)" "(name "spi2_tx")")
+  (net "(code 19)" "(name "uart0_rx")")
+  (net "(code 20)" "(name "uart0_tx")")
+  (net "(code 21)" "(name "usart1_rx")")
+  (net "(code 22)" "(name "usart1_tx")")
+  (net "(code 23)" "(name "usart2_rx")")
+  (net "(code 24)" "(name "usart2_tx")")

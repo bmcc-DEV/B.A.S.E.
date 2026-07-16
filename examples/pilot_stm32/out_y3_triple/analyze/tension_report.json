@@ -1,0 +1,53 @@
+{
+  "overall_tension": 0.334386,
+  "overall_confidence": 0.7494083421139011,
+  "compilatory_entropy": 0.8369882167858357,
+  "conclusiveness": "inconclusive",
+  "function_count": 12,
+  "instruction_count": 28,
+  "call_edge_count": 0,
+  "block_tensions": [
+    {
+      "block_id": "RegisterFile_40003",
+      "tension": 0.33438599999999996,
+      "confidence": 0.8170444171288954,
+      "conclusiveness": "inconclusive",
+      "components": {
+        "register_divergence": 0.25,
+        "access_divergence": 0.16666666666666663,
+        "timing_divergence": 0.4,
+        "structural_divergence": 0.1,
+        "function_evidence": 0.004093333333333333,
+        "block_weight": 0.5975
+      }
+    },
+    {
+      "block_id": "RegisterFile_40013",
+      "tension": 0.33438599999999996,
+      "confidence": 0.8170444171288954,
+      "conclusiveness": "inconclusive",
+      "components": {
+        "register_divergence": 0.25,
+        "access_divergence": 0.16666666666666663,
+        "timing_divergence": 0.4,
+        "structural_divergence": 0.1,
+        "function_evidence": 0.004093333333333333,
+        "block_weight": 0.5975
+      }
+    },
+    {
+      "block_id": "RegisterFile_40005",
+      "tension": 0.33438599999999996,
+      "confidence": 0.8170444171288954,
+      "conclusiveness": "inconclusive",
+      "components": {
+        "register_divergence": 0.25,
+        "access_divergence": 0.16666666666666663,
+        "timing_divergence": 0.4,
+        "structural_divergence": 0.1,
+        "function_evidence": 0.004093333333333333,
+        "block_weight": 0.5975
+      }
+    }
+  ]
+}

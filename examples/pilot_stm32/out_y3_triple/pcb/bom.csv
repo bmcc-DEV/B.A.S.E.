@@ -1,0 +1,8 @@
+# engineering_draft — NOT FABRICABLE; Manufacturer=TBD means lookup pending
+Ref,Qty,Part,Manufacturer,Interface,Block,Notes
+U1,1,STM32F103C8,TBD,spi,RegisterFile_40003,"TBD manufacturer — expand from component_db"
+U2,1,STM32F103C8,TBD,uart,RegisterFile_40013,"TBD manufacturer — expand from component_db"
+U3,1,STM32F103C8,TBD,i2c,RegisterFile_40005,"TBD manufacturer — expand from component_db"
+C1,1,100nF,Ceramic,Decoupling,Power,"draft placeholder"
+C2,1,10uF,Ceramic,Bulk,Power,"draft placeholder"
+R1,1,10k,Resistor,Pull-up,Interface,"draft placeholder"

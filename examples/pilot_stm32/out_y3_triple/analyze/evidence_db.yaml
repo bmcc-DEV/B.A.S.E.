@@ -1,0 +1,93 @@
+source: /media/bruno/3e94d163-2a59-473e-bcc5-09148350a987/Motores/Behavioral ASIC Synthesis Engine/examples/pilot_stm32/fw.bin
+entries:
+- id: ev_0000
+  evidence_type:
+    type: MmioWrite
+    address: 1073821708
+    value: 8196
+  context:
+    function: uart_usart_init
+    instr: '0x0'
+- id: ev_0001
+  evidence_type:
+    type: MmioRead
+    address: 1073821696
+  context:
+    instr: '0x4'
+    function: uart_usart_status
+- id: ev_0002
+  evidence_type:
+    type: MmioWrite
+    address: 1073821700
+    value: 65
+  context:
+    function: uart_usart_putc
+    instr: '0x8'
+- id: ev_0003
+  evidence_type:
+    type: MmioRead
+    address: 1073821696
+  context:
+    function: uart_usart_status_txe
+    instr: '0xc'
+- id: ev_0004
+  evidence_type:
+    type: MmioWrite
+    address: 1073756160
+    value: 68
+  context:
+    instr: '0x10'
+    function: spi_spi2_init
+- id: ev_0005
+  evidence_type:
+    type: MmioRead
+    address: 1073756168
+  context:
+    function: spi_spi2_status
+    instr: '0x14'
+- id: ev_0006
+  evidence_type:
+    type: MmioWrite
+    address: 1073756172
+    value: 85
+  context:
+    function: spi_spi2_xfer
+    instr: '0x18'
+- id: ev_0007
+  evidence_type:
+    type: MmioRead
+    address: 1073756168
+  context:
+    instr: '0x1c'
+    function: spi_spi2_status_txe
+- id: ev_0008
+  evidence_type:
+    type: MmioWrite
+    address: 1073763328
+    value: 1
+  context:
+    function: i2c_i2c1_init
+    instr: '0x20'
+- id: ev_0009
+  evidence_type:
+    type: MmioRead
+    address: 1073763348
+  context:
+    function: i2c_i2c1_status
+    instr: '0x24'
+- id: ev_0010
+  evidence_type:
+    type: MmioWrite
+    address: 1073763344
+    value: 85
+  context:
+    instr: '0x28'
+    function: i2c_i2c1_write
+- id: ev_0011
+  evidence_type:
+    type: MmioRead
+    address: 1073763348
+  context:
+    instr: '0x2c'
+    function: i2c_i2c1_status_txe
+created_at: 1784165526

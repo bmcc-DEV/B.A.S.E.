@@ -26,6 +26,7 @@ python3 examples/pilot_stm32/gen_fw.py
 ./examples/pilot_stm32/run.sh          # USART-only (gate opt-in)
 ./examples/pilot_stm32/run_w1_spi.sh   # USART + SPI2 (W1; não substitui run.sh)
 ./examples/pilot_stm32/run_x3_i2c.sh   # USART + I2C1 (X3; não substitui run.sh)
+./examples/pilot_stm32/run_y3_triple.sh # USART + SPI2 + I2C1 (Y3; não substitui os acima)
 ```
 
 Smoke inclui:
@@ -33,6 +34,7 @@ Smoke inclui:
 2. `analyze --mmio-traces` — path feliz design/synth  
 3. **W2 goldens** — `diff` event-graph + prove fields vs `expected/`
 4. **Y2 goldens I2C** — `diff` vs `expected_i2c/` (nunca overwrite)
+5. **Y3 triple** — 3 páginas classify Evidence→Design→PCB
 
 ## Goldens (`expected/`)
 
@@ -71,6 +73,15 @@ Smoke inclui:
 | Y2 goldens | `expected_i2c/` — event-graph + prove (`diff`) |
 | Smoke | `run_x3_i2c.sh` |
 
+## Y3 — triple USART + SPI2 + I2C1
+
+| Campo | Valor |
+|-------|-------|
+| Classify | `0x40013000=uart,0x40003000=spi,0x40005000=i2c` |
+| Fixture | `mmio_usart_spi_i2c.json` |
+| Smoke | `run_y3_triple.sh` |
+| PCB | PA9/10 + PB13/14/15 + PB6/7 (`NOT FABRICABLE`) |
+
 ## Arquivos
 
 | Arquivo | Papel |
@@ -80,14 +91,16 @@ Smoke inclui:
 | `mmio.json` | Acessos MMIO USART1 |
 | `mmio_usart_spi.json` | Dual USART+SPI2 (W1) |
 | `mmio_usart_i2c.json` | Dual USART+I2C1 (X3) |
+| `mmio_usart_spi_i2c.json` | Triple USART+SPI2+I2C1 (Y3) |
 | `contracts.yaml` / `trace.csv` | Prove + replay USART |
 | `contracts_spi.yaml` / `trace_spi.csv` | Prove + replay SPI2 |
 | `contracts_i2c.yaml` / `trace_i2c.csv` | Prove + replay I2C1 |
 | `pilot.bsl` / `pilot_spi.bsl` / `pilot_i2c.bsl` | BIR |
 | `expected/` | Goldens W2 USART (verificados, não sobrescritos) |
 | `expected_i2c/` | Goldens Y2 I2C1 (verificados, não sobrescritos) |
-| `SHA256SUMS` / `SHA256SUMS.w1` / `SHA256SUMS.x3` | Integridade |
+| `SHA256SUMS` / `SHA256SUMS.w1` / `SHA256SUMS.x3` / `SHA256SUMS.y3` | Integridade |
 | `run.sh` | Smoke USART opt-in + goldens |
 | `run_w1_spi.sh` | Smoke dual W1 opt-in |
 | `run_x3_i2c.sh` | Smoke dual X3 opt-in |
-| `out/` / `out_w1_spi/` / `out_x3_i2c/` | Gerado (gitignored) |
+| `run_y3_triple.sh` | Smoke triple Y3 opt-in |
+| `out/` / `out_w1_spi/` / `out_x3_i2c/` / `out_y3_triple/` | Gerado (gitignored) |

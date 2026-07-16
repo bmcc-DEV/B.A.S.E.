@@ -1,0 +1,86 @@
+[
+  {
+    "address": 1073821708,
+    "value": 8196,
+    "access_type": "write",
+    "function_name": "usart_init",
+    "instruction_addr": 0
+  },
+  {
+    "address": 1073821696,
+    "value": null,
+    "access_type": "read",
+    "function_name": "usart_status",
+    "instruction_addr": 4
+  },
+  {
+    "address": 1073821700,
+    "value": 65,
+    "access_type": "write",
+    "function_name": "usart_putc",
+    "instruction_addr": 8
+  },
+  {
+    "address": 1073821696,
+    "value": null,
+    "access_type": "read",
+    "function_name": "usart_status_txe",
+    "instruction_addr": 12
+  },
+  {
+    "address": 1073756160,
+    "value": 68,
+    "access_type": "write",
+    "function_name": "spi2_init",
+    "instruction_addr": 16
+  },
+  {
+    "address": 1073756168,
+    "value": null,
+    "access_type": "read",
+    "function_name": "spi2_status",
+    "instruction_addr": 20
+  },
+  {
+    "address": 1073756172,
+    "value": 85,
+    "access_type": "write",
+    "function_name": "spi2_xfer",
+    "instruction_addr": 24
+  },
+  {
+    "address": 1073756168,
+    "value": null,
+    "access_type": "read",
+    "function_name": "spi2_status_txe",
+    "instruction_addr": 28
+  },
+  {
+    "address": 1073763328,
+    "value": 1,
+    "access_type": "write",
+    "function_name": "i2c1_init",
+    "instruction_addr": 32
+  },
+  {
+    "address": 1073763348,
+    "value": null,
+    "access_type": "read",
+    "function_name": "i2c1_status",
+    "instruction_addr": 36
+  },
+  {
+    "address": 1073763344,
+    "value": 85,
+    "access_type": "write",
+    "function_name": "i2c1_write",
+    "instruction_addr": 40
+  },
+  {
+    "address": 1073763348,
+    "value": null,
+    "access_type": "read",
+    "function_name": "i2c1_status_txe",
+    "instruction_addr": 44
+  }
+]

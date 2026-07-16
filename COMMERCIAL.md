@@ -121,7 +121,7 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 ## Próximo passo imediato
 
 1. ✅ Path to Real → v0.8 (`v0.8.0`)
-2. ✅ Path to v0.9 Y0–Y2 — freeze + pins I2C1 + goldens I2C
-3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh`
-4. Y3 — triple smoke USART+SPI+I2C (próximo)
+2. ✅ Path to v0.9 Y0–Y3 — pins I2C + goldens + triple smoke
+3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh` + `run_y3_triple.sh`
+4. Y4 — playbook/SOW v0.9 (próximo)
 5. Pricing SaaS / port turnkey só com SOW
