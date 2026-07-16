@@ -29,7 +29,8 @@ pub enum Command {
         #[arg(long)]
         mmio_traces: Option<PathBuf>,
 
-        /// Manual block classification override
+        /// Manual block classification: `uart` (all blocks) or
+        /// `0x40034000=uart,0x4003c000=spi` (per 4K page)
         #[arg(long)]
         classify: Option<String>,
 

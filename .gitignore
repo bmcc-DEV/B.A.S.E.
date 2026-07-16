@@ -20,6 +20,7 @@ PaleoComputação.pdf
 
 # Pilot ephemeral outputs
 examples/pilot/out/
+examples/pilot/out_t1_b2/
 
 # Build / IDE
 **/*.elf

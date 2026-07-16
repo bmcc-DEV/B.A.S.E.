@@ -40,6 +40,13 @@ jobs:
           ./examples/pilot/run.sh
           test -f examples/pilot/out/CASE_SUMMARY.md
 
+      - name: Pilot T1 B2 (UART+SPI opt-in)
+        timeout-minutes: 10
+        run: |
+          chmod +x examples/pilot/run_t1_b2.sh
+          ./examples/pilot/run_t1_b2.sh
+          test -f examples/pilot/out_t1_b2/CASE_SUMMARY_T1.md
+
       - name: Pilot FW host gate
         run: |
           test -x examples/pilot/out/fw/firmware_host

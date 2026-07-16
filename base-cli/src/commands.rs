@@ -133,9 +133,7 @@ fn handle_analyze(firmware: &Path, mmio_traces: Option<&Path>, classify: Option<
 
     if let Some(kind) = classify {
         tracing::info!("Applying classify override: {}", kind);
-        for a in &mut mmio_accesses {
-            a.function_name = format!("{}_{}", kind, a.function_name);
-        }
+        prefix_mmio_by_classify(&mut mmio_accesses, kind);
     }
 
     let (mut spec, evidence) = base_core::inference::generate_spec_with_evidence(
@@ -227,8 +225,45 @@ fn load_mmio_traces(path: &Path) -> Result<Vec<MmioAccess>> {
     Ok(accesses)
 }
 
+/// `--classify uart` → todos os blocos.
+/// `--classify 0x40034000=uart,0x4003c000=spi` → por página 4K (T1 B2).
 fn apply_classify_override(spec: &mut HardwareSpec, kind: &str) {
-    let block_kind = match kind.to_lowercase().as_str() {
+    if let Some(map) = parse_classify_address_map(kind) {
+        for block in &mut spec.blocks {
+            let page = block.base_address & !0xfff;
+            if let Some(block_kind) = map.get(&page) {
+                block.kind = *block_kind;
+                block.confidence = (block.confidence + 0.25).min(0.95);
+            }
+        }
+        return;
+    }
+    let Some(block_kind) = parse_block_kind_name(kind) else {
+        return;
+    };
+    for block in &mut spec.blocks {
+        block.kind = block_kind;
+        block.confidence = (block.confidence + 0.25).min(0.95);
+    }
+}
+
+fn prefix_mmio_by_classify(accesses: &mut [MmioAccess], kind: &str) {
+    if let Some(map) = parse_classify_kind_labels(kind) {
+        for a in accesses {
+            let page = a.address & !0xfff;
+            if let Some(label) = map.get(&page) {
+                a.function_name = format!("{}_{}", label, a.function_name);
+            }
+        }
+        return;
+    }
+    for a in accesses {
+        a.function_name = format!("{}_{}", kind, a.function_name);
+    }
+}
+
+fn parse_block_kind_name(kind: &str) -> Option<BlockKind> {
+    Some(match kind.to_lowercase().as_str() {
         "gpu" => BlockKind::Gpu,
         "audio" => BlockKind::Audio,
         "dma" => BlockKind::Dma,
@@ -237,12 +272,66 @@ fn apply_classify_override(spec: &mut HardwareSpec, kind: &str) {
         "spi" => BlockKind::Spi,
         "i2c" => BlockKind::I2c,
         "ethernet" => BlockKind::Ethernet,
-        _ => return,
-    };
-    for block in &mut spec.blocks {
-        // Override explícito do usuário — aplica a todos os blocos
-        block.kind = block_kind;
-        block.confidence = (block.confidence + 0.25).min(0.95);
+        _ => return None,
+    })
+}
+
+fn parse_u64_addr(s: &str) -> Option<u64> {
+    let s = s.trim();
+    if let Some(hex) = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+    {
+        u64::from_str_radix(hex, 16).ok()
+    } else {
+        s.parse().ok()
+    }
+}
+
+fn parse_classify_address_map(spec: &str) -> Option<std::collections::HashMap<u64, BlockKind>> {
+    if !spec.contains('=') {
+        return None;
+    }
+    let mut map = std::collections::HashMap::new();
+    for part in spec.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (addr_s, kind_s) = part.split_once('=')?;
+        let addr = parse_u64_addr(addr_s)?;
+        let kind = parse_block_kind_name(kind_s.trim())?;
+        map.insert(addr & !0xfff, kind);
+    }
+    if map.is_empty() {
+        None
+    } else {
+        Some(map)
+    }
+}
+
+fn parse_classify_kind_labels(spec: &str) -> Option<std::collections::HashMap<u64, String>> {
+    if !spec.contains('=') {
+        return None;
+    }
+    let mut map = std::collections::HashMap::new();
+    for part in spec.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (addr_s, kind_s) = part.split_once('=')?;
+        let addr = parse_u64_addr(addr_s)?;
+        let label = kind_s.trim().to_lowercase();
+        if parse_block_kind_name(&label).is_none() {
+            return None;
+        }
+        map.insert(addr & !0xfff, label);
+    }
+    if map.is_empty() {
+        None
+    } else {
+        Some(map)
     }
 }
 
@@ -969,4 +1058,102 @@ fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, conti
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod classify_tests {
+    use super::*;
+
+    #[test]
+    fn classify_map_parses_uart_spi_pages() {
+        let map = parse_classify_address_map("0x40034000=uart,0x4003c000=spi").unwrap();
+        assert_eq!(map.get(&0x40034000), Some(&BlockKind::Uart));
+        assert_eq!(map.get(&0x4003c000), Some(&BlockKind::Spi));
+    }
+
+    #[test]
+    fn classify_global_uart_still_all_blocks() {
+        let mut spec = HardwareSpec::empty();
+        spec.blocks.push(FunctionalBlock {
+            id: "a".into(),
+            kind: BlockKind::Unknown,
+            base_address: 0x40034000,
+            size: 0x1000,
+            registers: vec![],
+            protocol: Protocol {
+                states: vec![],
+                transitions: vec![],
+                entry_condition: None,
+                exit_condition: None,
+            },
+            timing: TimingProfile {
+                activation: None,
+                processing: None,
+                interrupt_response: None,
+                dma_setup: None,
+                polling_interval: None,
+            },
+            dma: None,
+            dependencies: vec![],
+            confidence: 0.5,
+        });
+        spec.blocks.push(FunctionalBlock {
+            id: "b".into(),
+            kind: BlockKind::Unknown,
+            base_address: 0x4003c000,
+            size: 0x1000,
+            registers: vec![],
+            protocol: Protocol {
+                states: vec![],
+                transitions: vec![],
+                entry_condition: None,
+                exit_condition: None,
+            },
+            timing: TimingProfile {
+                activation: None,
+                processing: None,
+                interrupt_response: None,
+                dma_setup: None,
+                polling_interval: None,
+            },
+            dma: None,
+            dependencies: vec![],
+            confidence: 0.5,
+        });
+        apply_classify_override(&mut spec, "uart");
+        assert!(spec.blocks.iter().all(|b| b.kind == BlockKind::Uart));
+    }
+
+    #[test]
+    fn classify_map_assigns_per_page() {
+        let mut spec = HardwareSpec::empty();
+        for (id, addr) in [("u", 0x40034000u64), ("s", 0x4003c000u64)] {
+            spec.blocks.push(FunctionalBlock {
+                id: id.into(),
+                kind: BlockKind::Unknown,
+                base_address: addr,
+                size: 0x1000,
+                registers: vec![],
+                protocol: Protocol {
+                    states: vec![],
+                    transitions: vec![],
+                    entry_condition: None,
+                    exit_condition: None,
+                },
+                timing: TimingProfile {
+                    activation: None,
+                    processing: None,
+                    interrupt_response: None,
+                    dma_setup: None,
+                    polling_interval: None,
+                },
+                dma: None,
+                dependencies: vec![],
+                confidence: 0.5,
+            });
+        }
+        apply_classify_override(&mut spec, "0x40034000=uart,0x4003c000=spi");
+        assert_eq!(spec.blocks[0].kind, BlockKind::Uart);
+        assert_eq!(spec.blocks[1].kind, BlockKind::Spi);
+    }
 }
