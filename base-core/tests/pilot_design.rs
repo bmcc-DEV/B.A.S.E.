@@ -64,6 +64,17 @@ fn pilot_analyze_synth_design_picks_mcu_and_meets_contracts() {
         pins.iter().any(|p| p.functions.iter().any(|f| f == "uart0_tx")),
         "RP2040 must declare uart0_tx"
     );
+    assert!(
+        pins.iter().any(|p| p.functions.iter().any(|f| f == "spi0_sck")),
+        "RP2040 must declare spi0_sck (T3)"
+    );
+    let rp2350 = db.by_name("RP2350A").expect("RP2350A in component_db");
+    let pins2350 = rp2350.pins.as_ref().expect("RP2350A pins for T3");
+    assert!(
+        pins2350.len() >= 30,
+        "RP2350A pin subset GP0–29, got {}",
+        pins2350.len()
+    );
 
     // Netlist nominal (não elétrico — nós lógicos, não copper)
     let nl = generate_netlist(&synthesized, &db);

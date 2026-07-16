@@ -152,43 +152,38 @@ impl SchematicGenerator {
             );
 
         let mut annotations = Vec::new();
-        if assignment.interface.eq_ignore_ascii_case("uart") {
-            if let Some(pins) = entry.and_then(|e| e.pins.as_ref()) {
-                let uart_pins: Vec<_> = pins
+        if let Some(pins) = entry.and_then(|e| e.pins.as_ref()) {
+            let iface = assignment.interface.to_ascii_lowercase();
+            let relevant: Vec<_> = pins
+                .iter()
+                .filter(|p| pin_matches_interface(&p.functions, &iface))
+                .take(4)
+                .collect();
+            for (i, pin) in relevant.iter().enumerate() {
+                let py = y + (i as i64) * 20;
+                let px = x - 40;
+                symbol = symbol.list(
+                    sexpr("pin")
+                        .atom(&pin.number.to_string())
+                        .atom(&format!("(xy {} {})", px, py))
+                        .list(sexpr("name").atom(&pin.name)),
+                );
+                if let Some(func) = pin
+                    .functions
                     .iter()
-                    .filter(|p| {
-                        p.functions.iter().any(|f| {
-                            f.contains("uart") && (f.contains("_tx") || f.contains("_rx"))
-                        })
-                    })
-                    .take(4) // TX/RX mínimos (até 2 UARTs anotados)
-                    .collect();
-                for (i, pin) in uart_pins.iter().enumerate() {
-                    let py = y + (i as i64) * 20;
-                    let px = x - 40;
-                    symbol = symbol.list(
-                        sexpr("pin")
-                            .atom(&pin.number.to_string())
-                            .atom(&format!("(xy {} {})", px, py))
-                            .list(sexpr("name").atom(&pin.name)),
-                    );
-                    if let Some(func) = pin
-                        .functions
-                        .iter()
-                        .find(|f| f.contains("uart") && (f.contains("_tx") || f.contains("_rx")))
-                    {
-                        annotations.push(
-                            sexpr("label")
-                                .atom(func)
-                                .atom(&format!("(at {} {})", px.saturating_sub(20), py))
-                                .list(
-                                    sexpr("fields").list(
-                                        sexpr("effects")
-                                            .list(sexpr("font").atom("(size 1.27 1.27)")),
-                                    ),
+                    .find(|f| pin_func_matches_interface(f, &iface))
+                {
+                    annotations.push(
+                        sexpr("label")
+                            .atom(func)
+                            .atom(&format!("(at {} {})", px.saturating_sub(20), py))
+                            .list(
+                                sexpr("fields").list(
+                                    sexpr("effects")
+                                        .list(sexpr("font").atom("(size 1.27 1.27)")),
                                 ),
-                        );
-                    }
+                            ),
+                    );
                 }
             }
         }
@@ -216,18 +211,17 @@ impl SchematicGenerator {
             names.push(format!("{}_IRQ", a.block_id));
             names.push("VCC_3V3".into());
             names.push("GND".into());
-            if a.interface.eq_ignore_ascii_case("uart") {
-                if let Some(pins) = self
-                    .component_db
-                    .as_ref()
-                    .and_then(|db| db.by_name(&a.component))
-                    .and_then(|e| e.pins.as_ref())
-                {
-                    for p in pins {
-                        for f in &p.functions {
-                            if f.contains("uart") && (f.contains("_tx") || f.contains("_rx")) {
-                                names.push(f.clone());
-                            }
+            if let Some(pins) = self
+                .component_db
+                .as_ref()
+                .and_then(|db| db.by_name(&a.component))
+                .and_then(|e| e.pins.as_ref())
+            {
+                let iface = a.interface.to_ascii_lowercase();
+                for p in pins {
+                    for f in &p.functions {
+                        if pin_func_matches_interface(f, &iface) {
+                            names.push(f.clone());
                         }
                     }
                 }
@@ -236,6 +230,25 @@ impl SchematicGenerator {
         names.sort();
         names.dedup();
         names
+    }
+}
+
+fn pin_matches_interface(functions: &[String], iface: &str) -> bool {
+    functions.iter().any(|f| pin_func_matches_interface(f, iface))
+}
+
+fn pin_func_matches_interface(func: &str, iface: &str) -> bool {
+    let f = func.to_ascii_lowercase();
+    match iface {
+        "uart" => f.contains("uart") && (f.contains("_tx") || f.contains("_rx")),
+        "spi" => {
+            f.contains("spi")
+                && (f.contains("_tx")
+                    || f.contains("_rx")
+                    || f.contains("_sck")
+                    || f.contains("_cs"))
+        }
+        _ => false,
     }
 }
 
@@ -363,6 +376,64 @@ mod tests {
         assert!(sch.contains("GP0"), "pin name annotation");
         assert!(sch.contains("uart0_tx"), "UART TX label");
         assert!(sch.contains("uart0_rx"), "UART RX label");
+    }
+
+    #[test]
+    fn test_schematic_spi_pin_annotations() {
+        let mut db = base_core::component_db::ComponentDb::new();
+        db.add_entry(base_core::component_db::ComponentEntry {
+            part: "RP2040".into(),
+            manufacturer: "Raspberry Pi".into(),
+            description: "MCU".into(),
+            category: base_core::component_db::ComponentCategory::Mcu,
+            package: Some("QFN-56".into()),
+            features: base_core::component_db::ComponentFeatures {
+                cpu: Some(base_core::component_db::CpuFeature {
+                    cores: 2,
+                    max_mhz: 133,
+                    architecture: None,
+                }),
+                memory: None,
+                peripherals: std::collections::HashMap::new(),
+            },
+            timing: None,
+            compatible_with: vec![],
+            power: None,
+            pins: Some(vec![
+                base_core::component_db::PinDef {
+                    number: 18,
+                    name: "GP18".into(),
+                    functions: vec!["gpio".into(), "spi0_sck".into()],
+                },
+                base_core::component_db::PinDef {
+                    number: 19,
+                    name: "GP19".into(),
+                    functions: vec!["gpio".into(), "spi0_tx".into()],
+                },
+            ]),
+            availability: None,
+        });
+        let gen = SchematicGenerator::new(Some(db));
+        let spec = SynthesizedSpec {
+            original: HardwareSpec::empty(),
+            assignments: vec![ComponentAssignment {
+                block_id: "spi_0".into(),
+                component: "RP2040".into(),
+                interface: "spi".into(),
+                config: serde_json::json!({}),
+            }],
+            netlist: None,
+            constraints: SynthesisConstraints {
+                max_bom_cost: None,
+                preferred_manufacturer: None,
+                preferred_package: None,
+            },
+        };
+        let sch = gen.generate(&spec);
+        assert!(sch.contains("NOT FABRICABLE"));
+        assert!(sch.contains("GP18"));
+        assert!(sch.contains("spi0_sck"));
+        assert!(sch.contains("spi0_tx"));
     }
 
     #[test]
