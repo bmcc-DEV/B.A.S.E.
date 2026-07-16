@@ -2,12 +2,11 @@
 
 > [README.md](README.md) · [LICENSE.md](LICENSE.md) · **Estratégia Comercial**
 >
-> **Nota v0.7 (Path):** oferta **forense** com Capstone UART/SPI (RP) + STM32 USART1
-> (Capstone sintético + pins + goldens) + **SPI2 dual opt-in**, reconstruct com
-> estagnação honesta (`stop_reason`; ≠ auto-fix),
-> HIL EXPERIMENTAL (`base hil` — ≠ production).
-> Port industrial = **consultoria + [SOW v0.7](base-vault/17%20-%20Path%20to%20v0.7/17.21%20-%20SOW%20Industrial%20Checklist.md)**.
-> Playbook: [Forensic Playbook v0.7](base-vault/17%20-%20Path%20to%20v0.7/17.20%20-%20Forensic%20Playbook.md) · [CHANGELOG](CHANGELOG.md).
+> **Nota v0.8 (Path):** oferta **forense** com Capstone UART/SPI (RP; goldens `diff`) +
+> STM32 USART1 + **SPI2 pins** + **I2C1 dual opt-in**, reconstruct com estagnação
+> honesta (`stop_reason`; ≠ auto-fix), HIL EXPERIMENTAL (`base hil` — ≠ production).
+> Port industrial = **consultoria + [SOW v0.8](base-vault/18%20-%20Path%20to%20v0.8/18.21%20-%20SOW%20Industrial%20Checklist.md)**.
+> Playbook: [Forensic Playbook v0.8](base-vault/18%20-%20Path%20to%20v0.8/18.20%20-%20Forensic%20Playbook.md) · [CHANGELOG](CHANGELOG.md).
 > Claims “PCB drop-in” / “ASIC substituído” / “SaaS turnkey” / “HIL production” / “auto-fix completa” continuam arquivados.
 
 > Licença: AGPLv3 — uso comercial permitido; modificações em serviço de rede devem ser compartilhadas.
@@ -38,13 +37,14 @@ Analisar firmware embedded sem código-fonte: IoT, roteadores, sensores.
 ./examples/pilot/run_t1_b2.sh
 ./examples/pilot_stm32/run.sh
 ./examples/pilot_stm32/run_w1_spi.sh
+./examples/pilot_stm32/run_x3_i2c.sh
 base reconstruct examples/pilot_stm32/out/analyze/hardware_spec.yaml \
   --continuous --threshold 0.99 -o /tmp/recon/
 base hil enumerate -o /tmp/hil/
 base hil flash /tmp/x.bin --mock-flash -o /tmp/hil/
 ```
 
-Demo: [Playbook v0.7](base-vault/17%20-%20Path%20to%20v0.7/17.20%20-%20Forensic%20Playbook.md) ·
+Demo: [Playbook v0.8](base-vault/18%20-%20Path%20to%20v0.8/18.20%20-%20Forensic%20Playbook.md) ·
 [Case study](base-vault/12%20-%20Path%20to%20Real/12.20%20-%20Pilot%20Case%20Study.md).
 
 ### Não inclui (ainda)
@@ -70,7 +70,7 @@ ASICs / MCUs legados sem reposição.
 ### Posicionamento honesto
 B.A.S.E. **acelera** diagnóstico e Reference Design (RP e/ou STM32 multi-peripheral). Port completo é **projeto de engenharia** com humanos no loop.
 
-Use o [SOW Industrial Checklist v0.7](base-vault/17%20-%20Path%20to%20v0.7/17.21%20-%20SOW%20Industrial%20Checklist.md).
+Use o [SOW Industrial Checklist v0.8](base-vault/18%20-%20Path%20to%20v0.8/18.21%20-%20SOW%20Industrial%20Checklist.md).
 
 ```bash
 base analyze firmware.bin --mmio-traces mmio.json --classify uart -o study/
@@ -120,9 +120,8 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 
 ## Próximo passo imediato
 
-1. ✅ Path to Real → v0.6 (`v0.6.0`)
-2. ✅ Path to v0.7 W0–W5 → tag `v0.7.0-rc`
-3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `base hil enumerate`
-4. Pricing SaaS / port turnkey só com SOW
-5. ✅ Promoção `v0.7.0` + Path to v0.8 (X0)
-6. Pricing SaaS / port turnkey só com SOW
+1. ✅ Path to Real → v0.7 (`v0.7.0`)
+2. ✅ Path to v0.8 X0–X4 (SPI2 pins + RP goldens + I2C1 + oferta)
+3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh`
+4. Release `v0.8.0-rc` (X5)
+5. Pricing SaaS / port turnkey só com SOW
