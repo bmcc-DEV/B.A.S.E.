@@ -14,6 +14,7 @@ Wedge sintético **STM32F103 USART1** @ `0x40013800` (APB2, Blue Pill–style).
 | Offsets no silício | SR=`+0x00`, DR=`+0x04`, CR1=`+0x0C` relativos a `0x40013800` |
 | IRQ line (trace) | `0x25` (37 decimal — USART1) |
 | W1 dual SPI | SPI2 @ `0x40003800` (APB1) — SPI1 partilha página 4K com USART1 |
+| X1 pins SPI2 | PB13 SCK / PB14 MISO / PB15 MOSI (+ PB12 NSS) no draft sch |
 
 ## Como rodar
 
