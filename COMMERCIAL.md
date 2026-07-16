@@ -2,10 +2,12 @@
 
 > [README.md](README.md) · [LICENSE.md](LICENSE.md) · **Estratégia Comercial**
 >
-> **Nota v0.3 (Path to v0.3 S0–S5):** oferta **forense** com Capstone UART, Z3 opcional (CI formal),
-> PCB pin-aware rotulado e HIL EXPERIMENTAL. Port industrial = **consultoria + [SOW](base-vault/13%20-%20Path%20to%20v0.3/13.21%20-%20SOW%20Industrial%20Template.md)**.
-> Playbook demo: [Forensic Playbook](base-vault/13%20-%20Path%20to%20v0.3/13.20%20-%20Forensic%20Playbook.md).
-> Claims “PCB drop-in” / “ASIC substituído” / “SaaS turnkey” continuam arquivados.
+> **Nota v0.4 (`v0.4.0-rc`):** oferta **forense** com Capstone UART + SPI opt-in (`run_t1_b2.sh`),
+> Z3 opcional (`formal.yml` + `proof_report.backend`), PCB pin-aware UART/SPI rotulado,
+> HIL EXPERIMENTAL (`try_flash` / mock_dry_run ≠ silício).
+> Port industrial = **consultoria + [SOW](base-vault/13%20-%20Path%20to%20v0.3/13.21%20-%20SOW%20Industrial%20Template.md)**.
+> Playbook: [Forensic Playbook](base-vault/13%20-%20Path%20to%20v0.3/13.20%20-%20Forensic%20Playbook.md) · plano [v0.4](base-vault/14%20-%20Path%20to%20v0.4/14.00%20-%20Index.md).
+> Claims “PCB drop-in” / “ASIC substituído” / “SaaS turnkey” / “HIL flasheou” continuam arquivados.
 
 > Licença: AGPLv3 — uso comercial permitido; modificações em serviço de rede devem ser compartilhadas.
 > Uso proprietário fechado: licença comercial (consultar).
@@ -112,6 +114,7 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” no plano S
 ## Próximo passo imediato
 
 1. ✅ Path to Real R0–R6 + case study v0.2
-2. ✅ Path to v0.3 S0–S5 (Capstone, formal, pins, HIL, oferta)
-3. Demo forense com playbook + `./examples/pilot/run.sh`
-4. Pricing SaaS / port turnkey só com aceite industrial explícito (SOW)
+2. ✅ Path to v0.3 S0–S5 · tag `v0.3.0-rc`
+3. ✅ Path to v0.4 T0–T5 · tag `v0.4.0-rc`
+4. Demo forense: `./examples/pilot/run.sh` + opt-in `./examples/pilot/run_t1_b2.sh`
+5. Pricing SaaS / port turnkey só com aceite industrial explícito (SOW)

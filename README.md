@@ -8,8 +8,9 @@
 
 **Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
 
-> **Tag [`v0.3.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.3.0-rc)** · plano seguinte [Path to v0.4](base-vault/14%20-%20Path%20to%20v0.4/14.00%20-%20Index.md) · baseline [Path to v0.3](base-vault/13%20-%20Path%20to%20v0.3/13.00%20-%20Index.md) / [Case Study](base-vault/12%20-%20Path%20to%20Real/12.20%20-%20Pilot%20Case%20Study.md):
-> Capstone UART + Z3 formal opcional + pins RP2040 + HIL EXPERIMENTAL. Demo: [Playbook](base-vault/13%20-%20Path%20to%20v0.3/13.20%20-%20Forensic%20Playbook.md) / `./examples/pilot/run_v03.sh`.
+> **Tag [`v0.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.4.0-rc)** · [Path to v0.4](base-vault/14%20-%20Path%20to%20v0.4/14.00%20-%20Index.md) (T0–T5) · baseline [`v0.3.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.3.0-rc):
+> Capstone UART + SPI opt-in + Z3 formal opcional + pins RP2040/2350 + HIL EXPERIMENTAL.
+> Demo: [Playbook](base-vault/13%20-%20Path%20to%20v0.3/13.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot/run_t1_b2.sh`.
 > **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC.
 
 ---

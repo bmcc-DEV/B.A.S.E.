@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**v0.3.0-rc ✅ · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] ativo · [[13 - Path to v0.3/13.00 - Index|Path to v0.3]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
+**v0.4.0-rc ✅ · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[13 - Path to v0.3/13.00 - Index|Path to v0.3]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ flowchart LR
 | [[12 - Path to Real/12.20 - Pilot Case Study\|🧪 Pilot Case Study]] | Case study UART v0.2 |
 | [[13 - Path to v0.3/13.00 - Index\|🚀 Path to v0.3]] | v0.3.0-rc ✅ (S0–S5) |
 | [[13 - Path to v0.3/13.20 - Forensic Playbook\|🧭 Playbook]] | Demo forense 1 página |
-| [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | Pós-rc: 2º alvo + HIL Detected |
+| [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0-rc ✅ (T0–T5) |
 | [[14 - Path to v0.4/14.01 - Master Plan\|📌 Master Plan v0.4]] | L7–L9 + métricas |
 | [[14 - Path to v0.4/14.04 - Sprint Board\|📋 Sprint Board v0.4]] | Kanban T0–T5 |
 
