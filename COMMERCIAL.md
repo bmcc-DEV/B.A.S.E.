@@ -121,7 +121,7 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 ## Próximo passo imediato
 
 1. ✅ Path to Real → v0.7 (`v0.7.0`)
-2. ✅ Path to v0.8 X0–X4 (SPI2 pins + RP goldens + I2C1 + oferta)
+2. ✅ Path to v0.8 X0–X5 → tag `v0.8.0-rc`
 3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh`
-4. Release `v0.8.0-rc` (X5)
-5. Pricing SaaS / port turnkey só com SOW
+4. Pricing SaaS / port turnkey só com SOW
+5. Promoção `v0.8.0` após smoke estável (opcional)

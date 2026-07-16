@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**v0.7.0 ✅ · [[18 - Path to v0.8/18.00 - Index|Path to v0.8]] · [[17 - Path to v0.7/17.00 - Index|Path to v0.7]] · [[16 - Path to v0.6/16.00 - Index|Path to v0.6]] · [[15 - Path to v0.5/15.00 - Index|Path to v0.5]] · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
+**v0.8.0-rc ✅ · [[18 - Path to v0.8/18.00 - Index|Path to v0.8]] · [[17 - Path to v0.7/17.00 - Index|Path to v0.7]] · [[16 - Path to v0.6/16.00 - Index|Path to v0.6]] · [[15 - Path to v0.5/15.00 - Index|Path to v0.5]] · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,7 @@ flowchart LR
 | [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0 ✅ (T0–T5) |
 | [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | v0.5.0 ✅ (U0–U5) |
 | [[15 - Path to v0.5/15.20 - Forensic Playbook\|🧭 Playbook v0.5]] | Demo forense RP + STM32 |
-| [[18 - Path to v0.8/18.00 - Index\|🚀 Path to v0.8]] | em curso (X0–X4 ✅ · X5) |
+| [[18 - Path to v0.8/18.00 - Index\|🚀 Path to v0.8]] | v0.8.0-rc ✅ (X0–X5) |
 | [[18 - Path to v0.8/18.20 - Forensic Playbook\|🧭 Playbook v0.8]] | Demo forense RP + STM32 SPI/I2C |
 | [[18 - Path to v0.8/18.01 - Master Plan\|📌 Master Plan v0.8]] | L19–L21 |
 | [[18 - Path to v0.8/18.04 - Sprint Board\|📋 Sprint Board v0.8]] | Kanban X0–X5 |

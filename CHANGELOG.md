@@ -1,14 +1,21 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`.
 
-## [Unreleased] — Path to v0.8
+## [v0.8.0-rc] — 2026-07-16
+
+Path to v0.8 X0–X5: SPI2 pins + RP goldens diff + I2C1 dual + oferta docs.
+Smoke verde: `run.sh`, `run_t1_b2.sh`, `pilot_stm32/run.sh`, `run_w1_spi.sh`, `run_x3_i2c.sh`.
 
 ### Added
 - X1: pins SPI2 STM32F103C8 (PB12–15) + labels no draft sch; matcher `mosi`/`miso`/`nss`
 - X2: goldens RP — `run.sh` `diff` vs `expected/` (sem overwrite); `proof_report.golden.json`
 - X3: dual STM32 USART1 + I2C1 @ `0x40005400` — `run_x3_i2c.sh`, teste `pilot_stm32_i2c`
 - X4: playbook + SOW checklist v0.8 + COMMERCIAL sync
+- X5: tag `v0.8.0-rc`
+
+### Not
+- PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, auto-fix completa, Amiga/CD32 como wedge de release
 
 ## [v0.7.0] — 2026-07-16
 
