@@ -24,6 +24,7 @@ examples/pilot/out_t1_b2/
 examples/pilot_stm32/out/
 examples/pilot_stm32/out_w1_spi/
 examples/pilot_stm32/out_x3_i2c/
+examples/pilot_stm32/out_y3_triple/
 
 # Build / IDE
 **/*.elf
