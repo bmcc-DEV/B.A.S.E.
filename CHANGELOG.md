@@ -1,8 +1,11 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`.
 
-## [Unreleased] — Path to v0.5
+## [v0.5.0-rc] — 2026-07-16
+
+Path to v0.5 U0–U5: segundo SoC (STM32) + HIL USB/programmer EXPERIMENTAL + oferta docs.
+Smoke verde: `run.sh`, `run_t1_b2.sh`, `pilot_stm32/run.sh`, `base-hil` (+ `hil_programmer`).
 
 ### Added
 - U1: wedge STM32F103 USART1 @ `0x40013800` — `examples/pilot_stm32/`, smoke opt-in
@@ -13,6 +16,9 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 ### Changed
 - Mapper: com preferência de fabricante, ranking prioriza mfg sobre score/preço
+
+### Not
+- PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, flash na CI default
 
 ## [v0.4.0] — 2026-07-16
 
