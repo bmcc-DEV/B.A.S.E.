@@ -95,6 +95,13 @@ jobs:
           ./examples/pilot_stm32/run_z2_tim.sh
           test -f examples/pilot_stm32/out_z2_tim/CASE_SUMMARY_Z2.md
 
+      - name: Pilot study Specter VM (Forth+Lua)
+        timeout-minutes: 10
+        run: |
+          chmod +x examples/pilot_study/run_study.sh
+          ./examples/pilot_study/run_study.sh
+          test -f examples/pilot_study/out/CASE_SUMMARY_STUDY.md
+
       - name: Pilot FW host gate
         run: |
           test -x examples/pilot/out/fw/firmware_host

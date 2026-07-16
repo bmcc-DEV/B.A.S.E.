@@ -134,6 +134,9 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
         Command::Hil { action } => {
             handle_hil(action, output)?;
         }
+        Command::Study { input, policy, program } => {
+            handle_study(input, policy.as_deref(), program.as_deref(), output)?;
+        }
     }
     Ok(())
 }
@@ -1168,21 +1171,21 @@ fn parse_usb_id(s: &str) -> Result<u16> {
 }
 
 fn handle_hil(action: &HilCommand, output: &Path) -> Result<()> {
-    tracing::warn!("[HIL][EXPERIMENTAL] base hil — not production; not in pipeline default");
+    tracing::info!("[HIL] host REAL* — production gated; not in pipeline default");
     match action {
         HilCommand::Enumerate { vid, pid } => {
             let vid_n = parse_usb_id(vid)?;
             let pid_n = parse_usb_id(pid)?;
             let presence = base_hil::HilAgent::enumerate_presence(vid_n, pid_n);
             tracing::info!(
-                "[HIL][EXPERIMENTAL] enumerate {:04x}:{:04x} → {:?}",
+                "[HIL] enumerate {:04x}:{:04x} → {:?}",
                 vid_n,
                 pid_n,
                 presence
             );
             fs::create_dir_all(output)?;
             let report = serde_json::json!({
-                "experimental": true,
+                "host_real": true,
                 "production": false,
                 "vid": format!("0x{vid_n:04x}"),
                 "pid": format!("0x{pid_n:04x}"),
@@ -1251,6 +1254,39 @@ fn handle_hil(action: &HilCommand, output: &Path) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+fn handle_study(
+    input: &Path,
+    policy_path: Option<&Path>,
+    program_path: Option<&Path>,
+    output: &Path,
+) -> Result<()> {
+    tracing::info!("=== B.A.S.E. Specter study (Forth + Lua) — ≠ auto-fix ===");
+    let yaml = fs::read_to_string(input)?;
+    let spec = base_core::spec::types::HardwareSpec::from_yaml(&yaml)?;
+    let policy = base_vm::load_policy(policy_path)?;
+    let program_src = match program_path {
+        Some(p) => Some(fs::read_to_string(p)?),
+        None => None,
+    };
+    let (refined, report) =
+        base_vm::run_study(&spec, &policy, program_src.as_deref())?;
+
+    fs::create_dir_all(output)?;
+    fs::write(
+        output.join("hardware_spec_refined.yaml"),
+        refined.to_yaml()?,
+    )?;
+    let report_json = serde_json::to_string_pretty(&report)?;
+    fs::write(output.join("study_report.json"), &report_json)?;
+    tracing::info!(
+        "Study done: steps={} stop_reason={:?} auto_fix_complete={}",
+        report.total_steps,
+        report.stop_reason,
+        report.auto_fix_complete
+    );
     Ok(())
 }
 

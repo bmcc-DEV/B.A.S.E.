@@ -34,6 +34,9 @@ impl BottleneckAnalyzer {
     pub fn analyze(&self, spec: &SynthesizedSpec) -> Vec<Bottleneck> {
         let mut bottlenecks = Vec::new();
 
+        // Spec-derived metrics (REAL* — confidence / unknown / unnamed regs)
+        bottlenecks.extend(self.analyze_spec_metrics(&spec.original));
+
         for block in &spec.original.blocks {
             let assigned = spec.assignments.iter().find(|a| a.block_id == block.id);
             let part = assigned.map(|a| a.component.as_str()).unwrap_or("none");
@@ -47,6 +50,57 @@ impl BottleneckAnalyzer {
 
         bottlenecks.sort_by(|a, b| b.improvement.partial_cmp(&a.improvement).unwrap_or(std::cmp::Ordering::Equal));
         bottlenecks
+    }
+
+    /// Bottlenecks from HardwareSpec evidence quality (not hardcoded GPU heuristics only).
+    fn analyze_spec_metrics(&self, hw: &HardwareSpec) -> Vec<Bottleneck> {
+        let mut b = Vec::new();
+        for block in &hw.blocks {
+            let unnamed = block.registers.iter().filter(|r| r.name.is_none()).count();
+            if unnamed > 0 {
+                b.push(Bottleneck {
+                    block_id: block.id.clone(),
+                    component: block.id.clone(),
+                    bottleneck_type: BottleneckType::Latency,
+                    current_perf: unnamed as f64,
+                    candidate_perf: 0.0,
+                    improvement: unnamed as f64,
+                    description: format!(
+                        "Evidence gap: {} unnamed register(s) in {} — reconstruct/study can name",
+                        unnamed, block.id
+                    ),
+                });
+            }
+            if matches!(block.kind, base_core::spec::types::BlockKind::Unknown) {
+                b.push(Bottleneck {
+                    block_id: block.id.clone(),
+                    component: block.id.clone(),
+                    bottleneck_type: BottleneckType::Availability,
+                    current_perf: block.confidence,
+                    candidate_perf: 0.9,
+                    improvement: (0.9 - block.confidence).max(0.1),
+                    description: format!(
+                        "Classification: {} is Unknown (confidence={:.2}) — classify / Capstone",
+                        block.id, block.confidence
+                    ),
+                });
+            }
+            if block.confidence < 0.5 && !matches!(block.kind, base_core::spec::types::BlockKind::Unknown) {
+                b.push(Bottleneck {
+                    block_id: block.id.clone(),
+                    component: block.id.clone(),
+                    bottleneck_type: BottleneckType::Latency,
+                    current_perf: block.confidence,
+                    candidate_perf: 0.8,
+                    improvement: (0.8 - block.confidence).max(0.05),
+                    description: format!(
+                        "Low confidence: {} @ {:.2} — more MMIO/traces recommended",
+                        block.id, block.confidence
+                    ),
+                });
+            }
+        }
+        b
     }
 
     fn analyze_cpu(&self, block: &FunctionalBlock, _part: &str) -> Vec<Bottleneck> {
@@ -207,5 +261,62 @@ mod tests {
             assert!(w[0].improvement >= w[1].improvement,
                 "Bottlenecks should be sorted by improvement descending");
         }
+    }
+
+    #[test]
+    fn test_analyze_spec_metrics_unnamed() {
+        let db = load_db();
+        let analyzer = BottleneckAnalyzer::new(db);
+        let mut hw = HardwareSpec::empty();
+        hw.blocks.push(FunctionalBlock {
+            id: "uart0".into(),
+            kind: BlockKind::Uart,
+            base_address: 0x40034000,
+            size: 0x1000,
+            registers: vec![Register {
+                offset: 0,
+                name: None,
+                width: 32,
+                access: AccessType::ReadWrite,
+                purpose: RegisterPurpose::UnknownPurpose,
+                reset_value: None,
+                observed_values: vec![],
+                bitfields: vec![],
+                polling: false,
+                count: 0,
+            }],
+            protocol: Protocol {
+                states: vec![],
+                transitions: vec![],
+                entry_condition: None,
+                exit_condition: None,
+            },
+            timing: TimingProfile {
+                activation: None,
+                processing: None,
+                interrupt_response: None,
+                dma_setup: None,
+                polling_interval: None,
+            },
+            dma: None,
+            dependencies: vec![],
+            confidence: 0.4,
+        });
+        let spec = SynthesizedSpec {
+            original: hw,
+            assignments: vec![],
+            netlist: None,
+            constraints: SynthesisConstraints {
+                max_bom_cost: None,
+                preferred_manufacturer: None,
+                preferred_package: None,
+            },
+        };
+        let bottlenecks = analyzer.analyze(&spec);
+        assert!(
+            bottlenecks.iter().any(|b| b.description.contains("Evidence gap")),
+            "expected Evidence gap bottleneck, got {:?}",
+            bottlenecks
+        );
     }
 }

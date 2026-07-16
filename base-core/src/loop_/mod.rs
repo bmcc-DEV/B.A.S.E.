@@ -105,6 +105,16 @@ impl FeedbackLoop {
         self.iterations.clone()
     }
 
+    /// Public for Specter VM `OBSERVE` / host tooling.
+    pub fn analyze_errors_pub(&self, spec: &HardwareSpec) -> Vec<ErrorClass> {
+        self.analyze_errors(spec)
+    }
+
+    /// Public for Specter VM `SCORE`.
+    pub fn calculate_pass_rate_pub(&self, spec: &HardwareSpec, errors: &[ErrorClass]) -> f64 {
+        self.calculate_pass_rate(spec, errors)
+    }
+
     fn analyze_errors(&self, spec: &HardwareSpec) -> Vec<ErrorClass> {
         let mut errors = Vec::new();
 

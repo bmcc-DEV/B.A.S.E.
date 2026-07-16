@@ -1,4 +1,4 @@
-//! HIL Cluster — **EXPERIMENTAL** template (host agent + gerador de stub de firmware).
+//! HIL Cluster — **host REAL\*** (enumerate + mock); production gated.
 //!
 //! - Compila e testa no host **sem** hardware.
 //! - Enumerate USB: feature opt-in `hil_usb` (não no CI default).

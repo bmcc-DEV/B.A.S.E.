@@ -161,7 +161,7 @@ pub enum Command {
         #[arg(long)]
         zephyr: bool,
 
-        /// Opt-in: run evolution engine (scaffold — off by default)
+        /// Opt-in: run evolution engine (REAL* metrics — off by default)
         #[arg(long, default_value_t = false)]
         evolve: bool,
 
@@ -277,10 +277,24 @@ pub enum Command {
         dot: bool,
     },
 
-    /// HIL probe host agent — **EXPERIMENTAL** (not in pipeline default)
+    /// HIL probe host agent — host REAL*; production gated (not in pipeline default)
     Hil {
         #[command(subcommand)]
         action: HilCommand,
+    },
+
+    /// Specter VM study: Forth-like loop + Lua policy (autonomous structural refine — ≠ auto-fix)
+    Study {
+        /// Input HardwareSpec YAML
+        input: PathBuf,
+
+        /// Lua policy file (default embedded)
+        #[arg(long)]
+        policy: Option<PathBuf>,
+
+        /// Forth program for each step (default OBSERVE SCORE REFINE …)
+        #[arg(long)]
+        program: Option<PathBuf>,
     },
 }
 

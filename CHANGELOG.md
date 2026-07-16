@@ -1,6 +1,19 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`, `v1.0.0`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`, `v1.0.0`, `v1.1.0-rc`.
+
+## [v1.1.0-rc] — 2026-07-16
+
+Path to v1.1 A0–A5: Specter VM (Forth-like + Lua) + maturidade REAL\* (reconstruct/pcb-draft/evolve/hil-host/fw-host).
+Smoke verde: `run.sh`, `run_t1_b2.sh`, `run_study.sh` (+ STM32 opt-in herdados).
+
+### Added
+- A1–A3: crate `base-vm` + `base study` + `examples/pilot_study/run_study.sh` + CI
+- A4: evolve métricas do HardwareSpec; goldens PCB `NOT FABRICABLE`; testes reconstruct/hil host
+- A5: playbook/SOW v1.1 + Maturity Matrix REAL\* + tag `v1.1.0-rc`
+
+### Not
+- PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, auto-fix completa
 
 ## [v1.0.0] — 2026-07-16
 
