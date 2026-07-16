@@ -1,8 +1,11 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`.
 
-## [Unreleased] — Path to v0.7
+## [v0.7.0-rc] — 2026-07-16
+
+Path to v0.7 W0–W5: STM32 SPI2 dual + goldens + reconstruct honesty + oferta docs.
+Smoke verde: `run.sh`, `run_t1_b2.sh`, `pilot_stm32/run.sh`, `run_w1_spi.sh`.
 
 ### Added
 - W1: dual STM32 USART1 + SPI2 @ `0x40003800` — `run_w1_spi.sh`, fixtures, teste `pilot_stm32_spi`
@@ -10,6 +13,10 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 - W2: goldens STM32 — `expected/event_graph.*`, `proof_report.golden.json`; smoke `diff` (não overwrite)
 - W3: `reconstruct` UX — `stop_reason`/`stagnated`; `--continuous` = cap 1000 (≠ auto-fix)
 - W4: playbook + SOW checklist v0.7 + COMMERCIAL sync
+- W5: tag `v0.7.0-rc`
+
+### Not
+- PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, auto-fix completa, Amiga/CD32 como wedge de release
 
 ## [v0.6.0] — 2026-07-16
 
