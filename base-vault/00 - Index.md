@@ -1,6 +1,6 @@
 ---
 created: 2024-07-12
-updated: 2026-07-15
+updated: 2026-07-16
 tags:
   - index
   - base
@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**v0.6.0-rc ✅ · [[16 - Path to v0.6/16.00 - Index|Path to v0.6]] · [[15 - Path to v0.5/15.00 - Index|Path to v0.5]] · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
+**v0.6.0 ✅ · [[17 - Path to v0.7/17.00 - Index|Path to v0.7]] · [[16 - Path to v0.6/16.00 - Index|Path to v0.6]] · [[15 - Path to v0.5/15.00 - Index|Path to v0.5]] · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,10 @@ flowchart LR
 | [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0 ✅ (T0–T5) |
 | [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | v0.5.0 ✅ (U0–U5) |
 | [[15 - Path to v0.5/15.20 - Forensic Playbook\|🧭 Playbook v0.5]] | Demo forense RP + STM32 |
-| [[16 - Path to v0.6/16.00 - Index\|🛤️ Path to v0.6]] | v0.6.0-rc ✅ (V0–V5) |
+| [[17 - Path to v0.7/17.00 - Index\|🚀 Path to v0.7]] | em curso (W0 ✅ · W1–W5) |
+| [[17 - Path to v0.7/17.01 - Master Plan\|📌 Master Plan v0.7]] | L16–L18 |
+| [[17 - Path to v0.7/17.04 - Sprint Board\|📋 Sprint Board v0.7]] | Kanban W0–W5 |
+| [[16 - Path to v0.6/16.00 - Index\|🛤️ Path to v0.6]] | v0.6.0 ✅ (V0–V5) |
 | [[16 - Path to v0.6/16.01 - Master Plan\|📌 Master Plan v0.6]] | L13–L15 |
 | [[16 - Path to v0.6/16.04 - Sprint Board\|📋 Sprint Board v0.6]] | Kanban V0–V5 |
 | [[15 - Path to v0.5/15.01 - Master Plan\|📌 Master Plan v0.5]] | L10–L12 |
