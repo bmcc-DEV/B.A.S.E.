@@ -10,7 +10,7 @@ Template de probe HIL (host agent + gerador de firmware stub RP2350).
 | Path Detected offline | ✅ `with_presence(Detected)` / `BASE_HIL_MOCK_DETECTED` |
 | Dry-run flash (sem silício) | ✅ `with_mock_flash(Detected)` → `mock_dry_run` |
 | Programador USB/externo | ✅ feature `hil_programmer` — **EXPERIMENTAL**, ≠ production |
-| CLI `base hil` | ✅ V3 — `enumerate` / `flash` (wrapper; ≠ pipeline default) |
+| CLI `base hil` | ✅ V3 — `enumerate` / `flash` / `lab-status` (≠ pipeline default) |
 | Ligado ao `base pipeline` default | ❌ não |
 
 ## CLI (V3)
@@ -18,7 +18,9 @@ Template de probe HIL (host agent + gerador de firmware stub RP2350).
 ```bash
 base hil enumerate -o out/                 # default → Simulated
 base hil flash fw.bin --mock-flash -o out/ # mock_dry_run
+base hil lab-status --sop examples/hil_lab/SOP.md --mock-detected -o out/
 # cargo build -p base-cli --features hil_programmer,hil_usb
+# ./examples/hil_lab/run_hil_lab_assist.sh  # A1/A2 GREEN rehearsal
 ```
 
 ## Enumerate (U2)

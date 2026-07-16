@@ -344,6 +344,10 @@ pub enum HilCommand {
         #[arg(long)]
         sop: Option<PathBuf>,
 
+        /// Force A1 Detected offline (lab rehearsal; ≠ USB real)
+        #[arg(long, default_value_t = false)]
+        mock_detected: bool,
+
         /// Operator asserts SOW §HIL signed (Gate A5) — do not lie
         #[arg(long, default_value_t = false)]
         sow_signed: bool,

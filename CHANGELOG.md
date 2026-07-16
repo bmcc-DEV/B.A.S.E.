@@ -4,6 +4,11 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 ## [Unreleased]
 
+### Added (Path to v1.3 C4)
+- Fechar Gate A1/A2 em lab rehearsal: `lab-status --mock-detected` + `--features hil_programmer` + envs
+- Smoke `examples/hil_lab/run_hil_lab_assist.sh` → A1/A2 GREEN, A5 aberto, `experimental_external_cmd`
+- Ainda ≠ production / USB real obrigatório / `lab_assist_ready` sem SOW
+
 ## [v1.3.0-rc] — 2026-07-16
 
 Path to v1.3: HIL Lab Gate A — `base hil lab-status` + SOP + smoke.

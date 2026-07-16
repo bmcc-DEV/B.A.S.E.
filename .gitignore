@@ -28,6 +28,7 @@ examples/pilot_stm32/out_y3_triple/
 examples/pilot_stm32/out_z2_tim/
 examples/pilot_study/out/
 examples/hil_lab/out/
+examples/hil_lab/out_assist/
 
 # Build / IDE
 **/*.elf

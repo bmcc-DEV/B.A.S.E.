@@ -1257,15 +1257,19 @@ fn handle_hil(action: &HilCommand, output: &Path) -> Result<()> {
             vid,
             pid,
             sop,
+            mock_detected,
             sow_signed,
         } => {
             let vid_n = parse_usb_id(vid)?;
             let pid_n = parse_usb_id(pid)?;
-            let report = base_hil::evaluate_lab_gate(
+            let report = base_hil::evaluate_lab_gate_opts(
                 vid_n,
                 pid_n,
-                *sow_signed,
-                sop.as_deref(),
+                base_hil::LabGateOptions {
+                    sow_signed: *sow_signed,
+                    sop_path: sop.as_deref(),
+                    mock_detected: *mock_detected,
+                },
             );
             tracing::info!(
                 "[HIL][Gate A] lab_assist_ready={} production={}",

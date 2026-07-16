@@ -15,7 +15,7 @@ mod usb;
 
 pub use agent::{HilAgent, HilSample, ProbePresence, DEFAULT_PROBE_PID, DEFAULT_PROBE_VID, ENV_MOCK_DETECTED};
 pub use flash::{FlashDenied, FlashReceipt};
-pub use lab_gate::{evaluate_lab_gate, LabGateReport};
+pub use lab_gate::{evaluate_lab_gate, evaluate_lab_gate_opts, LabGateOptions, LabGateReport};
 pub use probe::ProbeFirmware;
 pub use programmer::{programmer_feature_enabled, ENV_ALLOW_FLASH, ENV_PROGRAMMER_CMD};
 

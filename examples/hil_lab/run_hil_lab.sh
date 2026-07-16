@@ -22,8 +22,10 @@ assert r.get("claim") == "A"
 checks = {c["id"]: c for c in r["checks"]}
 assert checks["A3"]["green"] is True, "SOP must satisfy A3"
 assert checks["A4"]["green"] is True
+assert checks["A1"]["green"] is False, "CI default must keep A1 blocked"
+assert checks["A2"]["green"] is False, "CI default must keep A2 blocked"
 assert r["lab_assist_ready"] is False, "CI default must not be lab-ready without Detected+programmer"
-print("lab_gate OK production=false A3/A4 green lab_assist_ready=false")
+print("lab_gate OK production=false A3/A4 green A1/A2 blocked lab_assist_ready=false")
 PY
 
 echo "== mock flash still ≠ production =="
@@ -42,7 +44,11 @@ cat > "$OUT/CASE_SUMMARY_HIL_LAB.md" <<EOF
 - lab-status report: hil_lab_gate.json
 - SOP: examples/hil_lab/SOP.md (A3)
 - production: false
-- status: OK (software gate)
+- status: OK (software gate default)
 EOF
 
 echo "HIL lab smoke OK → $OUT"
+
+# Phase 2: close A1/A2 in controlled lab rehearsal (still ≠ production / A5)
+chmod +x "$ROOT/examples/hil_lab/run_hil_lab_assist.sh"
+"$ROOT/examples/hil_lab/run_hil_lab_assist.sh"
