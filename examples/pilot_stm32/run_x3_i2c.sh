@@ -65,6 +65,38 @@ grep -Eq 'PB6|PB7' "$SCH"
 echo "== prove I2C1 contracts =="
 "$BASE" prove "$PILOT/contracts_i2c.yaml" -o "$OUT/prove_i2c"
 
+echo "== event-graph + goldens I2C (Y2) =="
+"$BASE" event-graph "$PILOT/contracts_i2c.yaml" "$PILOT/trace_i2c.csv" \
+  --format dot -o "$OUT/event_graph_i2c"
+"$BASE" event-graph "$PILOT/contracts_i2c.yaml" "$PILOT/trace_i2c.csv" \
+  --format mermaid -o "$OUT/event_graph_i2c"
+diff -u "$PILOT/expected_i2c/event_graph.dot" "$OUT/event_graph_i2c/event_graph.dot"
+diff -u "$PILOT/expected_i2c/event_graph.mmd" "$OUT/event_graph_i2c/event_graph.mmd"
+python3 - "$OUT/prove_i2c/proof_report.json" "$PILOT/expected_i2c/proof_report.golden.json" <<'PY'
+import json, pathlib, sys
+actual_path = pathlib.Path(sys.argv[1])
+golden_path = pathlib.Path(sys.argv[2])
+src = json.loads(actual_path.read_text())
+got = {
+    "backend": src["backend"],
+    "contracts_proved": src["contracts_proved"],
+    "all_satisfied": src["all_satisfied"],
+    "results": [
+        {
+            "contract": r["contract"],
+            "satisfiable": r["satisfiable"],
+            "proved": r["proved"],
+            "backend": r["backend"],
+            "model": r["model"],
+        }
+        for r in src["results"]
+    ],
+}
+want = json.loads(golden_path.read_text())
+assert got == want, f"prove golden mismatch:\n got={got}\nwant={want}"
+print("prove I2C golden OK")
+PY
+
 echo "== replay I2C1 =="
 "$BASE" replay "$PILOT/trace_i2c.csv" \
   --contracts "$PILOT/contracts_i2c.yaml" \
@@ -85,6 +117,7 @@ summary.write_text(
     "- Dual wedge: USART1 @ 0x40013800 + I2C1 @ 0x40005400\n"
     "- Classify: `0x40013000=uart,0x40005000=i2c`\n"
     "- Pins I2C1: PB6/PB7 labels no draft PCB (Y1; NOT FABRICABLE)\n"
+    "- Goldens Y2: event-graph + prove vs expected_i2c/ (diff, não overwrite)\n"
     "- Prefer manufacturer: STMicroelectronics → STM32F103C8\n"
     "- Gates USART (`run.sh`) e SPI (`run_w1_spi.sh`) intocados\n"
     f"- design bytes: {len(design)}\n"

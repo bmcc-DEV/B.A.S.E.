@@ -32,6 +32,7 @@ Smoke inclui:
 1. `analyze --disasm` — Capstone resolve USART1 sem traces  
 2. `analyze --mmio-traces` — path feliz design/synth  
 3. **W2 goldens** — `diff` event-graph + prove fields vs `expected/`
+4. **Y2 goldens I2C** — `diff` vs `expected_i2c/` (nunca overwrite)
 
 ## Goldens (`expected/`)
 
@@ -41,6 +42,13 @@ Smoke inclui:
 | `proof_report.golden.json` | Prove simbólico estável (sem `smt_lib`) |
 | `hardware_spec.fields.yaml` | Allowlist de campos HardwareSpec |
 | `CASE_SUMMARY.template.md` | Campos estáveis do resumo |
+
+## Goldens I2C (`expected_i2c/` — Y2)
+
+| Arquivo | Papel |
+|---------|-------|
+| `event_graph.dot` / `.mmd` | Causal graph I2C1 (smoke `diff`) |
+| `proof_report.golden.json` | Prove I2C1 estável (sem `smt_lib`) |
 
 ## W1 — dual USART + SPI2
 
@@ -60,6 +68,7 @@ Smoke inclui:
 | Classify | `0x40013000=uart,0x40005000=i2c` |
 | IRQ I2C1_EV | `0x1f` (31) |
 | Y1 pins I2C1 | PB6 SCL / PB7 SDA no draft sch (`NOT FABRICABLE`) |
+| Y2 goldens | `expected_i2c/` — event-graph + prove (`diff`) |
 | Smoke | `run_x3_i2c.sh` |
 
 ## Arquivos
@@ -75,7 +84,8 @@ Smoke inclui:
 | `contracts_spi.yaml` / `trace_spi.csv` | Prove + replay SPI2 |
 | `contracts_i2c.yaml` / `trace_i2c.csv` | Prove + replay I2C1 |
 | `pilot.bsl` / `pilot_spi.bsl` / `pilot_i2c.bsl` | BIR |
-| `expected/` | Goldens W2 (verificados, não sobrescritos) |
+| `expected/` | Goldens W2 USART (verificados, não sobrescritos) |
+| `expected_i2c/` | Goldens Y2 I2C1 (verificados, não sobrescritos) |
 | `SHA256SUMS` / `SHA256SUMS.w1` / `SHA256SUMS.x3` | Integridade |
 | `run.sh` | Smoke USART opt-in + goldens |
 | `run_w1_spi.sh` | Smoke dual W1 opt-in |

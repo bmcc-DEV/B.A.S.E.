@@ -1,0 +1,31 @@
+// B.A.S.E. Event Graph — Causal & Temporal
+digraph "trace_i2c.csv" {
+  rankdir=TB;
+  splines=curved;
+  node [fontname="JetBrains Mono", fontsize=10];
+  edge [fontname="JetBrains Mono", fontsize=9];
+
+  subgraph cluster_i2c1_init_to_irq_1 {
+    label="i2c1_init_to_irq#1";
+    style=filled; fillcolor="#1a1a2e"; fontcolor="#4a9eff";
+    i2c1_init_to_irq_1_0 [label="WRITE 0x40005400 = 1\n0x40005400 = 1", shape=box, style=filled, fillcolor="#ff6b6b", fontcolor="#fff"];
+    i2c1_init_to_irq_1_1 [label="READ 0x40005414\n0x40005414\n150ns", shape=box, style=filled, fillcolor="#ff8787", fontcolor="#fff"];
+    i2c1_init_to_irq_1_2 [label="IRQ 0x1f\n0x1f\n500ns", shape=triangle, style=filled, fillcolor="#fcc419", fontcolor="#fff"];
+    i2c1_init_to_irq_1_0 -> i2c1_init_to_irq_1_1 [label="150ns", color="#fab005", penwidth=2];
+    i2c1_init_to_irq_1_1 -> i2c1_init_to_irq_1_2 [label="350ns", color="#fab005", penwidth=2];
+  }
+
+  subgraph cluster_i2c1_xfer_byte_1 {
+    label="i2c1_xfer_byte#1";
+    style=filled; fillcolor="#1a1a2e"; fontcolor="#4a9eff";
+    i2c1_xfer_byte_1_0 [label="WRITE 0x40005410 = 85\n0x40005410 = 85\n1000ns", shape=box, style=filled, fillcolor="#ff6b6b", fontcolor="#fff"];
+    i2c1_xfer_byte_1_1 [label="IRQ 0x1f\n0x1f\n1200ns", shape=triangle, style=filled, fillcolor="#fcc419", fontcolor="#fff"];
+    i2c1_xfer_byte_1_0 -> i2c1_xfer_byte_1_1 [label="200ns", color="#fab005", penwidth=2];
+  }
+
+  // Legend
+  leg_write [label="MMIO Write", shape=box, style=filled, fillcolor="#ff6b6b", fontcolor="#fff", fontsize=9];
+  leg_dma [label="DMA Event", shape=diamond, style=filled, fillcolor="#da77f2", fontcolor="#fff", fontsize=9];
+  leg_irq [label="Interrupt", shape=triangle, style=filled, fillcolor="#fcc419", fontcolor="#fff", fontsize=9];
+  leg_lat [label="Latency", shape=plaintext, fontsize=9];
+}

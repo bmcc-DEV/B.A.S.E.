@@ -1,0 +1,21 @@
+{
+  "backend": "symbolic",
+  "contracts_proved": 2,
+  "all_satisfied": true,
+  "results": [
+    {
+      "contract": "i2c1_init_to_irq",
+      "satisfiable": true,
+      "proved": true,
+      "backend": "symbolic",
+      "model": "symbolic: t0=0, t1=1, t2=2"
+    },
+    {
+      "contract": "i2c1_xfer_byte",
+      "satisfiable": true,
+      "proved": true,
+      "backend": "symbolic",
+      "model": "symbolic: t0=0, t1=1"
+    }
+  ]
+}

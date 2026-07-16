@@ -1,0 +1,9 @@
+flowchart LR
+    evi2c1_init_to_irq_1_0[WRITE 0x40005400 = 1, 0ns]
+    evi2c1_init_to_irq_1_1[READ 0x40005414, 150ns]
+    evi2c1_init_to_irq_1_2[/IRQ 0x1f, 500ns/]
+    evi2c1_init_to_irq_1_0 -->|150ns| evi2c1_init_to_irq_1_1
+    evi2c1_init_to_irq_1_1 -->|350ns| evi2c1_init_to_irq_1_2
+    evi2c1_xfer_byte_1_0[WRITE 0x40005410 = 85, 1000ns]
+    evi2c1_xfer_byte_1_1[/IRQ 0x1f, 1200ns/]
+    evi2c1_xfer_byte_1_0 -->|200ns| evi2c1_xfer_byte_1_1

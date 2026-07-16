@@ -6,6 +6,7 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 ### Added
 - Y1: pins I2C1 STM32F103C8 (PB6 SCL / PB7 SDA) + labels no draft sch; matcher `scl`/`sda`
+- Y2: goldens I2C STM32 — `expected_i2c/` event-graph + prove; `run_x3_i2c.sh` `diff`; teste `pilot_stm32_i2c_goldens`
 
 ## [v0.8.0] — 2026-07-16
 
