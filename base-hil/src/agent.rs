@@ -1,15 +1,49 @@
-/// Host Agent — template EXPERIMENTAL. Sem probe físico, só simulação.
+/// Host Agent — template EXPERIMENTAL. Sem probe físico na CI.
 use std::path::Path;
 
 use crate::probe::ProbeFirmware;
+
+/// Env: força [`ProbePresence::Detected`] sem USB (só testes/offline).
+pub const ENV_MOCK_DETECTED: &str = "BASE_HIL_MOCK_DETECTED";
 
 /// Presença de hardware. Flash real só com [`ProbePresence::Detected`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbePresence {
     /// Sem USB/CMSIS-DAP — default do CI e de `connect`.
     Simulated,
-    /// Probe reconhecido (ainda não implementado em host).
+    /// Probe reconhecido (mock via env/`with_presence`, ou futuro USB).
     Detected,
+}
+
+/// Motivo de recusa de flash (path Detected tipado — T4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlashDenied {
+    NotDetected,
+    ProgrammerUnimplemented,
+}
+
+impl std::fmt::Display for FlashDenied {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FlashDenied::NotDetected => write!(
+                f,
+                "HIL EXPERIMENTAL: flash requer ProbePresence::Detected (CMSIS-DAP/open probe); \
+                 connect() default é simulado e não grava silício"
+            ),
+            FlashDenied::ProgrammerUnimplemented => write!(
+                f,
+                "HIL EXPERIMENTAL: path Detected ainda não implementa programador USB \
+                 (use with_mock_flash para dry-run offline)"
+            ),
+        }
+    }
+}
+
+/// Recibo de dry-run — **nunca** significa silício gravado.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlashReceipt {
+    pub bytes: usize,
+    pub mode: &'static str,
 }
 
 /// Representa uma amostra capturada pelo probe
@@ -24,24 +58,54 @@ pub struct HilSample {
 /// Agente host que se comunica com o probe HIL
 pub struct HilAgent {
     presence: ProbePresence,
+    /// Se true e Detected: `try_flash` devolve dry-run (sem silício).
+    mock_flash: bool,
 }
 
 impl HilAgent {
-    /// Abre canal com o probe. Sem device no host ⇒ sempre [`ProbePresence::Simulated`].
+    /// Enumeração offline. Sem USB real: Simulated, salvo `BASE_HIL_MOCK_DETECTED`.
+    pub fn enumerate_presence(vid: u16, pid: u16) -> ProbePresence {
+        if std::env::var_os(ENV_MOCK_DETECTED).is_some() {
+            tracing::warn!(
+                "[HIL][EXPERIMENTAL] {ENV_MOCK_DETECTED} set — treating {:04x}:{:04x} as Detected (no USB)",
+                vid,
+                pid
+            );
+            return ProbePresence::Detected;
+        }
+        let _ = (vid, pid);
+        ProbePresence::Simulated
+    }
+
+    /// Abre canal com o probe. Default CI ⇒ [`ProbePresence::Simulated`].
     pub fn connect(vid: u16, pid: u16) -> Result<Self, String> {
+        let presence = Self::enumerate_presence(vid, pid);
         tracing::info!(
-            "[HIL][EXPERIMENTAL] Connecting to probe {:04x}:{:04x} (simulated; no USB enumerate)",
+            "[HIL][EXPERIMENTAL] Connecting to probe {:04x}:{:04x} → {:?}",
             vid,
-            pid
+            pid,
+            presence
         );
         Ok(Self {
-            presence: ProbePresence::Simulated,
+            presence,
+            mock_flash: false,
         })
     }
 
     /// Construtor de teste / futuro path com probe real.
     pub fn with_presence(presence: ProbePresence) -> Self {
-        Self { presence }
+        Self {
+            presence,
+            mock_flash: false,
+        }
+    }
+
+    /// Detected + dry-run de flash (ainda EXPERIMENTAL — zero silício).
+    pub fn with_mock_flash(presence: ProbePresence) -> Self {
+        Self {
+            presence,
+            mock_flash: true,
+        }
     }
 
     pub fn presence(&self) -> ProbePresence {
@@ -52,16 +116,37 @@ impl HilAgent {
         matches!(self.presence, ProbePresence::Detected)
     }
 
-    /// Flash **só** com probe detectado. Em modo simulado falha de propósito (S4).
-    pub fn flash_probe_firmware(&self, _image: &[u8]) -> Result<(), String> {
+    /// Tentativa tipada de flash (T4).
+    pub fn try_flash(&self, image: &[u8]) -> Result<FlashReceipt, FlashDenied> {
         if !self.can_flash() {
-            return Err(
-                "HIL EXPERIMENTAL: flash requer ProbePresence::Detected (CMSIS-DAP/open probe); \
-                 connect() atual é simulado e não grava silício"
-                    .into(),
-            );
+            return Err(FlashDenied::NotDetected);
         }
-        Err("HIL EXPERIMENTAL: path Detected ainda não implementa programador".into())
+        if self.mock_flash {
+            tracing::warn!(
+                "[HIL][EXPERIMENTAL] mock dry-run flash {} bytes — NO silicon written",
+                image.len()
+            );
+            return Ok(FlashReceipt {
+                bytes: image.len(),
+                mode: "mock_dry_run",
+            });
+        }
+        Err(FlashDenied::ProgrammerUnimplemented)
+    }
+
+    /// Compat: mapeia [`Self::try_flash`] para `Result<(), String>`.
+    pub fn flash_probe_firmware(&self, image: &[u8]) -> Result<(), String> {
+        match self.try_flash(image) {
+            Ok(receipt) => {
+                tracing::info!(
+                    "[HIL] flash receipt mode={} bytes={}",
+                    receipt.mode,
+                    receipt.bytes
+                );
+                Ok(())
+            }
+            Err(e) => Err(e.to_string()),
+        }
     }
 
     /// Lê amostras do probe (modo simulado)
@@ -139,7 +224,7 @@ impl HilAgent {
         script.push_str("EOF\n\n");
         script.push_str("echo \"[EXPERIMENTAL] scaffold em $PROBE_DIR/\"\n");
         script.push_str("echo \"Build (manual, precisa target): cargo build --release --target thumbv8m.main-none-eabi\"\n");
-        script.push_str("echo \"Flash: só com probe Detected — HilAgent::flash_probe_firmware\"\n");
+        script.push_str("echo \"Flash: HilAgent::try_flash / with_mock_flash (dry-run) — sem pipeline default\"\n");
         script
     }
 
@@ -162,19 +247,46 @@ mod tests {
     }
 
     #[test]
+    fn test_enumerate_default_simulated() {
+        // Não depende de env limpo em paralelo — with_presence é a API estável de teste.
+        assert_eq!(
+            HilAgent::with_presence(ProbePresence::Simulated).presence(),
+            ProbePresence::Simulated
+        );
+    }
+
+    #[test]
     fn test_flash_denied_without_probe() {
         let agent = HilAgent::connect(0xCAFE, 0x4007).unwrap();
+        assert_eq!(agent.try_flash(&[0u8; 4]), Err(FlashDenied::NotDetected));
         let err = agent.flash_probe_firmware(&[0u8; 4]).unwrap_err();
         assert!(err.contains("EXPERIMENTAL"));
         assert!(err.contains("Detected"));
     }
 
     #[test]
-    fn test_flash_denied_even_when_marked_detected_until_programmer_exists() {
+    fn test_detected_without_mock_flash_unimplemented() {
         let agent = HilAgent::with_presence(ProbePresence::Detected);
         assert!(agent.can_flash());
-        let err = agent.flash_probe_firmware(&[0u8; 4]).unwrap_err();
-        assert!(err.contains("não implementa"));
+        assert_eq!(
+            agent.try_flash(&[0u8; 4]),
+            Err(FlashDenied::ProgrammerUnimplemented)
+        );
+    }
+
+    #[test]
+    fn test_detected_mock_flash_dry_run() {
+        let agent = HilAgent::with_mock_flash(ProbePresence::Detected);
+        let receipt = agent.try_flash(&[1, 2, 3, 4]).unwrap();
+        assert_eq!(receipt.bytes, 4);
+        assert_eq!(receipt.mode, "mock_dry_run");
+        assert!(agent.flash_probe_firmware(&[0u8; 8]).is_ok());
+    }
+
+    #[test]
+    fn test_mock_flash_still_denied_if_simulated() {
+        let agent = HilAgent::with_mock_flash(ProbePresence::Simulated);
+        assert_eq!(agent.try_flash(&[0u8; 1]), Err(FlashDenied::NotDetected));
     }
 
     #[test]

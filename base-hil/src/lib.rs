@@ -7,5 +7,7 @@
 pub mod agent;
 pub mod probe;
 
-pub use agent::{HilAgent, HilSample, ProbePresence};
+pub use agent::{
+    FlashDenied, FlashReceipt, HilAgent, HilSample, ProbePresence, ENV_MOCK_DETECTED,
+};
 pub use probe::ProbeFirmware;
