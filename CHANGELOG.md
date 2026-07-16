@@ -1,14 +1,18 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`.
 
-## [Unreleased] — Path to v1.0
+## [v1.0.0-rc] — 2026-07-16
+
+Path to v1.0 Z0–Z5: goldens SPI STM32 + TIM2 opt-in + Maturity Matrix sync + oferta docs.
+Smoke verde: `run.sh`, `run_t1_b2.sh`, `pilot_stm32/run.sh`, `run_w1_spi.sh`, `run_x3_i2c.sh`, `run_y3_triple.sh`, `run_z2_tim.sh`.
 
 ### Added
 - Z1: goldens SPI STM32 — `expected_spi/` event-graph + prove; `run_w1_spi.sh` `diff`; teste `pilot_stm32_spi_goldens`
 - Z2: dual STM32 USART1 + TIM2 @ `0x40000000` — `run_z2_tim.sh`, classify `timer`/`tim`, teste `pilot_stm32_tim`
 - Z3: Maturity Matrix sync — wedges RP/STM32 + goldens/flags/HIL EXPERIMENTAL; README alinhado
 - Z4: playbook + SOW checklist v1.0 + COMMERCIAL sync (≠ produto industrial completo)
+- Z5: tag `v1.0.0-rc`
 
 ### Not
 - PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, “v1.0 = produto industrial completo”

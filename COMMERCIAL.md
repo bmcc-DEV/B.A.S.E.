@@ -127,8 +127,8 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 ## Próximo passo imediato
 
 1. ✅ Path to Real → v0.9 (`v0.9.0`)
-2. ✅ Path to v1.0 Z0–Z4 — goldens SPI + TIM2 + Maturity Matrix + oferta docs
+2. ✅ Path to v1.0 Z0–Z5 → tag `v1.0.0-rc`
 3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh` + `run_y3_triple.sh` + `run_z2_tim.sh`
-4. Z5 — tag `v1.0.0-rc` (próximo)
-5. Pricing SaaS / port turnkey só com SOW
+4. Pricing SaaS / port turnkey só com SOW
+5. Promoção `v1.0.0` após smoke estável (opcional)
 6. **v1.0 ≠** produto industrial completo / ASIC drop-in
