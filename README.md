@@ -78,7 +78,7 @@ base design output/hardware_spec.yaml -o output/design/
 
 ```bash
 base replay trace.csv --contracts contracts.yaml -o violations.json
-base prove contracts.yaml -o proof/   # simbólico por default
+base prove contracts.yaml -o proof/   # simbólico por default; proof_report.json inclui backend
 ```
 
 ### Prova formal Z3 (opcional)

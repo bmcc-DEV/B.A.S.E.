@@ -8,6 +8,16 @@ use serde::{Deserialize, Serialize};
 use crate::temporal::{SequenceContract, OrderConstraint};
 use std::collections::{HashMap, HashSet};
 
+/// Backend que decidiu SAT/UNSAT (T2 — UX honesta).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProofBackend {
+    Symbolic,
+    Z3,
+    /// Precedência acíclica (deadlock check), não SMT-LIB solver
+    Graph,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofResult {
     pub contract: String,
@@ -15,10 +25,13 @@ pub struct ProofResult {
     pub satisfiable: bool,
     pub model: Option<String>,
     pub proved: bool,
+    pub backend: ProofBackend,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofReport {
+    /// Backend ativo desta execução (`symbolic` ou `z3`)
+    pub backend: ProofBackend,
     pub contracts_proved: usize,
     pub all_satisfied: bool,
     pub results: Vec<ProofResult>,
@@ -28,6 +41,18 @@ pub struct ProofReport {
 pub struct SmtProver;
 
 impl SmtProver {
+    /// Backend usado por [`Self::prove`] nesta build.
+    pub fn active_backend() -> ProofBackend {
+        #[cfg(feature = "solver_z3")]
+        {
+            ProofBackend::Z3
+        }
+        #[cfg(not(feature = "solver_z3"))]
+        {
+            ProofBackend::Symbolic
+        }
+    }
+
     /// Traduz um SequenceContract para SMT-LIB2
     pub fn contract_to_smt(contract: &SequenceContract) -> String {
         let mut smt = String::new();
@@ -98,6 +123,7 @@ impl SmtProver {
                 satisfiable: false,
                 model: Some("empty_contract".into()),
                 proved: false,
+                backend: ProofBackend::Z3,
             };
         }
 
@@ -144,6 +170,7 @@ impl SmtProver {
             satisfiable,
             model,
             proved: satisfiable,
+            backend: ProofBackend::Z3,
         }
     }
 
@@ -162,6 +189,7 @@ impl SmtProver {
                 satisfiable: false,
                 model: Some("empty_contract: no steps".into()),
                 proved: false,
+                backend: ProofBackend::Symbolic,
             };
         }
 
@@ -172,6 +200,7 @@ impl SmtProver {
                 satisfiable: true,
                 model: Some("t0=0".into()),
                 proved: true,
+                backend: ProofBackend::Symbolic,
             };
         }
 
@@ -192,6 +221,7 @@ impl SmtProver {
                     contract.max_step_ns, min_gap
                 )),
                 proved: false,
+                backend: ProofBackend::Symbolic,
             };
         }
 
@@ -205,6 +235,7 @@ impl SmtProver {
                     min_total, contract.max_total_ns, gaps
                 )),
                 proved: false,
+                backend: ProofBackend::Symbolic,
             };
         }
 
@@ -222,6 +253,7 @@ impl SmtProver {
                     satisfiable: false,
                     model: Some("unsat: max_step cannot realize min strict total".into()),
                     proved: false,
+                    backend: ProofBackend::Symbolic,
                 };
             }
         }
@@ -245,6 +277,7 @@ impl SmtProver {
                     satisfiable: false,
                     model: Some("unsat after model construction".into()),
                     proved: false,
+                    backend: ProofBackend::Symbolic,
                 };
             }
         }
@@ -262,14 +295,20 @@ impl SmtProver {
             satisfiable: true,
             model: Some(format!("symbolic: {}", model)),
             proved: true,
+            backend: ProofBackend::Symbolic,
         }
     }
 
     pub fn prove_all(contracts: &[SequenceContract]) -> ProofReport {
         let results: Vec<ProofResult> = contracts.iter().map(|c| Self::prove(c)).collect();
         let proved = results.iter().filter(|r| r.proved).count();
+        let backend = results
+            .first()
+            .map(|r| r.backend)
+            .unwrap_or_else(Self::active_backend);
 
         ProofReport {
+            backend,
             contracts_proved: proved,
             all_satisfied: !contracts.is_empty() && proved == contracts.len(),
             results,
@@ -326,6 +365,7 @@ impl SmtProver {
                     satisfiable: false,
                     model: Some(format!("deadlock_cycle: {}", path.join(" -> "))),
                     proved: false,
+                    backend: ProofBackend::Graph,
                 }
             }
             None => {
@@ -344,6 +384,7 @@ impl SmtProver {
                         edges.len()
                     )),
                     proved: true,
+                    backend: ProofBackend::Graph,
                 }
             }
         }
@@ -465,9 +506,29 @@ mod tests {
         assert!(result.proved);
         assert!(result.smt_lib.contains("dma_xfer"));
         #[cfg(not(feature = "solver_z3"))]
-        assert!(result.model.as_ref().unwrap().contains("symbolic"));
+        {
+            assert!(result.model.as_ref().unwrap().contains("symbolic"));
+            assert_eq!(result.backend, ProofBackend::Symbolic);
+            assert_eq!(SmtProver::active_backend(), ProofBackend::Symbolic);
+        }
         #[cfg(feature = "solver_z3")]
-        assert!(result.model.as_ref().unwrap().contains("z3:sat"));
+        {
+            assert!(result.model.as_ref().unwrap().contains("z3:sat"));
+            assert_eq!(result.backend, ProofBackend::Z3);
+            assert_eq!(SmtProver::active_backend(), ProofBackend::Z3);
+        }
+    }
+
+    #[test]
+    fn test_proof_report_backend_field() {
+        let report = SmtProver::prove_all(&[sample_contract()]);
+        assert_eq!(report.backend, SmtProver::active_backend());
+        assert!(report.results.iter().all(|r| r.backend == report.backend));
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(
+            json.contains("\"backend\":\"symbolic\"") || json.contains("\"backend\":\"z3\""),
+            "report JSON must expose backend, got {json}"
+        );
     }
 
     #[cfg(feature = "solver_z3")]

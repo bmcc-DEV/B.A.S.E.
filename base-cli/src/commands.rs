@@ -882,17 +882,19 @@ fn handle_prove(contracts_path: &Path, smt_output: Option<PathBuf>, deadlock: bo
         }
         fs::write(output_dir.join("contracts_proof.smt"), &smt_all)?;
         tracing::info!(
-            "Proved {}/{} contracts → {}",
+            "Proved {}/{} contracts (backend={:?}) → {}",
             report.contracts_proved,
             contracts.len(),
+            report.backend,
             out.display()
         );
         for r in &report.results {
             tracing::info!(
-                "  {}: proved={} sat={} {:?}",
+                "  {}: proved={} sat={} backend={:?} {:?}",
                 r.contract,
                 r.proved,
                 r.satisfiable,
+                r.backend,
                 r.model
             );
         }
