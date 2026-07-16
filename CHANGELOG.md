@@ -8,6 +8,7 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 - Z1: goldens SPI STM32 — `expected_spi/` event-graph + prove; `run_w1_spi.sh` `diff`; teste `pilot_stm32_spi_goldens`
 - Z2: dual STM32 USART1 + TIM2 @ `0x40000000` — `run_z2_tim.sh`, classify `timer`/`tim`, teste `pilot_stm32_tim`
 - Z3: Maturity Matrix sync — wedges RP/STM32 + goldens/flags/HIL EXPERIMENTAL; README alinhado
+- Z4: playbook + SOW checklist v1.0 + COMMERCIAL sync (≠ produto industrial completo)
 
 ### Not
 - PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, “v1.0 = produto industrial completo”

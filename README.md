@@ -10,8 +10,8 @@
 
 > **Tag [`v0.9.0`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.9.0)** · plano [Path to v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.00%20-%20Index.md) · [CHANGELOG](CHANGELOG.md):
 > UART/SPI (RP goldens) + STM32 USART/SPI2/I2C1/TIM2 opt-in + goldens `diff` + triple smoke + reconstruct honesty + `base hil` EXPERIMENTAL.
-> Demo: [Playbook v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot_stm32/run.sh`.
-> **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC.
+> Demo: [Playbook v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot_stm32/run.sh`.
+> **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC. **v1.0 ≠** produto industrial completo.
 
 ---
 

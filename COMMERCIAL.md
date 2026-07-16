@@ -2,12 +2,14 @@
 
 > [README.md](README.md) · [LICENSE.md](LICENSE.md) · **Estratégia Comercial**
 >
-> **Nota v0.9 (Path):** oferta **forense** com Capstone UART/SPI (RP; goldens `diff`) +
-> STM32 USART1 + SPI2 pins + **I2C1 pins/goldens** + **triple USART/SPI/I2C opt-in**,
-> reconstruct com estagnação honesta (`stop_reason`; ≠ auto-fix), HIL EXPERIMENTAL (`base hil` — ≠ production).
-> Port industrial = **consultoria + [SOW v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.21%20-%20SOW%20Industrial%20Checklist.md)**.
-> Playbook: [Forensic Playbook v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.20%20-%20Forensic%20Playbook.md) · [CHANGELOG](CHANGELOG.md).
-> Claims “PCB drop-in” / “ASIC substituído” / “SaaS turnkey” / “HIL production” / “auto-fix completa” continuam arquivados.
+> **Nota v1.0 (Path):** oferta **forense** com Capstone UART/SPI (RP; goldens `diff`) +
+> STM32 USART1 + SPI2 (**goldens** `expected_spi/`) + I2C1 pins/goldens + triple USART/SPI/I2C +
+> **TIM2 opt-in** (`run_z2_tim.sh`), Maturity Matrix sync, reconstruct com estagnação honesta
+> (`stop_reason`; ≠ auto-fix), HIL EXPERIMENTAL (`base hil` — ≠ production).
+> Port industrial = **consultoria + [SOW v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.21%20-%20SOW%20Industrial%20Checklist.md)**.
+> Playbook: [Forensic Playbook v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.20%20-%20Forensic%20Playbook.md) · [CHANGELOG](CHANGELOG.md).
+> **v1.0 ≠** produto industrial completo. Claims “PCB drop-in” / “ASIC substituído” / “SaaS turnkey” /
+> “HIL production” / “auto-fix completa” continuam arquivados.
 
 > Licença: AGPLv3 — uso comercial permitido; modificações em serviço de rede devem ser compartilhadas.
 > Uso proprietário fechado: licença comercial (consultar).
@@ -39,14 +41,16 @@ Analisar firmware embedded sem código-fonte: IoT, roteadores, sensores.
 ./examples/pilot_stm32/run_w1_spi.sh
 ./examples/pilot_stm32/run_x3_i2c.sh
 ./examples/pilot_stm32/run_y3_triple.sh
+./examples/pilot_stm32/run_z2_tim.sh
 base reconstruct examples/pilot_stm32/out/analyze/hardware_spec.yaml \
   --continuous --threshold 0.99 -o /tmp/recon/
 base hil enumerate -o /tmp/hil/
 base hil flash /tmp/x.bin --mock-flash -o /tmp/hil/
 ```
 
-Demo: [Playbook v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.20%20-%20Forensic%20Playbook.md) ·
-[Case study](base-vault/12%20-%20Path%20to%20Real/12.20%20-%20Pilot%20Case%20Study.md).
+Demo: [Playbook v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.20%20-%20Forensic%20Playbook.md) ·
+[Case study](base-vault/12%20-%20Path%20to%20Real/12.20%20-%20Pilot%20Case%20Study.md) ·
+[Maturity Matrix](base-vault/12%20-%20Path%20to%20Real/12.02%20-%20Maturity%20Matrix.md).
 
 ### Não inclui (ainda)
 - Prova criminal “pronta para tribunal” sem revisão humana
@@ -54,6 +58,7 @@ Demo: [Playbook v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.20%20-%20Forensic%
 - Flash HIL automático / “production”
 - Auto-fix completa via `reconstruct --continuous`
 - Substituição do gate RP pelo STM32
+- Produto industrial completo sob o rótulo “v1.0”
 
 ### Precificação orientativa
 | Serviço | Preço |
@@ -69,9 +74,9 @@ Demo: [Playbook v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.20%20-%20Forensic%
 ASICs / MCUs legados sem reposição.
 
 ### Posicionamento honesto
-B.A.S.E. **acelera** diagnóstico e Reference Design (RP e/ou STM32 multi-peripheral). Port completo é **projeto de engenharia** com humanos no loop.
+B.A.S.E. **acelera** diagnóstico e Reference Design (RP e/ou STM32 multi-peripheral: USART/SPI/I2C/TIM). Port completo é **projeto de engenharia** com humanos no loop.
 
-Use o [SOW Industrial Checklist v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.21%20-%20SOW%20Industrial%20Checklist.md).
+Use o [SOW Industrial Checklist v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.21%20-%20SOW%20Industrial%20Checklist.md).
 
 ```bash
 base analyze firmware.bin --mmio-traces mmio.json --classify uart -o study/
@@ -122,8 +127,8 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 ## Próximo passo imediato
 
 1. ✅ Path to Real → v0.9 (`v0.9.0`)
-2. ✅ Path to v1.0 Z0–Z3 — goldens SPI + TIM2 + Maturity Matrix sync
+2. ✅ Path to v1.0 Z0–Z4 — goldens SPI + TIM2 + Maturity Matrix + oferta docs
 3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh` + `run_y3_triple.sh` + `run_z2_tim.sh`
-4. Z3 — Maturity Matrix sync (próximo)
+4. Z5 — tag `v1.0.0-rc` (próximo)
 5. Pricing SaaS / port turnkey só com SOW
 6. **v1.0 ≠** produto industrial completo / ASIC drop-in
