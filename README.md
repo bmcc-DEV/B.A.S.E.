@@ -28,6 +28,7 @@ Fonte da verdade: vault Obsidian → [**Maturity Matrix**](base-vault/12%20-%20P
 | `pcb` | **Engineering draft** KiCad — *not fabricable* |
 | `pipeline` | Orquestra estágios verdes; `--pcb` / `--evolve` opt-in |
 | `evolve` | Scaffold — off por default |
+| `reconstruct` | Refine estrutural local; `--continuous` = cap 1000, para em estagnação — **não** auto-fix |
 | `base-hil` | **EXPERIMENTAL** — host template; sem flash automático sem probe |
 
 Planos: [v0.2 Master](base-vault/12%20-%20Path%20to%20Real/12.01%20-%20Master%20Plan.md) · [v0.3 Master](base-vault/13%20-%20Path%20to%20v0.3/13.01%20-%20Master%20Plan.md) · [Sprint Board v0.3](base-vault/13%20-%20Path%20to%20v0.3/13.04%20-%20Sprint%20Board.md)

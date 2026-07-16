@@ -170,7 +170,7 @@ pub enum Command {
         disasm: bool,
     },
 
-    /// Reconstruct: recursive refinement loop
+    /// Reconstruct: structural refinement loop (evidence-local — not full auto-fix)
     Reconstruct {
         /// Input HardwareSpec YAML
         input: PathBuf,
@@ -179,11 +179,11 @@ pub enum Command {
         #[arg(long, default_value = "0.9")]
         threshold: f64,
 
-        /// Maximum iterations
+        /// Maximum iterations (ignored floor when --continuous raises the cap)
         #[arg(long, default_value_t = 10)]
         max_iterations: usize,
 
-        /// Continuous mode (loop forever)
+        /// Raise iteration cap to 1000; still stops on converge/stagnation — NOT infinite auto-fix
         #[arg(long)]
         continuous: bool,
 

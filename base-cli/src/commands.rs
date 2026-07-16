@@ -1075,13 +1075,24 @@ fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, conti
 
     fs::create_dir_all(output)?;
     let effective_max = if continuous {
-        max_iterations.max(1000)
+        max_iterations.max(base_core::loop_::CONTINUOUS_ITERATION_CAP)
     } else {
         max_iterations
     };
     tracing::info!("=== B.A.S.E. Reconstruction Loop ===");
-    tracing::info!("Threshold: {:.0}%, Max iterations: {}, Continuous: {}",
-        threshold * 100.0, effective_max, continuous);
+    tracing::info!(
+        "Threshold: {:.0}%, Max iterations: {}, Continuous: {} (cap={}, not infinite auto-fix)",
+        threshold * 100.0,
+        effective_max,
+        continuous,
+        base_core::loop_::CONTINUOUS_ITERATION_CAP
+    );
+    if continuous {
+        tracing::warn!(
+            "[reconstruct] --continuous raises the iteration cap only; loop still stops on \
+             convergence or structural stagnation. Not full auto-fix."
+        );
+    }
 
     let mut loop_ = base_core::loop_::FeedbackLoop::new(threshold, effective_max);
     let iterations = loop_.run(&spec);
@@ -1096,6 +1107,11 @@ fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, conti
     }
 
     let report = loop_.convergence_report();
+    let stop = match report.stop_reason {
+        base_core::loop_::StopReason::Converged => "converged",
+        base_core::loop_::StopReason::Stagnated => "stagnated",
+        base_core::loop_::StopReason::MaxIterations => "max_iterations",
+    };
     let report_json = serde_json::json!({
         "total_iterations": report.total_iterations,
         "initial_pass_rate": report.initial_pass_rate,
@@ -1104,7 +1120,12 @@ fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, conti
         "total_errors_found": report.total_errors_found,
         "avg_errors_per_iteration": report.avg_errors_per_iteration,
         "converged": report.converged,
+        "stagnated": report.stagnated,
+        "stop_reason": stop,
         "threshold": threshold,
+        "continuous": continuous,
+        "max_iterations_effective": effective_max,
+        "auto_fix_complete": false,
     });
     fs::write(output.join("convergence_report.json"), serde_json::to_string_pretty(&report_json)?)?;
 
@@ -1112,11 +1133,27 @@ fn handle_reconstruct(input: &Path, threshold: f64, max_iterations: usize, conti
         fs::write(output.join("hardware_spec_refined.yaml"), last.spec.to_yaml()?)?;
     }
 
-    if report.converged {
-        tracing::info!("✅ Converged in {} iterations", report.total_iterations);
-    } else {
-        tracing::info!("⚠️ Did not converge — {:.1}% < {:.1}%",
-            report.final_pass_rate * 100.0, threshold * 100.0);
+    match report.stop_reason {
+        base_core::loop_::StopReason::Converged => {
+            tracing::info!("Converged in {} iterations (stop_reason=converged)", report.total_iterations);
+        }
+        base_core::loop_::StopReason::Stagnated => {
+            tracing::info!(
+                "Stagnated after {} iteration(s) — no structural improvements left \
+                 (pass {:.1}% < threshold {:.1}%); not auto-fix complete",
+                report.total_iterations,
+                report.final_pass_rate * 100.0,
+                threshold * 100.0
+            );
+        }
+        base_core::loop_::StopReason::MaxIterations => {
+            tracing::info!(
+                "Hit max iterations ({}) — {:.1}% < {:.1}% (stop_reason=max_iterations)",
+                report.total_iterations,
+                report.final_pass_rate * 100.0,
+                threshold * 100.0
+            );
+        }
     }
 
     Ok(())

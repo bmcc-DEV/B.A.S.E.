@@ -28,6 +28,8 @@ pub struct FeedbackLoop {
     pub iterations: Vec<LoopIteration>,
     pub convergence_threshold: f64,
     pub max_iterations: usize,
+    /// Why `run` last stopped — set by `run`.
+    pub stop_reason: StopReason,
 }
 
 impl FeedbackLoop {
@@ -36,6 +38,7 @@ impl FeedbackLoop {
             iterations: Vec::new(),
             convergence_threshold: threshold,
             max_iterations,
+            stop_reason: StopReason::MaxIterations,
         }
     }
 
@@ -57,8 +60,13 @@ impl FeedbackLoop {
     }
 
     /// Executa até convergir, estagnar (0 mudanças estruturais) ou max_iterations.
+    ///
+    /// **Não** é auto-fix completa: só aplica refine estrutural local
+    /// (nomear regs, reclassificar Unknown, timing placeholder). Sem novas traces
+    /// o loop estagna; `--continuous` só eleva o teto de iterações.
     pub fn run(&mut self, initial_spec: &HardwareSpec) -> Vec<LoopIteration> {
         let mut current = initial_spec.clone();
+        self.stop_reason = StopReason::MaxIterations;
 
         for i in 1..=self.max_iterations {
             let iter = self.iterate(&current, i);
@@ -80,6 +88,7 @@ impl FeedbackLoop {
                     iter.pass_rate * 100.0,
                     self.convergence_threshold * 100.0
                 );
+                self.stop_reason = StopReason::Converged;
                 break;
             }
 
@@ -88,6 +97,7 @@ impl FeedbackLoop {
                     "[Feedback] Stagnated at iteration {} (no structural improvements possible)",
                     i
                 );
+                self.stop_reason = StopReason::Stagnated;
                 break;
             }
         }
@@ -329,8 +339,21 @@ impl FeedbackLoop {
             total_errors_found: total_errors,
             avg_errors_per_iteration: avg_errors,
             converged: last.map_or(false, |i| i.pass_rate >= self.convergence_threshold),
+            stop_reason: self.stop_reason,
+            stagnated: self.stop_reason == StopReason::Stagnated,
         }
     }
+}
+
+/// Cap applied when CLI `--continuous` is set (not infinite).
+pub const CONTINUOUS_ITERATION_CAP: usize = 1000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StopReason {
+    Converged,
+    Stagnated,
+    MaxIterations,
 }
 
 /// Confiança derivada de evidência observável no bloco (não monótona artificial).
@@ -393,6 +416,8 @@ pub struct ConvergenceReport {
     pub total_errors_found: usize,
     pub avg_errors_per_iteration: f64,
     pub converged: bool,
+    pub stop_reason: StopReason,
+    pub stagnated: bool,
 }
 
 #[cfg(test)]
@@ -549,5 +574,53 @@ mod tests {
         loop_.run(&spec);
         let report = loop_.convergence_report();
         assert!(report.total_iterations > 0);
+    }
+
+    #[test]
+    fn test_stagnates_when_no_structural_work_left() {
+        // Complete UART-like block: high threshold → cannot "auto-fix" past evidence.
+        let mut spec = HardwareSpec::empty();
+        spec.blocks.push(types::FunctionalBlock {
+            id: "uart_0".into(),
+            kind: types::BlockKind::Uart,
+            base_address: 0x40034000,
+            size: 0x1000,
+            registers: vec![types::Register {
+                offset: 0,
+                name: Some("dr".into()),
+                width: 32,
+                access: types::AccessType::ReadWrite,
+                purpose: RegisterPurpose::DataPort,
+                reset_value: None,
+                observed_values: vec![],
+                bitfields: vec![],
+                polling: false,
+                count: 1,
+            }],
+            protocol: types::Protocol {
+                states: vec!["idle".into(), "busy".into()],
+                transitions: vec![],
+                entry_condition: None,
+                exit_condition: None,
+            },
+            timing: types::TimingProfile {
+                activation: None,
+                processing: None,
+                interrupt_response: None,
+                dma_setup: None,
+                polling_interval: None,
+            },
+            dma: None,
+            dependencies: vec![],
+            confidence: 0.5,
+        });
+        let mut loop_ = FeedbackLoop::new(0.99, CONTINUOUS_ITERATION_CAP);
+        let iterations = loop_.run(&spec);
+        assert_eq!(iterations.len(), 1, "must stop early, not spin the continuous cap");
+        assert_eq!(loop_.stop_reason, StopReason::Stagnated);
+        let report = loop_.convergence_report();
+        assert!(report.stagnated);
+        assert!(!report.converged);
+        assert_eq!(report.stop_reason, StopReason::Stagnated);
     }
 }
