@@ -8,7 +8,7 @@
 
 **Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
 
-> **Tag [`v0.7.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.7.0-rc)** · plano [Path to v0.7](base-vault/17%20-%20Path%20to%20v0.7/17.00%20-%20Index.md) · [CHANGELOG](CHANGELOG.md):
+> **Tag [`v0.7.0`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.7.0)** · plano [Path to v0.8](base-vault/18%20-%20Path%20to%20v0.8/18.00%20-%20Index.md) · [CHANGELOG](CHANGELOG.md):
 > UART/SPI (RP) + STM32 Capstone/pins/SPI2 + goldens + reconstruct honesty + `base hil` EXPERIMENTAL.
 > Demo: [Playbook v0.7](base-vault/17%20-%20Path%20to%20v0.7/17.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot_stm32/run.sh`.
 > **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC.
