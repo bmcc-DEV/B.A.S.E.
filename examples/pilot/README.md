@@ -34,7 +34,7 @@ a fonte da verdade comportamental é `mmio.json` + `trace.csv` + `contracts.yaml
 | `contracts_spi.yaml` / `trace_spi.csv` / `pilot_spi.bsl` | T1 B2 SPI |
 | `SHA256SUMS.b2` / `run_t1_b2.sh` | Smoke opt-in dual-block |
 | `out/` / `out_t1_b2/` | Gerado (gitignored) |
-| `expected/` | Goldens + template CASE_SUMMARY |
+| `expected/` | Goldens verificados com `diff` (X2; sem overwrite) |
 
 ## Como rodar
 

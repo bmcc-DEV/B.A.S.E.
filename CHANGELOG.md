@@ -6,6 +6,7 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 ### Added
 - X1: pins SPI2 STM32F103C8 (PB12–15) + labels no draft sch; matcher `mosi`/`miso`/`nss`
+- X2: goldens RP — `run.sh` `diff` vs `expected/` (sem overwrite); `proof_report.golden.json`
 
 ## [v0.7.0] — 2026-07-16
 
