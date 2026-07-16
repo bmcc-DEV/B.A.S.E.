@@ -8,9 +8,9 @@
 
 **Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
 
-> **Tag [`v0.5.0`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.5.0)** · plano [Path to v0.6](base-vault/16%20-%20Path%20to%20v0.6/16.00%20-%20Index.md) · [CHANGELOG](CHANGELOG.md):
-> UART/SPI (RP) + wedge STM32 USART1 + HIL `hil_usb`/`hil_programmer` EXPERIMENTAL.
-> Demo: [Playbook v0.5](base-vault/15%20-%20Path%20to%20v0.5/15.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot_stm32/run.sh`.
+> **Tag [`v0.6.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.6.0-rc)** · plano [Path to v0.6](base-vault/16%20-%20Path%20to%20v0.6/16.00%20-%20Index.md) · [CHANGELOG](CHANGELOG.md):
+> UART/SPI (RP) + STM32 Capstone/pins + `base hil` EXPERIMENTAL.
+> Demo: [Playbook v0.6](base-vault/16%20-%20Path%20to%20v0.6/16.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot_stm32/run.sh`.
 > **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC.
 
 ---

@@ -1,16 +1,23 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`.
 
-## [Unreleased] — Path to v0.6
+## [v0.6.0-rc] — 2026-07-16
+
+Path to v0.6 V0–V5: STM32 Capstone/pins + `base hil` EXPERIMENTAL + oferta docs.
+Smoke verde: `run.sh`, `run_t1_b2.sh`, `pilot_stm32/run.sh`, `base-hil`, `base hil enumerate|flash --mock-flash`.
 
 ### Added
 - V1: Capstone STM32 USART1 — `gen_fw.py` AArch64 @ `0x40013000`/`0x40013800`; smoke `--disasm`
 - V2: pins STM32F103C8 (PA9/PA10 USART1) + labels no draft KiCad; `base pcb` carrega component DB
 - V3: `base hil enumerate|flash` — wrapper EXPERIMENTAL sobre `base-hil` (sem pipeline default)
+- V4: playbook + SOW checklist v0.6 + COMMERCIAL sync
 
 ### Changed
 - Matcher sch: interface `uart` aceita funções `usart*`
+
+### Not
+- PCB fabricável, ASIC drop-in, SaaS turnkey, HIL production, Thumb silício no blob Capstone STM32
 
 ## [v0.5.0] — 2026-07-16
 
