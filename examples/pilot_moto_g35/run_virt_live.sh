@@ -40,11 +40,22 @@ fi
 
 KERNEL="${HIL_FW_IMAGE:-}"
 NO_QEMU=()
+PLUGIN_ARGS=()
+PLUGIN_SO="${VIRT_PLUGIN:-$ROOT/base-virt/plugin/libbase_virt_ndjson.so}"
+if [[ -f "$PLUGIN_SO" ]]; then
+  PLUGIN_ARGS=(--plugin "$PLUGIN_SO" --qmp --probe-qmp --plugin-arg io_only=0)
+  echo "NOTE: using TCG plugin $PLUGIN_SO + QMP probe (io_only=0 for stub kernel)"
+elif [[ "${VIRT_BUILD_PLUGIN:-0}" == "1" ]]; then
+  make -C "$ROOT/base-virt/plugin"
+  PLUGIN_ARGS=(--plugin "$PLUGIN_SO" --qmp --probe-qmp --plugin-arg io_only=0)
+fi
+
 if [[ -z "$KERNEL" ]]; then
   if [[ -f "$PILOT/kernel.bin" ]]; then
     KERNEL="$PILOT/kernel.bin"
   else
     NO_QEMU=(--no-qemu)
+    PLUGIN_ARGS=()
     echo "NOTE: no kernel — trace-only Specter Live (set HIL_FW_IMAGE for QEMU)"
   fi
 fi
@@ -53,6 +64,7 @@ if [[ ${#NO_QEMU[@]} -eq 0 ]]; then
   "$BASE_BIN" virt run --spec "$SPEC" --trace "$TRACE" --kernel "$KERNEL" \
     --timeout-sec "${QEMU_TIMEOUT_SEC:-8}" \
     --window-size 4 --max-windows 16 \
+    "${PLUGIN_ARGS[@]}" \
     -o "$OUT/run"
 else
   "$BASE_BIN" virt run --spec "$SPEC" --trace "$TRACE" --no-qemu \

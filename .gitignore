@@ -43,3 +43,4 @@ examples/pilot_imac_g3/out_qemu/
 # Build / IDE
 **/*.elf
 **/firmware_host
+base-virt/plugin/*.so

@@ -1685,11 +1685,29 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
             window_size,
             max_windows,
             no_qemu,
+            plugin,
+            plugin_outfile,
+            qmp,
+            probe_qmp,
+            plugin_arg,
         } => {
             let spec = HardwareSpec::from_yaml(&fs::read_to_string(spec)?)?;
             let mut qemu_exit = None;
             let mut qemu_bin = None;
             let mut kernel_s = None;
+            let plugin_out = plugin_outfile
+                .clone()
+                .unwrap_or_else(|| output.join("plugin_trace.ndjson"));
+            let qmp_sock = if *qmp || *probe_qmp {
+                Some(output.join("qmp.sock"))
+            } else {
+                None
+            };
+            let plugin_args = if plugin_arg.is_empty() {
+                vec!["io_only=1".into()]
+            } else {
+                plugin_arg.clone()
+            };
 
             if !no_qemu {
                 if let Some(k) = kernel {
@@ -1698,9 +1716,90 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                         kernel: Some(k.clone()),
                         timeout_sec: *timeout_sec,
                         log_path: output.join("qemu.log"),
+                        plugin: plugin.clone(),
+                        plugin_outfile: if plugin.is_some() {
+                            Some(plugin_out.clone())
+                        } else {
+                            None
+                        },
+                        plugin_args: plugin_args.clone(),
+                        qmp_socket: qmp_sock.clone(),
                         ..Default::default()
                     };
-                    let launch = base_virt::launch_qemu(&opts)?;
+
+                    // Optional early QMP probe while guest still running: spawn + probe + wait.
+                    let launch = if *probe_qmp && qmp_sock.is_some() {
+                        match base_virt::spawn_qemu_live(&opts)? {
+                            Ok(mut session) => {
+                                let sock = session.qmp_socket.clone().unwrap();
+                                match base_virt::probe_session(&sock) {
+                                    Ok(probe) => {
+                                        fs::write(
+                                            output.join("qmp_probe.json"),
+                                            serde_json::to_string_pretty(&probe)?,
+                                        )?;
+                                        tracing::info!("QMP probe OK");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("QMP probe failed: {e}");
+                                        fs::write(
+                                            output.join("qmp_probe.json"),
+                                            serde_json::to_string_pretty(&serde_json::json!({
+                                                "ok": false,
+                                                "error": e.to_string(),
+                                                "generates_os": false,
+                                            }))?,
+                                        )?;
+                                    }
+                                }
+                                // Drain remaining time then quit/kill.
+                                let timeout = std::time::Duration::from_secs(*timeout_sec);
+                                let start = std::time::Instant::now();
+                                let mut timed_out = false;
+                                let exit_code = loop {
+                                    match session.child.try_wait()? {
+                                        Some(st) => break st.code(),
+                                        None => {
+                                            if start.elapsed() >= timeout {
+                                                if let Ok(mut q) =
+                                                    base_virt::QmpClient::connect_unix(&sock)
+                                                {
+                                                    let _ = q.quit();
+                                                    let _ = session.child.wait();
+                                                } else {
+                                                    let _ = session.child.kill();
+                                                    let _ = session.child.wait();
+                                                }
+                                                timed_out = true;
+                                                break Some(124);
+                                            }
+                                            std::thread::sleep(std::time::Duration::from_millis(50));
+                                        }
+                                    }
+                                };
+                                base_virt::QemuLaunchResult {
+                                    launched: true,
+                                    skipped: false,
+                                    skip_reason: None,
+                                    exit_code,
+                                    timed_out,
+                                    bin: session.bin,
+                                    kernel: Some(session.kernel),
+                                    log_path: Some(session.log_path.display().to_string()),
+                                    timeout_sec: *timeout_sec,
+                                    qmp_socket: Some(sock.display().to_string()),
+                                    plugin: plugin.as_ref().map(|p| p.display().to_string()),
+                                    plugin_outfile: session
+                                        .plugin_outfile
+                                        .map(|p| p.display().to_string()),
+                                }
+                            }
+                            Err(skipped) => skipped,
+                        }
+                    } else {
+                        base_virt::launch_qemu(&opts)?
+                    };
+
                     qemu_bin = Some(launch.bin.clone());
                     kernel_s = launch.kernel.clone();
                     qemu_exit = launch.exit_code;
@@ -1719,10 +1818,14 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                 }
             }
 
+            // Prefer explicit --trace; else plugin outfile if present.
             let db = if let Some(t) = trace {
                 base_virt::ingest_ndjson_path(t, "specter_live")?
+            } else if plugin.is_some() && plugin_out.exists() {
+                tracing::info!("Ingesting plugin outfile {}", plugin_out.display());
+                base_virt::ingest_ndjson_path(&plugin_out, "specter_live_plugin")?
             } else {
-                tracing::warn!("No --trace: session will have empty evidence (smoke-only)");
+                tracing::warn!("No --trace / plugin outfile — empty evidence (smoke-only)");
                 base_core::evidence::EvidenceDb::new("specter_live_empty")
             };
             fs::write(output.join("evidence_live.yaml"), db.to_yaml()?)?;
@@ -1739,19 +1842,21 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
             if db.count() == 0 && session.skip_reason.is_none() {
                 session.ok = qemu_exit.is_some();
                 session.note =
-                    "QEMU smoke without NDJSON — set --trace for Ψ live".into();
+                    "QEMU smoke without NDJSON — set --trace or --plugin for Ψ live".into();
             }
             fs::write(output.join("virt_session.yaml"), session.to_yaml()?)?;
             fs::write(output.join("virt_session.json"), session.to_json_pretty()?)?;
 
             let md = format!(
-                "# Specter Live session\n\n{}\n\n- evidence: {}\n- windows: {}\n- final_confidence: {:.3}\n- conclusiveness: {:?}\n- qemu_exit: {:?}\n- generates_os: false\n- auto_fix_complete: false\n",
+                "# Specter Live session\n\n{}\n\n- evidence: {}\n- windows: {}\n- final_confidence: {:.3}\n- conclusiveness: {:?}\n- qemu_exit: {:?}\n- qmp: {}\n- plugin: {}\n- generates_os: false\n- auto_fix_complete: false\n",
                 base_core::HONESTY_BANNER,
                 session.total_evidence,
                 session.windows.len(),
                 session.final_confidence,
                 session.final_conclusiveness,
                 session.qemu_exit,
+                qmp_sock.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "off".into()),
+                plugin.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "off".into()),
             );
             fs::write(output.join("CASE_SUMMARY_VIRT.md"), md)?;
             tracing::info!(
@@ -1760,6 +1865,52 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                 session.final_confidence,
                 session.qemu_exit
             );
+        }
+        VirtCommand::Qmp { socket, cmd, raw } => {
+            match cmd.as_str() {
+                "probe" => {
+                    let probe = base_virt::probe_session(socket)?;
+                    fs::write(output.join("qmp_probe.json"), serde_json::to_string_pretty(&probe)?)?;
+                    println!("{}", serde_json::to_string_pretty(&probe)?);
+                }
+                "raw" => {
+                    let body = raw.as_deref().ok_or_else(|| {
+                        anyhow::anyhow!("--raw JSON required for qmp raw")
+                    })?;
+                    let v: serde_json::Value = serde_json::from_str(body)?;
+                    let exec = v
+                        .get("execute")
+                        .and_then(|x| x.as_str())
+                        .ok_or_else(|| anyhow::anyhow!("raw JSON needs execute"))?;
+                    let args = v.get("arguments").cloned();
+                    let mut c = base_virt::QmpClient::connect_unix_wait(
+                        socket,
+                        std::time::Duration::from_secs(10),
+                    )?;
+                    let resp = c.execute(exec, args)?;
+                    fs::write(output.join("qmp_raw.json"), serde_json::to_string_pretty(&resp)?)?;
+                    println!("{}", serde_json::to_string_pretty(&resp)?);
+                }
+                other => {
+                    let mut c = base_virt::QmpClient::connect_unix_wait(
+                        socket,
+                        std::time::Duration::from_secs(10),
+                    )?;
+                    let resp = match other {
+                        "stop" => c.stop()?,
+                        "cont" | "continue" => c.cont()?,
+                        "status" => c.query_status()?,
+                        "inject-nmi" | "nmi" => c.inject_nmi()?,
+                        "reset" => c.system_reset()?,
+                        "quit" => c.quit()?,
+                        _ => anyhow::bail!(
+                            "unknown qmp cmd '{other}' (stop|cont|status|inject-nmi|reset|quit|probe|raw)"
+                        ),
+                    };
+                    fs::write(output.join("qmp_response.json"), serde_json::to_string_pretty(&resp)?)?;
+                    println!("{}", serde_json::to_string_pretty(&resp)?);
+                }
+            }
         }
     }
     Ok(())

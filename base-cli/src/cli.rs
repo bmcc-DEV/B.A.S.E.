@@ -427,6 +427,41 @@ pub enum VirtCommand {
         /// Skip QEMU launch (trace-only live score)
         #[arg(long, default_value_t = false)]
         no_qemu: bool,
+
+        /// TCG plugin .so (`libbase_virt_ndjson.so`)
+        #[arg(long)]
+        plugin: Option<PathBuf>,
+
+        /// NDJSON outfile written by the plugin (default: OUTPUT/plugin_trace.ndjson)
+        #[arg(long)]
+        plugin_outfile: Option<PathBuf>,
+
+        /// Enable QMP unix socket at OUTPUT/qmp.sock
+        #[arg(long, default_value_t = false)]
+        qmp: bool,
+
+        /// After launch: stop → status → cont via QMP
+        #[arg(long, default_value_t = false)]
+        probe_qmp: bool,
+
+        /// Extra plugin args (repeatable), e.g. `--plugin-arg io_only=0`
+        #[arg(long = "plugin-arg")]
+        plugin_arg: Vec<String>,
+    },
+
+    /// QMP control: stop / cont / status / inject-nmi / quit / raw JSON
+    Qmp {
+        /// Unix QMP socket
+        #[arg(long)]
+        socket: PathBuf,
+
+        /// Command: stop | cont | status | inject-nmi | reset | quit | probe | raw
+        #[arg(default_value = "status")]
+        cmd: String,
+
+        /// JSON for `raw` (e.g. '{"execute":"query-status"}')
+        #[arg(long)]
+        raw: Option<String>,
     },
 }
 
