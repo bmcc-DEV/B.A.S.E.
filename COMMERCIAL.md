@@ -121,7 +121,7 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 ## Próximo passo imediato
 
 1. ✅ Path to Real → v0.6 (`v0.6.0`)
-3. ✅ Path to v0.7 W0–W5 → tag `v0.7.0-rc`
-4. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `base hil enumerate`
-5. Pricing SaaS / port turnkey só com SOW
-6. Promoção `v0.7.0` após smoke estável (opcional)
+2. ✅ Path to v0.7 W0–W5 → tag `v0.7.0-rc`
+3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `base hil enumerate`
+4. Pricing SaaS / port turnkey só com SOW
+5. Promoção `v0.7.0` após smoke estável (opcional)
