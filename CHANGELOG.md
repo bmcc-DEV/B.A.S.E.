@@ -8,6 +8,7 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 - U1: wedge STM32F103 USART1 @ `0x40013800` — `examples/pilot_stm32/`, smoke opt-in
 - `--preferred-manufacturer` em `base synth` / `base design` (path feliz → `STM32F103C8`)
 - U2: feature `hil_usb` (rusb) — enumerate VID:PID → `Detected`; CI default sem USB
+- U3: feature `hil_programmer` — flash EXPERIMENTAL via CMD externo (`ALLOW_FLASH`); ≠ production
 
 ### Changed
 - Mapper: com preferência de fabricante, ranking prioriza mfg sobre score/preço

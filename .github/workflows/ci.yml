@@ -30,8 +30,10 @@ jobs:
         run: |
           cargo test -p base-hil
           cargo build -p base-hil
-          # default: sem feature hil_usb / sem libusb — USB enumerate é opt-in local
-          # flash real continua FlashDenied / ProgrammerUnimplemented (U3)
+          # default: sem hil_usb / sem libusb
+          cargo test -p base-hil --features hil_programmer
+          # programador EXPERIMENTAL (comando externo); ≠ production flash
+          # flash silício real continua gated por ALLOW_FLASH + CMD do operador
 
       - name: Pilot smoke (Path to Real v0.2 / R0–R6)
         timeout-minutes: 15

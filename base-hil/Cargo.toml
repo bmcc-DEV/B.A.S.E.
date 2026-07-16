@@ -9,6 +9,8 @@ description = "B.A.S.E. HIL Cluster — hardware probe firmware + host agent"
 default = []
 # Opt-in USB enumerate via rusb (libusb). NÃO no CI `test` default.
 hil_usb = ["dep:rusb"]
+# Opt-in programador EXPERIMENTAL (comando externo). Sem claim production.
+hil_programmer = []
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
