@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**v0.4.0 ✅ · [[15 - Path to v0.5/15.00 - Index|Path to v0.5]] ativo · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
+**v0.5.0 ✅ · [[16 - Path to v0.6/16.00 - Index|Path to v0.6]] ativo · [[15 - Path to v0.5/15.00 - Index|Path to v0.5]] · [[14 - Path to v0.4/14.00 - Index|Path to v0.4]] · [[12 - Path to Real/12.20 - Pilot Case Study|Pilot Case Study]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
@@ -47,7 +47,11 @@ flowchart LR
 | [[13 - Path to v0.3/13.00 - Index\|🚀 Path to v0.3]] | v0.3.0-rc ✅ (S0–S5) |
 | [[13 - Path to v0.3/13.20 - Forensic Playbook\|🧭 Playbook]] | Demo forense 1 página |
 | [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0 ✅ (T0–T5) |
-| [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | STM32 + HIL USB (U0–U5) |
+| [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | v0.5.0 ✅ (U0–U5) |
+| [[15 - Path to v0.5/15.20 - Forensic Playbook\|🧭 Playbook v0.5]] | Demo forense RP + STM32 |
+| [[16 - Path to v0.6/16.00 - Index\|🛤️ Path to v0.6]] | STM32 Capstone + CLI HIL (V0–V5) |
+| [[16 - Path to v0.6/16.01 - Master Plan\|📌 Master Plan v0.6]] | L13–L15 |
+| [[16 - Path to v0.6/16.04 - Sprint Board\|📋 Sprint Board v0.6]] | Kanban V0–V5 |
 | [[15 - Path to v0.5/15.01 - Master Plan\|📌 Master Plan v0.5]] | L10–L12 |
 | [[15 - Path to v0.5/15.04 - Sprint Board\|📋 Sprint Board v0.5]] | Kanban U0–U5 |
 | [[14 - Path to v0.4/14.01 - Master Plan\|📌 Master Plan v0.4]] | L7–L9 + métricas |
