@@ -177,4 +177,28 @@ mod tests {
             addrs
         );
     }
+
+    /// Bytes from `python3 examples/pilot_stm32/gen_fw.py` (V1 Capstone).
+    fn stm32_usart1_fw() -> Vec<u8> {
+        let path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/pilot_stm32/fw.bin");
+        fs::read(&path).unwrap_or_else(|e| panic!("read {:?}: {e}", path))
+    }
+
+    #[test]
+    fn pilot_stm32_usart1_resolves_0x40013800() {
+        let fw = stm32_usart1_fw();
+        assert!(!fw.is_empty());
+        let lift = lift_binary(&fw);
+        assert!(!lift.functions.is_empty());
+        let acc = scan_functions(&lift.functions);
+        let addrs: Vec<u64> = acc.iter().map(|a| a.address).collect();
+        assert!(
+            addrs.contains(&0x40013800)
+                && addrs.contains(&0x40013804)
+                && addrs.contains(&0x4001380c),
+            "expected Capstone MMIO USART1 regs, got {:?}",
+            addrs
+        );
+    }
 }

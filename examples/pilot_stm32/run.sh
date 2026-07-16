@@ -21,7 +21,13 @@ mkdir -p "$OUT"
 echo "== bir =="
 "$BASE" bir "$PILOT/pilot.bsl" --compile --validate -o "$OUT/bir"
 
-echo "== analyze (USART1 @ 0x40013800) =="
+echo "== analyze (Capstone --disasm, V1) =="
+"$BASE" analyze "$PILOT/fw.bin" --disasm -o "$OUT/analyze_disasm"
+# Capstone must hit USART1 regs (page 0x40013000 / addrs 0x40013800…) without traces
+grep -E 'base_address: (1073819648|0x40013000)' "$OUT/analyze_disasm/hardware_spec.yaml" >/dev/null \
+  || grep -qE '40013(800|000)' "$OUT/analyze_disasm/hardware_spec.yaml"
+
+echo "== analyze (USART1 @ 0x40013800, traces) =="
 "$BASE" analyze "$PILOT/fw.bin" \
   --mmio-traces "$PILOT/mmio.json" \
   --classify uart \
@@ -63,6 +69,7 @@ summary = out / "CASE_SUMMARY.md"
 summary.write_text(
     "# U1 STM32 CASE SUMMARY\n\n"
     "- Wedge: STM32F103 USART1 @ 0x40013800\n"
+    "- Capstone --disasm: synthetic AArch64 @ page 0x40013000 (V1; ≠ Thumb silicon)\n"
     "- Prefer manufacturer: STMicroelectronics → STM32F103C8\n"
     "- Gate RP (`examples/pilot/run.sh`) intocado\n"
     f"- design bytes: {len(design)}\n"
