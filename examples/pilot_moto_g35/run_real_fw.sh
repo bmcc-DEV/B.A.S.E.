@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Analyze real Moto G35 Firmware.zip → port package (≠ TaurOS rewrite).
+# Analyze real Moto G35 Firmware.zip → port package + platform inventory (≠ TaurOS rewrite).
 # Requires Firmware.zip at repo root (gitignored).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -47,6 +47,8 @@ echo "== port package LK (primary) =="
   --tension "$OUT/analyze_lk/tension_report.json" \
   --target-hal "hal_tauros_aarch64_g35" \
   --hal-stub \
+  --dtb "$DEST/dtbo.img" \
+  --flash-cfg "$DEST/flash.cfg" \
   -o "$OUT/port_package_lk"
 
 echo "== port package boot =="
@@ -64,6 +66,14 @@ echo "== port package EXEC_KERNEL =="
   --target-hal "hal_tauros_aarch64_g35" \
   --hal-stub \
   -o "$OUT/port_package_kernel"
+
+echo "== platform inventory (DTBO + vendor_boot) =="
+"$BASE" port platform "$DEST/dtbo.img" \
+  --flash-cfg "$DEST/flash.cfg" \
+  -o "$OUT/platform_dtbo"
+"$BASE" port platform "$DEST/vendor_boot.img" \
+  --flash-cfg "$DEST/flash.cfg" \
+  -o "$OUT/platform_vendor_boot"
 
 python3 - <<'PY' "$OUT"
 import json, re, sys, yaml
@@ -87,12 +97,31 @@ for name, pkg in [
         f"wrap={p['rewrite_avoidance']['wrap_candidates']} rewrite={p['rewrite_avoidance']['must_rewrite']} "
         f"fossils={len(p['fossil_inventory']['fossils'])} |\n"
     )
+lines.append("\n## OS-port platform inventory (DTB)\n\n")
+for plat_dir in ["platform_dtbo", "platform_vendor_boot"]:
+    py = out / plat_dir / "platform_inventory.yaml"
+    if not py.exists():
+        continue
+    plat = yaml.safe_load(py.read_text())
+    r = plat["os_port_readiness"]
+    lines.append(
+        f"### `{plat_dir}` — readiness {r['score']*100:.0f}% · CPU `{plat['cpu']['isa_hint']}`\n\n"
+    )
+    lines.append(f"- found: {', '.join(r['found']) or '(none)'}\n")
+    lines.append(f"- missing: {', '.join(r['missing']) or '(none)'}\n")
+    lines.append(f"- see `{plat_dir}/PLATFORM_INVENTORY.md`\n\n")
+lines.append(
+    "Required classes: cpu, gic, arm_generic_timer, mmu, dram_controller, uart, "
+    "gpio, pmic, storage_emmc_ufs, gpu_framebuffer, device_tree\n"
+)
 lines.append("\n## Primary atlas\n\n")
 lines.append("- **Use `port_package_lk/` first** — Capstone MMIO real, Ψ ConclusiveMatch\n")
 lines.append("- `PORT_PACKAGE.md`, `address_driver_map.yaml`, `fossil_inventory.yaml`, `hal_mmio_stub.c`\n")
-lines.append("- Boot/kernel packages are heuristic-heavy (many Gpu labels) — cross-check with LK\n")
+lines.append("- **Platform gaps** come from DTB — MMIO heuristics alone are not enough for OS port\n")
+lines.append("- Boot/kernel packages are heuristic-heavy (many Reverse labels) — cross-check with LK\n")
 lines.append("\n## Honesty\n\n")
 lines.append("- `generates_os: false` · `auto_fix_complete: false`\n")
+lines.append("- Platform inventory ≠ OS bootable / TaurOS turnkey\n")
 lines.append("- Firmware.zip / real_fw/ gitignored — not redistributed by this repo\n")
 lines.append("- status: OK\n")
 (out/"CASE_SUMMARY_REAL_FW.md").write_text("".join(lines))
@@ -101,3 +130,4 @@ PY
 
 echo "Real FW port assist OK → $OUT"
 echo "Open: $OUT/port_package_lk/PORT_PACKAGE.md"
+echo "Open: $OUT/platform_dtbo/PLATFORM_INVENTORY.md"

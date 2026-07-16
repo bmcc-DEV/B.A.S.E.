@@ -5,8 +5,15 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 ## [Unreleased]
 
 ### Added
+- **Filogenia Computacional** (`base-core/src/phylo.rs`) — G(B)/λ, d_φ=Ψ·exp(−λ̄Δt), Neighbor-Joining, THC/homoplasia, Newick + cladograma
+- CLI `base paleo phylo` (≥2 EvidenceDb → `PHYLO_ATLAS.md`, `tree.nwk`)
+- **StratAlign** (`base-core/src/strat_align.rs`) — DP §7.1 PaleoComputação: alinhamento de sequências fósseis com gap ∝ meia-vida
+- **Paleo excavate** (`base-core/src/paleo.rs`) — pipeline Ω → Ψ → atlas (PDF §8 assist)
+- CLI `base paleo align` / `base paleo excavate`
 - Crate `base-port` + CLI `base port package` — address/driver map, fossil inventory, `PORT_PACKAGE.md`, optional `hal_mmio_stub.c`
-- Pilots G35/iMac emitem `out/port_package/` após fase A
+- CLI `base port platform` — inventário OS-port a partir de DTB/DTBO/vendor_boot (CPU/GIC/timer/MMU/DRAM/UART/GPIO/PMIC/UFS/GPU)
+- `port package --dtb` / `--flash-cfg` emite `PLATFORM_INVENTORY.md`
+- Pilots G35/iMac emitem `out/port_package/` após fase A; `run_real_fw.sh` gera `platform_vendor_boot/`
 - Vault [[24.40 - Port Package]]
 
 ## [v1.4.0-rc] — 2026-07-16

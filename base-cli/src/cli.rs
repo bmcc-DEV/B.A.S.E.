@@ -302,6 +302,62 @@ pub enum Command {
         #[command(subcommand)]
         action: PortCommand,
     },
+
+    /// Paleocomputação: StratAlign + excavate (PDF §7–§8) — ≠ PaleoCLI product / ≠ auto-fix
+    Paleo {
+        #[command(subcommand)]
+        action: PaleoCommand,
+    },
+}
+
+/// `base paleo` — algoritmos da Paleocomputação Estrutural (assist)
+#[derive(Subcommand)]
+pub enum PaleoCommand {
+    /// StratAlign: alinhar duas sequências fósseis (Evidence YAML ou FossilSequence YAML)
+    Align {
+        /// Sequência A / EvidenceDb YAML (referência / estrato X)
+        a: PathBuf,
+
+        /// Sequência B / EvidenceDb YAML (artefato)
+        b: PathBuf,
+    },
+
+    /// Pipeline Ω → Ψ [+ StratAlign] → atlas
+    Excavate {
+        /// HardwareSpec YAML
+        input: PathBuf,
+
+        /// Evidence DB YAML
+        #[arg(long)]
+        evidence: PathBuf,
+
+        /// Optional reference EvidenceDb for StratAlign
+        #[arg(long)]
+        reference: Option<PathBuf>,
+
+        #[arg(long, default_value_t = 0)]
+        functions: usize,
+
+        #[arg(long, default_value_t = 0)]
+        instructions: usize,
+
+        #[arg(long, default_value_t = 0)]
+        calls: usize,
+    },
+
+    /// Filogenia N-a-N: G(B), d_φ, Neighbor-Joining, THC/homoplasia → Newick
+    Phylo {
+        /// EvidenceDb YAML files (≥2) — linhagem / ports / forks
+        evidence: Vec<PathBuf>,
+
+        /// Optional HardwareSpec YAML (same order as evidence) for phenotype Φ
+        #[arg(long)]
+        spec: Vec<PathBuf>,
+
+        /// Optional stratum Δt per taxon (same order); default 1,2,3…
+        #[arg(long)]
+        delta_t: Vec<f64>,
+    },
 }
 
 /// `base port` — HAL/driver port assist
@@ -327,6 +383,24 @@ pub enum PortCommand {
         /// Also emit host HAL C stub via base-fw (optional)
         #[arg(long, default_value_t = false)]
         hal_stub: bool,
+
+        /// Device Tree blob or DTBO/vendor_boot containing FDT(s)
+        #[arg(long)]
+        dtb: Option<PathBuf>,
+
+        /// Optional flash.cfg for product hints (Unisoc PAC)
+        #[arg(long)]
+        flash_cfg: Option<PathBuf>,
+    },
+
+    /// OS-port platform inventory from DTB (CPU/GIC/timer/UART/…)
+    Platform {
+        /// DTB, DTBO, or image with embedded FDT
+        input: PathBuf,
+
+        /// Optional flash.cfg
+        #[arg(long)]
+        flash_cfg: Option<PathBuf>,
     },
 }
 

@@ -28,7 +28,7 @@ use base_evolve::analyzer::BottleneckAnalyzer;
 use base_evolve::tradeoff::TradeoffAnalyzer;
 use base_evolve::migrate::MigrationPlanner;
 
-use crate::cli::{Command, HilCommand, PortCommand};
+use crate::cli::{Command, HilCommand, PaleoCommand, PortCommand};
 
 pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
     match cmd {
@@ -139,6 +139,9 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
         }
         Command::Port { action } => {
             handle_port(action, output)?;
+        }
+        Command::Paleo { action } => {
+            handle_paleo(action, output)?;
         }
     }
     Ok(())
@@ -1344,6 +1347,8 @@ fn handle_port(action: &PortCommand, output: &Path) -> Result<()> {
             tension,
             target_hal,
             hal_stub,
+            dtb,
+            flash_cfg,
         } => {
             tracing::info!(
                 "[PORT] package assist — ≠ OS rewrite; target_hal={}",
@@ -1402,8 +1407,183 @@ fn handle_port(action: &PortCommand, output: &Path) -> Result<()> {
                 fs::write(output.join("hal_mmio_stub.c"), c)?;
                 tracing::info!("[PORT] wrote hal_mmio_stub.c (HOST_BUILD shadow regs)");
             }
+            if let Some(dtb_path) = dtb {
+                let cfg = flash_cfg
+                    .as_ref()
+                    .map(|p| fs::read_to_string(p))
+                    .transpose()?;
+                let plat = base_port::build_platform_from_path(dtb_path, cfg.as_deref())?;
+                fs::write(output.join("platform_inventory.yaml"), plat.to_yaml()?)?;
+                fs::write(output.join("PLATFORM_INVENTORY.md"), plat.to_markdown())?;
+                tracing::info!(
+                    "[PORT] platform readiness={:.0}% missing={:?}",
+                    plat.os_port_readiness.score * 100.0,
+                    plat.os_port_readiness.missing
+                );
+            }
             assert!(!pkg.generates_os);
             assert!(!pkg.auto_fix_complete);
+        }
+        PortCommand::Platform { input, flash_cfg } => {
+            tracing::info!("[PORT] platform inventory from {}", input.display());
+            let cfg = flash_cfg
+                .as_ref()
+                .map(|p| fs::read_to_string(p))
+                .transpose()?;
+            let plat = base_port::build_platform_from_path(input, cfg.as_deref())?;
+            fs::create_dir_all(output)?;
+            fs::write(output.join("platform_inventory.yaml"), plat.to_yaml()?)?;
+            fs::write(output.join("PLATFORM_INVENTORY.md"), plat.to_markdown())?;
+            tracing::info!(
+                "[PORT] CPU={} readiness={:.0}% missing={:?}",
+                plat.cpu.isa_hint,
+                plat.os_port_readiness.score * 100.0,
+                plat.os_port_readiness.missing
+            );
+            assert!(!plat.generates_os);
+        }
+    }
+    Ok(())
+}
+
+fn load_fossil_sequence(path: &Path) -> Result<base_core::FossilSequence> {
+    let text = fs::read_to_string(path)?;
+    // Prefer EvidenceDb shape; fall back to FossilSequence YAML
+    if let Ok(db) = base_core::evidence::EvidenceDb::from_yaml(&text) {
+        return Ok(base_core::FossilSequence::from_evidence(&db));
+    }
+    Ok(serde_yaml::from_str(&text)?)
+}
+
+fn handle_paleo(action: &PaleoCommand, output: &Path) -> Result<()> {
+    match action {
+        PaleoCommand::Align { a, b } => {
+            tracing::info!("[PALEO] StratAlign {} ↔ {}", a.display(), b.display());
+            let seq_a = load_fossil_sequence(a)?;
+            let seq_b = load_fossil_sequence(b)?;
+            let result = base_core::StratAligner::default().align(&seq_a, &seq_b);
+            fs::create_dir_all(output)?;
+            fs::write(output.join("strat_align.yaml"), result.to_yaml()?)?;
+            fs::write(output.join("STRAT_ALIGN.md"), result.to_markdown())?;
+            tracing::info!(
+                "[PALEO] similarity={:.1}% T0={:.3} matches={}",
+                result.normalized_similarity * 100.0,
+                result.raw_tension,
+                result.match_count
+            );
+            assert!(!result.generates_os);
+            assert!(!result.auto_fix_complete);
+        }
+        PaleoCommand::Excavate {
+            input,
+            evidence,
+            reference,
+            functions,
+            instructions,
+            calls,
+        } => {
+            tracing::info!("[PALEO] excavate Ω → Ψ → atlas");
+            let spec = HardwareSpec::from_yaml(&fs::read_to_string(input)?)?;
+            let ev = base_core::evidence::EvidenceDb::from_yaml(&fs::read_to_string(evidence)?)?;
+            let ref_db = match reference {
+                Some(p) => Some(base_core::evidence::EvidenceDb::from_yaml(
+                    &fs::read_to_string(p)?,
+                )?),
+                None => None,
+            };
+            let result = base_core::excavate(
+                &ev,
+                &spec,
+                ref_db.as_ref(),
+                *functions,
+                *instructions,
+                *calls,
+            );
+            fs::create_dir_all(output)?;
+            fs::write(output.join("paleo_excavate.yaml"), result.to_yaml()?)?;
+            fs::write(output.join("PALEO_ATLAS.md"), result.to_markdown())?;
+            if let Some(sa) = &result.strat_align {
+                fs::write(output.join("strat_align.yaml"), sa.to_yaml()?)?;
+                fs::write(output.join("STRAT_ALIGN.md"), sa.to_markdown())?;
+            }
+            tracing::info!(
+                "[PALEO] Ψ={:.4} confidence={:.1}% {:?}",
+                result.tension.overall_tension,
+                result.tension.overall_confidence * 100.0,
+                result.tension.conclusiveness
+            );
+            assert!(!result.generates_os);
+            assert!(!result.auto_fix_complete);
+        }
+        PaleoCommand::Phylo {
+            evidence,
+            spec,
+            delta_t,
+        } => {
+            tracing::info!("[PALEO] phylogeny N={} taxa", evidence.len());
+            if evidence.len() < 2 {
+                anyhow::bail!("phylo needs ≥2 evidence YAML files");
+            }
+            let mut dbs = Vec::new();
+            for p in evidence {
+                let db = base_core::evidence::EvidenceDb::from_yaml(&fs::read_to_string(p)?)?;
+                dbs.push(db);
+            }
+            // Labels únicos: pasta pai + stem (evita colisão evidence_db.yaml × N)
+            for (db, p) in dbs.iter_mut().zip(evidence.iter()) {
+                let stem = p
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("taxon");
+                let parent = p
+                    .parent()
+                    .and_then(|d| d.file_name())
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("src");
+                db.source = if stem == "evidence_db" || stem == "evidence" {
+                    parent.to_string()
+                } else {
+                    format!("{parent}_{stem}")
+                };
+            }
+            let specs_owned: Vec<HardwareSpec> = spec
+                .iter()
+                .map(|p| {
+                    let t = fs::read_to_string(p)?;
+                    HardwareSpec::from_yaml(&t).map_err(|e| anyhow::anyhow!("{e}"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let spec_refs: Vec<Option<&HardwareSpec>> =
+                (0..dbs.len()).map(|i| specs_owned.get(i)).collect();
+            let dts: Vec<f64> = if delta_t.is_empty() {
+                (0..dbs.len()).map(|i| 1.0 + i as f64).collect()
+            } else {
+                let mut v = delta_t.clone();
+                while v.len() < dbs.len() {
+                    v.push(v.last().copied().unwrap_or(1.0) + 1.0);
+                }
+                v
+            };
+            let db_refs: Vec<&base_core::evidence::EvidenceDb> = dbs.iter().collect();
+            let result = base_core::phylogeny_from_evidence(
+                &db_refs,
+                &spec_refs,
+                &dts,
+                &base_core::PhyloParams::default(),
+            );
+            fs::create_dir_all(output)?;
+            fs::write(output.join("phylo.yaml"), result.to_yaml()?)?;
+            fs::write(output.join("PHYLO_ATLAS.md"), result.to_markdown())?;
+            fs::write(output.join("tree.nwk"), &result.newick)?;
+            fs::write(output.join("cladogram.mmd"), result.to_mermaid())?;
+            tracing::info!(
+                "[PALEO] Newick={} THC={} homoplasy={}",
+                result.newick,
+                result.thc_events.len(),
+                result.homoplasy_events.len()
+            );
+            assert!(!result.generates_os);
+            assert!(!result.auto_fix_complete);
         }
     }
     Ok(())
