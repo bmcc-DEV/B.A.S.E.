@@ -49,7 +49,7 @@ flowchart LR
 | [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0 ✅ (T0–T5) |
 | [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | v0.5.0 ✅ (U0–U5) |
 | [[15 - Path to v0.5/15.20 - Forensic Playbook\|🧭 Playbook v0.5]] | Demo forense RP + STM32 |
-| [[20 - Path to v1.0/20.00 - Index\|🚀 Path to v1.0]] | em curso (Z0–Z2 ✅ · Z3–Z5) |
+| [[20 - Path to v1.0/20.00 - Index\|🚀 Path to v1.0]] | em curso (Z0–Z3 ✅ · Z4–Z5) |
 | [[20 - Path to v1.0/20.01 - Master Plan\|📌 Master Plan v1.0]] | L25–L27 |
 | [[20 - Path to v1.0/20.04 - Sprint Board\|📋 Sprint Board v1.0]] | Kanban Z0–Z5 |
 | [[19 - Path to v0.9/19.00 - Index\|🚀 Path to v0.9]] | v0.9.0 ✅ (Y0–Y5) |

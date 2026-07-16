@@ -9,7 +9,7 @@
 **Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
 
 > **Tag [`v0.9.0`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v0.9.0)** · plano [Path to v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.00%20-%20Index.md) · [CHANGELOG](CHANGELOG.md):
-> UART/SPI (RP goldens) + STM32 Capstone/SPI2/I2C1 pins + triple smoke + reconstruct honesty + `base hil` EXPERIMENTAL.
+> UART/SPI (RP goldens) + STM32 USART/SPI2/I2C1/TIM2 opt-in + goldens `diff` + triple smoke + reconstruct honesty + `base hil` EXPERIMENTAL.
 > Demo: [Playbook v0.9](base-vault/19%20-%20Path%20to%20v0.9/19.20%20-%20Forensic%20Playbook.md) · `./examples/pilot/run.sh` · `./examples/pilot_stm32/run.sh`.
 > **Não** é gerador de PCB fabricável nem substituto drop-in de ASIC.
 
@@ -21,9 +21,10 @@ Fonte da verdade: vault Obsidian → [**Maturity Matrix**](base-vault/12%20-%20P
 
 | Área | Estado |
 |------|--------|
-| `analyze` + Evidence DB + `--disasm` / `--mmio-traces` | Útil no wedge ARM |
+| `analyze` + Evidence DB + `--disasm` / `--mmio-traces` | Útil no wedge ARM (RP + STM32) |
 | `design` / `synth` + component DB + contratos | Funcional; depende da qualidade do spec |
-| `replay` / `prove` (simbólico; Z3 opcional) / `event-graph` / `bir` | Auditável com fixtures |
+| `replay` / `prove` (simbólico; Z3 opcional) / `event-graph` / `bir` | Auditável com fixtures + goldens `diff` |
+| Piloto STM32 multi-peripheral | USART / SPI2 / I2C1 / TIM2 opt-in — ver Maturity Matrix |
 | `fw` | Skeleton **host-testable** (`make host`) — não firmware de produção |
 | `pcb` | **Engineering draft** KiCad — *not fabricable* |
 | `pipeline` | Orquestra estágios verdes; `--pcb` / `--evolve` opt-in |
@@ -31,7 +32,7 @@ Fonte da verdade: vault Obsidian → [**Maturity Matrix**](base-vault/12%20-%20P
 | `reconstruct` | Refine estrutural local; `--continuous` = cap 1000, para em estagnação — **não** auto-fix |
 | `base-hil` | **EXPERIMENTAL** — host template; sem flash automático sem probe |
 
-Planos: [v0.2 Master](base-vault/12%20-%20Path%20to%20Real/12.01%20-%20Master%20Plan.md) · [v0.3 Master](base-vault/13%20-%20Path%20to%20v0.3/13.01%20-%20Master%20Plan.md) · [Sprint Board v0.3](base-vault/13%20-%20Path%20to%20v0.3/13.04%20-%20Sprint%20Board.md)
+Planos: [Path to v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.00%20-%20Index.md) · [v0.2 Master](base-vault/12%20-%20Path%20to%20Real/12.01%20-%20Master%20Plan.md) · [Sprint Board v1.0](base-vault/20%20-%20Path%20to%20v1.0/20.04%20-%20Sprint%20Board.md)
 
 ---
 

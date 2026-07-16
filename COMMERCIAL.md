@@ -122,7 +122,7 @@ Não vender “PCB + firmware prontos” nem HIL “plug-and-flash” nem “aut
 ## Próximo passo imediato
 
 1. ✅ Path to Real → v0.9 (`v0.9.0`)
-2. ✅ Path to v1.0 Z0–Z2 — goldens SPI + TIM2
+2. ✅ Path to v1.0 Z0–Z3 — goldens SPI + TIM2 + Maturity Matrix sync
 3. Demo: `run.sh` + `pilot_stm32` + `run_w1_spi.sh` + `run_x3_i2c.sh` + `run_y3_triple.sh` + `run_z2_tim.sh`
 4. Z3 — Maturity Matrix sync (próximo)
 5. Pricing SaaS / port turnkey só com SOW
