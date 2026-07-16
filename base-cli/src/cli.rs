@@ -522,6 +522,30 @@ pub enum VirtCommand {
         #[arg(long)]
         block: Option<String>,
     },
+
+    /// Continuous plugin NDJSON ↔ twin diff (v1.6 F3)
+    Watch {
+        #[arg(long)]
+        spec: PathBuf,
+
+        /// NDJSON / plugin outfile (or mame/libretro text)
+        #[arg(long)]
+        trace: PathBuf,
+
+        /// Events per cumulative tick
+        #[arg(long, default_value_t = 4)]
+        window_events: usize,
+
+        #[arg(long, default_value_t = 32)]
+        max_ticks: usize,
+
+        /// Poll growing file (ms); 0 = offline one-shot
+        #[arg(long, default_value_t = 0)]
+        poll_ms: u64,
+
+        #[arg(long, default_value_t = 8)]
+        poll_timeout_sec: u64,
+    },
 }
 
 /// `base port` — HAL/driver port assist

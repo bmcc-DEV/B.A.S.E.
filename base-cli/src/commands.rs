@@ -2042,6 +2042,41 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                 report.register_snapshot
             );
         }
+        VirtCommand::Watch {
+            spec,
+            trace,
+            window_events,
+            max_ticks,
+            poll_ms,
+            poll_timeout_sec,
+        } => {
+            let spec = HardwareSpec::from_yaml(&fs::read_to_string(spec)?)?;
+            let cfg = base_virt::ContinuousDiffConfig {
+                window_events: *window_events,
+                max_ticks: *max_ticks,
+                poll_ms: *poll_ms,
+                poll_timeout_sec: *poll_timeout_sec,
+            };
+            let report = base_virt::run_continuous_diff_file(&spec, trace, &cfg)?;
+            fs::write(output.join("continuous_diff.json"), report.to_json_pretty()?)?;
+            fs::write(output.join("continuous_diff.yaml"), report.to_yaml()?)?;
+            let md = format!(
+                "# Continuous twin diff (v1.6 F3)\n\n{}\n\n- ticks: {}\n- evidence: {}\n- final_hit_rate: {:.3}\n- final_psi: {:.3}\n- live_polled: {}\n- generates_os: false\n",
+                base_core::HONESTY_BANNER,
+                report.ticks.len(),
+                report.total_evidence,
+                report.final_hit_rate,
+                report.final_psi,
+                report.live_polled,
+            );
+            fs::write(output.join("CASE_SUMMARY_CONTINUOUS.md"), md)?;
+            tracing::info!(
+                "Continuous diff: ticks={} hit_rate={:.3} psi={:.3}",
+                report.ticks.len(),
+                report.final_hit_rate,
+                report.final_psi
+            );
+        }
     }
     Ok(())
 }

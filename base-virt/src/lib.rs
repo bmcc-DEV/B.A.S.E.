@@ -4,6 +4,7 @@
 //! ≠ OS turnkey · ≠ HIL production.
 
 pub mod bir_bridge;
+pub mod continuous;
 pub mod live;
 pub mod qemu;
 pub mod qmp;
@@ -14,6 +15,9 @@ pub mod trace;
 pub mod twin_guest;
 
 pub use bir_bridge::{replay_bir_twin, spec_block_to_bir, BirTwinReplayReport};
+pub use continuous::{
+    run_continuous_diff_file, ContinuousDiffConfig, ContinuousDiffReport, ContinuousTick,
+};
 pub use live::{run_live_windows, LiveConfig, LiveWindowScore};
 pub use qemu::{
     format_plugin_cli, launch_qemu, resolve_qemu_bin, spawn_qemu_live, QemuLaunchOpts,

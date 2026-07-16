@@ -1,18 +1,24 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`, `v1.0.0`, `v1.1.0-rc`, `v1.2.0-rc`, `v1.2.0`, `v1.3.0-rc`, `v1.4.0-rc`, `v1.5.0-rc`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`, `v1.0.0`, `v1.1.0-rc`, `v1.2.0-rc`, `v1.2.0`, `v1.3.0-rc`, `v1.4.0-rc`, `v1.5.0-rc`, `v1.6.0-rc`.
 
 ## [Unreleased]
 
-### Added
-- **Path to v1.6 F0** — Twin↔guest (`base virt twin`) + vault `26 - Path to v1.6/`
-- Spec stub MAME `hardware_spec_mame_stub.yaml` (`0xA00000`) alinhado ao sample
-- **F1** BIR DigitalTwin replay — `base virt bir-twin`
-- **F2** QMP `savevm`/`loadvm`/`probe-savevm` via human-monitor-command
+## [v1.6.0-rc] — 2026-07-16
 
-### Added (pré-v1.5, já em main)
-- Módulo `base-core::honesty` · filogenia / StratAlign / paleo · `base-port` platform DTB
-- Ver commits `a3b1643`…`ef9c0e6` e vault Path v1.4 [[24.40]]
+Path to v1.6: **Twin↔guest** + BIR DigitalTwin + QMP savevm + continuous watch.
+≠ OS turnkey · ≠ HIL production.
+
+### Added
+- Vault `base-vault/26 - Path to v1.6/`
+- F0 `base virt twin` — Spec MMIO shadow vs Evidence
+- F1 `base virt bir-twin` — Spec+Evidence → BIR → DigitalTwin
+- F2 QMP `savevm`/`loadvm`/`probe-savevm`
+- F3 `base virt watch` — continuous NDJSON↔twin ticks
+- Spec stub MAME `hardware_spec_mame_stub.yaml`
+
+### Not
+- Snapshot garantido em todas as máquinas QEMU · claim OS turnkey
 
 ## [v1.5.0-rc] — 2026-07-16
 

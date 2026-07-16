@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**v1.0.0 ✅ · [[26 - Path to v1.6/26.00 - Index|Path to v1.6]] · [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc) · [[25 - Path to v1.5/25.00 - Index|Path to v1.5]] · [`v1.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.4.0-rc) · [[24 - Path to v1.4/24.00 - Index|Path to v1.4]] · [[23 - Path to v1.3/23.00 - Index|Path to v1.3]] · [[22 - Path to v1.2/22.00 - Index|Path to v1.2]] · [[21 - Path to v1.1/21.00 - Index|Path to v1.1]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
+**v1.0.0 ✅ · [`v1.6.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.0-rc) · [[26 - Path to v1.6/26.00 - Index|Path to v1.6]] · [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc) · [[25 - Path to v1.5/25.00 - Index|Path to v1.5]] · [`v1.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.4.0-rc) · [[24 - Path to v1.4/24.00 - Index|Path to v1.4]] · [[23 - Path to v1.3/23.00 - Index|Path to v1.3]] · [[22 - Path to v1.2/22.00 - Index|Path to v1.2]] · [[21 - Path to v1.1/21.00 - Index|Path to v1.1]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,7 @@ flowchart LR
 | [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0 ✅ (T0–T5) |
 | [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | v0.5.0 ✅ (U0–U5) |
 | [[15 - Path to v0.5/15.20 - Forensic Playbook\|🧭 Playbook v0.5]] | Demo forense RP + STM32 |
-| [[26 - Path to v1.6/26.00 - Index\|🚀 Path to v1.6]] | Twin↔guest · Spec vs Evidence |
+| [[26 - Path to v1.6/26.00 - Index\|🚀 Path to v1.6]] | Twin↔guest · `v1.6.0-rc` |
 | [[25 - Path to v1.5/25.00 - Index\|🚀 Path to v1.5]] | Specter Live · `v1.5.0-rc` · `base virt` |
 | [[24 - Path to v1.4/24.00 - Index\|🚀 Path to v1.4]] | OS Port Validation Assist · `v1.4.0-rc` |
 | [[23 - Path to v1.3/23.00 - Index\|🚀 Path to v1.3]] | HIL Lab Gate A · `v1.3.0-rc` |

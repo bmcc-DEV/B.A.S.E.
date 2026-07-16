@@ -9,11 +9,11 @@
 
 **Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
 
-> **Tag [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc)** · OS-port [`v1.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.4.0-rc) · HIL [`v1.3.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.3.0-rc) · [CHANGELOG](CHANGELOG.md)
+> **Tag [`v1.6.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.0-rc)** · Specter Live [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc) · OS-port [`v1.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.4.0-rc) · [CHANGELOG](CHANGELOG.md)
 >
-> Specter Live + OS Port Validation Assist (G35 / iMac G3).
+> Twin↔guest + Specter Live + OS Port Validation Assist.
 >
-> Demo: `./examples/pilot/run.sh` · `./examples/pilot_moto_g35/run_virt_live.sh` · `./examples/pilot_moto_g35/run.sh`.
+> Demo: `./examples/pilot_moto_g35/run_virt_live.sh` · `base virt twin|bir-twin|watch`.
 >
 > **Não** é port ReactOS/TaurOS turnkey, PCB fabricável nem HIL production.
 
