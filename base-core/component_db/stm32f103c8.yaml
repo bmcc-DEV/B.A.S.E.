@@ -19,6 +19,7 @@ features:
     timer: 4
     adc: 2
 # V2 — pin subset USART1 default AF (LQFP-48 Blue Pill): PA9 TX / PA10 RX.
+# X1 — SPI2 default AF: PB13 SCK / PB14 MISO / PB15 MOSI (+ PB12 NSS).
 # Full package omitted; draft sch only — NOT FABRICABLE.
 pins:
   - number: 10
@@ -33,6 +34,18 @@ pins:
   - number: 13
     name: PA3
     functions: [gpio, usart2_rx]
+  - number: 25
+    name: PB12
+    functions: [gpio, spi2_nss, spi2_cs]
+  - number: 26
+    name: PB13
+    functions: [gpio, spi2_sck]
+  - number: 27
+    name: PB14
+    functions: [gpio, spi2_miso, spi2_rx]
+  - number: 28
+    name: PB15
+    functions: [gpio, spi2_mosi, spi2_tx]
   - number: 30
     name: PA9
     functions: [gpio, usart1_tx, uart0_tx]

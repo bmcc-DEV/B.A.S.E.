@@ -246,11 +246,15 @@ fn pin_func_matches_interface(func: &str, iface: &str) -> bool {
                 && (f.contains("_tx") || f.contains("_rx"))
         }
         "spi" => {
+            // RP: spiN_sck/tx/rx/cs; STM32: spiN_sck/mosi/miso/nss (+ tx/rx aliases)
             f.contains("spi")
                 && (f.contains("_tx")
                     || f.contains("_rx")
                     || f.contains("_sck")
-                    || f.contains("_cs"))
+                    || f.contains("_cs")
+                    || f.contains("_mosi")
+                    || f.contains("_miso")
+                    || f.contains("_nss"))
         }
         _ => false,
     }
@@ -517,6 +521,45 @@ mod tests {
         assert!(
             sch.contains("usart1_rx") || sch.contains("uart0_rx"),
             "USART RX label"
+        );
+    }
+
+    #[test]
+    fn test_schematic_stm32_spi2_pin_annotations() {
+        let mut db = base_core::component_db::ComponentDb::new();
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../base-core/component_db");
+        assert!(db.load_directory(&dir).unwrap() > 0);
+
+        let gen = SchematicGenerator::new(Some(db));
+        let spec = SynthesizedSpec {
+            original: HardwareSpec::empty(),
+            assignments: vec![ComponentAssignment {
+                block_id: "spi_0".into(),
+                component: "STM32F103C8".into(),
+                interface: "spi".into(),
+                config: serde_json::json!({}),
+            }],
+            netlist: None,
+            constraints: SynthesisConstraints {
+                max_bom_cost: None,
+                preferred_manufacturer: None,
+                preferred_package: None,
+            },
+        };
+        let sch = gen.generate(&spec);
+        assert!(sch.contains("NOT FABRICABLE"));
+        assert!(sch.contains("PB13"), "SPI2 SCK pad");
+        assert!(sch.contains("PB14"), "SPI2 MISO pad");
+        assert!(sch.contains("PB15"), "SPI2 MOSI pad");
+        assert!(sch.contains("spi2_sck"), "SPI2 SCK label");
+        assert!(
+            sch.contains("spi2_miso") || sch.contains("spi2_rx"),
+            "SPI2 MISO label"
+        );
+        assert!(
+            sch.contains("spi2_mosi") || sch.contains("spi2_tx"),
+            "SPI2 MOSI label"
         );
     }
 }

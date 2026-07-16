@@ -99,3 +99,25 @@ fn stm32f103_pins_declare_usart1() {
         "PA10 must carry USART1 RX"
     );
 }
+
+#[test]
+fn stm32f103_pins_declare_spi2() {
+    let db = load_db();
+    let entry = db.by_name("STM32F103C8").expect("STM32F103C8 in DB");
+    let pins = entry.pins.as_ref().expect("X1 pins on STM32F103C8");
+    assert!(
+        pins.iter().any(|p| p.name == "PB13"
+            && p.functions.iter().any(|f| f == "spi2_sck")),
+        "PB13 must carry SPI2 SCK"
+    );
+    assert!(
+        pins.iter().any(|p| p.name == "PB14"
+            && p.functions.iter().any(|f| f.contains("spi2_miso") || f.contains("spi2_rx"))),
+        "PB14 must carry SPI2 MISO"
+    );
+    assert!(
+        pins.iter().any(|p| p.name == "PB15"
+            && p.functions.iter().any(|f| f.contains("spi2_mosi") || f.contains("spi2_tx"))),
+        "PB15 must carry SPI2 MOSI"
+    );
+}
