@@ -51,6 +51,15 @@ echo "== synth (prefer ST) =="
   -o "$OUT/synth"
 grep -q 'STM32F103C8' "$OUT/synth/synthesized_spec.yaml"
 
+echo "== pcb draft (V2 USART labels, NOT FABRICABLE) =="
+"$BASE" pcb "$OUT/synth/synthesized_spec.yaml" -o "$OUT/pcb"
+SCH="$OUT/pcb/project.kicad_sch"
+test -f "$SCH"
+grep -q 'NOT FABRICABLE' "$SCH"
+grep -Eq 'usart1_tx|uart0_tx' "$SCH"
+grep -Eq 'usart1_rx|uart0_rx' "$SCH"
+grep -Eq 'PA9|PA10' "$SCH"
+
 echo "== prove =="
 "$BASE" prove "$PILOT/contracts.yaml" -o "$OUT/prove"
 
@@ -70,6 +79,7 @@ summary.write_text(
     "# U1 STM32 CASE SUMMARY\n\n"
     "- Wedge: STM32F103 USART1 @ 0x40013800\n"
     "- Capstone --disasm: synthetic AArch64 @ page 0x40013000 (V1; ≠ Thumb silicon)\n"
+    "- Pins USART1: PA9/PA10 labels no draft PCB (V2; NOT FABRICABLE)\n"
     "- Prefer manufacturer: STMicroelectronics → STM32F103C8\n"
     "- Gate RP (`examples/pilot/run.sh`) intocado\n"
     f"- design bytes: {len(design)}\n"

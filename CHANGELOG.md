@@ -6,6 +6,10 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 ### Added
 - V1: Capstone STM32 USART1 — `gen_fw.py` AArch64 @ `0x40013000`/`0x40013800`; smoke `--disasm`
+- V2: pins STM32F103C8 (PA9/PA10 USART1) + labels no draft KiCad; `base pcb` carrega component DB
+
+### Changed
+- Matcher sch: interface `uart` aceita funções `usart*`
 
 ## [v0.5.0] — 2026-07-16
 

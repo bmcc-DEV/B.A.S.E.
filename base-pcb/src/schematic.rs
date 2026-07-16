@@ -240,7 +240,11 @@ fn pin_matches_interface(functions: &[String], iface: &str) -> bool {
 fn pin_func_matches_interface(func: &str, iface: &str) -> bool {
     let f = func.to_ascii_lowercase();
     match iface {
-        "uart" => f.contains("uart") && (f.contains("_tx") || f.contains("_rx")),
+        // STM32 uses "usartN_tx/rx"; RP uses "uartN_tx/rx".
+        "uart" => {
+            (f.contains("uart") || f.contains("usart"))
+                && (f.contains("_tx") || f.contains("_rx"))
+        }
         "spi" => {
             f.contains("spi")
                 && (f.contains("_tx")
@@ -476,5 +480,43 @@ mod tests {
         assert!(sch.contains("NOT FABRICABLE"));
         assert!(!sch.contains("uart0_tx"));
         assert!(!sch.contains("(name \"GP0\")") && !sch.contains("GP0"));
+    }
+
+    #[test]
+    fn test_schematic_stm32_usart1_pin_annotations() {
+        let mut db = base_core::component_db::ComponentDb::new();
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../base-core/component_db");
+        assert!(db.load_directory(&dir).unwrap() > 0);
+        assert!(db.by_name("STM32F103C8").unwrap().pins.is_some());
+
+        let gen = SchematicGenerator::new(Some(db));
+        let spec = SynthesizedSpec {
+            original: HardwareSpec::empty(),
+            assignments: vec![ComponentAssignment {
+                block_id: "uart_0".into(),
+                component: "STM32F103C8".into(),
+                interface: "uart".into(),
+                config: serde_json::json!({}),
+            }],
+            netlist: None,
+            constraints: SynthesisConstraints {
+                max_bom_cost: None,
+                preferred_manufacturer: None,
+                preferred_package: None,
+            },
+        };
+        let sch = gen.generate(&spec);
+        assert!(sch.contains("NOT FABRICABLE"));
+        assert!(sch.contains("PA9"), "USART1 TX pad");
+        assert!(sch.contains("PA10"), "USART1 RX pad");
+        assert!(
+            sch.contains("usart1_tx") || sch.contains("uart0_tx"),
+            "USART TX label"
+        );
+        assert!(
+            sch.contains("usart1_rx") || sch.contains("uart0_rx"),
+            "USART RX label"
+        );
     }
 }

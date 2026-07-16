@@ -433,8 +433,14 @@ fn handle_pcb(input: &Path, project: &str, drc: bool, output: &Path) -> Result<(
 
     fs::create_dir_all(output)?;
 
-    // Schematic
-    let sch_gen = SchematicGenerator::new(None);
+    // Schematic — load DB so pin annotations (UART/USART/SPI) appear when present.
+    let mut db = ComponentDb::new();
+    let db_path = Path::new("base-core/component_db");
+    if db_path.exists() {
+        db.load_directory(db_path)?;
+        tracing::info!("Loaded {} components for PCB draft", db.len());
+    }
+    let sch_gen = SchematicGenerator::new(Some(db));
     let sch = sch_gen.generate(&spec);
     let sch_path = output.join(format!("{}.kicad_sch", project));
     fs::write(&sch_path, &sch)?;

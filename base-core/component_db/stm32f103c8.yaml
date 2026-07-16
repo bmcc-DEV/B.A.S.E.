@@ -18,6 +18,27 @@ features:
     uart: 3
     timer: 4
     adc: 2
+# V2 — pin subset USART1 default AF (LQFP-48 Blue Pill): PA9 TX / PA10 RX.
+# Full package omitted; draft sch only — NOT FABRICABLE.
+pins:
+  - number: 10
+    name: PA0
+    functions: [gpio]
+  - number: 11
+    name: PA1
+    functions: [gpio]
+  - number: 12
+    name: PA2
+    functions: [gpio, usart2_tx]
+  - number: 13
+    name: PA3
+    functions: [gpio, usart2_rx]
+  - number: 30
+    name: PA9
+    functions: [gpio, usart1_tx, uart0_tx]
+  - number: 31
+    name: PA10
+    functions: [gpio, usart1_rx, uart0_rx]
 availability:
   status: "production"
   price_1k: 2.00

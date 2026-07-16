@@ -10,6 +10,7 @@ Wedge sintético **STM32F103 USART1** @ `0x40013800` (APB2, Blue Pill–style).
 | Peripheral | USART1 @ `0x40013800` (regs reais) |
 | Analyze page | bloco @ `0x40013000` (máscara 4K do clustering) |
 | Capstone (V1) | `fw.bin` AArch64 sintético (`gen_fw.py`) — **não** Thumb Cortex-M3 |
+| Pins (V2) | PA9/PA10 USART1 no `stm32f103c8.yaml`; labels no draft KiCad |
 | Offsets no silício | SR=`+0x00`, DR=`+0x04`, CR1=`+0x0C` relativos a `0x40013800` |
 | IRQ line (trace) | `0x25` (37 decimal — USART1) |
 

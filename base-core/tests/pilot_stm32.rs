@@ -82,3 +82,20 @@ fn stm32_design_prefers_stmicro_f103() {
         design.contracts.total
     );
 }
+
+#[test]
+fn stm32f103_pins_declare_usart1() {
+    let db = load_db();
+    let entry = db.by_name("STM32F103C8").expect("STM32F103C8 in DB");
+    let pins = entry.pins.as_ref().expect("V2 pins on STM32F103C8");
+    assert!(
+        pins.iter().any(|p| p.name == "PA9"
+            && p.functions.iter().any(|f| f == "usart1_tx" || f == "uart0_tx")),
+        "PA9 must carry USART1 TX"
+    );
+    assert!(
+        pins.iter().any(|p| p.name == "PA10"
+            && p.functions.iter().any(|f| f == "usart1_rx" || f == "uart0_rx")),
+        "PA10 must carry USART1 RX"
+    );
+}
