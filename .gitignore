@@ -33,6 +33,8 @@ examples/hil_lab/out_live/
 examples/hil_lab/probes.env
 examples/pilot_moto_g35/out/
 examples/pilot_moto_g35/out_qemu/
+examples/pilot_moto_g35/out_real/
+examples/pilot_moto_g35/real_fw/
 examples/pilot_imac_g3/out/
 examples/pilot_imac_g3/out_qemu/
 

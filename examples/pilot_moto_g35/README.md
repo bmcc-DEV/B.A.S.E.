@@ -14,3 +14,13 @@ python3 gen_boot.py   # ANDROID! synth + mmio
 ```
 
 Vault: `base-vault/24 - Path to v1.4/`
+
+## Firmware real (Firmware.zip)
+
+```bash
+# Firmware.zip na raiz do repo (gitignored)
+./examples/pilot_moto_g35/run_real_fw.sh
+# → out_real/port_package_lk/PORT_PACKAGE.md  (primário)
+```
+
+Ver [CASE_SUMMARY_REAL_FW.md](CASE_SUMMARY_REAL_FW.md).
