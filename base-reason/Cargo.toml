@@ -1,0 +1,19 @@
+[package]
+name = "base-reason"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "B.A.S.E. reasoning — QRM, belief graph, triad gate (≠ Transformer · ≠ OS turnkey)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+anyhow = "1"
+base-core = { path = "../base-core" }
+
+[dev-dependencies]
+
+[lib]
+name = "base_reason"
+path = "src/lib.rs"

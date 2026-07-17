@@ -1,15 +1,16 @@
-# Manifest — Moto G35 5G OS-port validation assist (≠ TaurOS turnkey)
+# Manifest — Moto G35 5G OS-port validation assist (≠ pmOS turnkey)
 
 target:
   device: moto_g35_5g
-  soc: Unisoc T760
+  codename: manila
+  soc: Unisoc UMS9620
   isa: aarch64
   stock_os: Android 14
-  port_os: TaurOS  # build externo — não gerado pelo B.A.S.E.
+  port_os: postmarketOS  # tree externo via pmbootstrap — não gerado pelo B.A.S.E.
 
 phases:
-  A: forense_contracts   # run.sh
-  B: qemu_smoke          # run_qemu_smoke.sh
+  A: forense_contracts   # run.sh / run_path_a.sh
+  B: qemu_smoke          # run_qemu_smoke.sh / Specter
   C: hardware_boot       # SOP.md + hw_boot_receipt
 
 fixtures:
@@ -18,6 +19,8 @@ fixtures:
   contracts: contracts.yaml
 
 honesty:
-  auto_fix_complete: false
+  auto_flash_complete: false
   production: false
+  generates_os: false
   generates_tauros: false
+  note: "port_os=postmarketOS; ToaruOS/UT não são o alvo do wedge G35"

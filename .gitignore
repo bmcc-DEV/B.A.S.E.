@@ -45,3 +45,7 @@ examples/pilot_imac_g3/out_qemu/
 **/*.elf
 **/firmware_host
 base-virt/plugin/*.so
+
+# Repo-root generated artifacts (reason reports, QMP probes)
+/output/
+/output/**

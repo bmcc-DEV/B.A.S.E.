@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[command(name = "base", version, about = "B.A.S.E. — Behavioral ASIC Synthesis Engine")]
 #[command(long_about = "Transform hardware behavior into new PCB + firmware.
   Pipeline: analyze → synth → pcb → fw → check → evolve
-  Assist: paleo (StratAlign / excavate / phylo) · port (package / platform DTB) · virt (Specter Live)
+  Assist: paleo · port · virt · reason (QRM/belief/triad)
   Honesty: generates_os=false · auto_fix_complete=false by default")]
 pub struct Cli {
     #[command(subcommand)]
@@ -319,6 +319,53 @@ pub enum Command {
     Virt {
         #[command(subcommand)]
         action: VirtCommand,
+    },
+
+    /// RE reasoning: QRM + belief + triad (≠ Transformer · ≠ OS turnkey · ≠ auto flash)
+    Reason {
+        #[command(subcommand)]
+        action: ReasonCommand,
+    },
+}
+
+/// `base reason` — Software reasoning over Hardware-facing evidence
+#[derive(Subcommand)]
+pub enum ReasonCommand {
+    /// Emit reason report from wedge atlas / optional twin misses (G35 Path A)
+    Report {
+        /// Wedge MMIO map YAML (default: pilot G35 handoff atlas)
+        #[arg(long)]
+        wedge: Option<PathBuf>,
+
+        /// Twin miss / guest-only block labels (repeatable)
+        #[arg(long = "twin-miss")]
+        twin_miss: Vec<String>,
+
+        /// Evidence ids present (Truth axis); omit → triad Blocks closing claims
+        #[arg(long = "evidence-id")]
+        evidence_id: Vec<String>,
+
+        /// Mark session incoherent (coherence fail)
+        #[arg(long, default_value_t = false)]
+        incoherent: bool,
+
+        /// Write receipt-style draft JSON (never production flash)
+        #[arg(long)]
+        receipt_draft: bool,
+
+        /// Output format: json | markdown
+        #[arg(long, default_value = "markdown")]
+        format: String,
+    },
+
+    /// Shortcut: report for pilot Moto G35 handoff_external atlas
+    G35 {
+        /// Override wedge YAML path
+        #[arg(long)]
+        wedge: Option<PathBuf>,
+
+        #[arg(long, default_value = "markdown")]
+        format: String,
     },
 }
 

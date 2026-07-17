@@ -28,7 +28,7 @@ use base_evolve::analyzer::BottleneckAnalyzer;
 use base_evolve::tradeoff::TradeoffAnalyzer;
 use base_evolve::migrate::MigrationPlanner;
 
-use crate::cli::{Command, HilCommand, PaleoCommand, PortCommand, VirtCommand};
+use crate::cli::{Command, HilCommand, PaleoCommand, PortCommand, ReasonCommand, VirtCommand};
 
 pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
     match cmd {
@@ -145,6 +145,9 @@ pub fn execute(cmd: &Command, output: &Path) -> Result<()> {
         }
         Command::Virt { action } => {
             handle_virt(action, output)?;
+        }
+        Command::Reason { action } => {
+            handle_reason(action, output)?;
         }
     }
     Ok(())
@@ -2582,4 +2585,117 @@ mod classify_tests {
         assert_eq!(spec.blocks[0].kind, BlockKind::Uart);
         assert_eq!(spec.blocks[1].kind, BlockKind::Spi);
     }
+}
+
+fn default_g35_wedge_path() -> PathBuf {
+    PathBuf::from("examples/pilot_moto_g35/out_real/handoff_external/atlas/wedge_mmio_map.yaml")
+}
+
+fn handle_reason(action: &ReasonCommand, output: &Path) -> Result<()> {
+    use base_reason::{questions_from_wedge_yaml, ReasonSignals, ReasoningSession};
+    use base_port::{AddrSource, WedgeMmioMap};
+
+    match action {
+        ReasonCommand::Report {
+            wedge,
+            twin_miss,
+            evidence_id,
+            incoherent,
+            receipt_draft,
+            format,
+        } => {
+            let wedge_path = wedge.clone().unwrap_or_else(default_g35_wedge_path);
+            let yaml = fs::read_to_string(&wedge_path).map_err(|e| {
+                anyhow::anyhow!("read wedge {}: {e}", wedge_path.display())
+            })?;
+
+            let mut sig = ReasonSignals::new();
+            // Prefer typed parse when possible
+            if let Ok(map) = serde_yaml::from_str::<WedgeMmioMap>(&yaml) {
+                sig.p0_missing = map.p0_missing.clone();
+                sig.unresolved_classes = map
+                    .entries
+                    .iter()
+                    .filter(|e| e.source == AddrSource::Unresolved)
+                    .map(|e| e.class.clone())
+                    .collect();
+                if !map.p0_ready {
+                    sig.hypothesis_scores
+                        .push(("atlas_incomplete".into(), 60));
+                    sig.hypothesis_scores.push(("need_usb_or_dt".into(), 40));
+                } else {
+                    sig.hypothesis_scores.push(("atlas_p0_ready".into(), 80));
+                    sig.hypothesis_scores
+                        .push(("still_needs_lab_boot".into(), 20));
+                }
+            } else {
+                // Fallback: question adapter only
+                let qs = questions_from_wedge_yaml(&yaml)?;
+                for q in qs {
+                    match q.kind {
+                        base_reason::QuestionKind::MissingP0 => {
+                            sig.p0_missing.push(q.subject);
+                        }
+                        base_reason::QuestionKind::UnresolvedAddr => {
+                            sig.unresolved_classes.push(q.subject);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            sig.twin_misses = twin_miss.clone();
+            sig.evidence_ids = evidence_id.clone();
+            sig.coherent = !*incoherent;
+            sig.causal_ok = true; // assist claims do not require CausalEdge by default
+
+            let mut session = ReasoningSession::new();
+            let report = session.ingest_signals(&sig);
+
+            fs::create_dir_all(output)?;
+            let stem = output.join("reason_report");
+            if format == "json" {
+                let path = stem.with_extension("json");
+                fs::write(&path, report.to_json_pretty()?)?;
+                tracing::info!("wrote {}", path.display());
+            } else {
+                let path = stem.with_extension("md");
+                fs::write(&path, report.to_markdown())?;
+                tracing::info!("wrote {}", path.display());
+                print!("{}", report.to_markdown());
+            }
+
+            if *receipt_draft {
+                let draft = serde_json::json!({
+                    "kind": "hw_boot_receipt_draft",
+                    "result": "pending_lab",
+                    "flashed": false,
+                    "mode": "lab_assist",
+                    "questions_open": report.questions.len(),
+                    "triad_verdict": format!("{:?}", report.triad.verdict),
+                    "generates_os": false,
+                    "auto_fix_complete": false,
+                    "honesty": report.honesty,
+                    "note": "Draft only — ≠ production flash · fill after manual lab",
+                });
+                let path = output.join("reason_receipt_draft.json");
+                fs::write(&path, serde_json::to_string_pretty(&draft)?)?;
+                tracing::info!("wrote receipt draft {}", path.display());
+            }
+        }
+        ReasonCommand::G35 { wedge, format } => {
+            handle_reason(
+                &ReasonCommand::Report {
+                    wedge: wedge.clone().or_else(|| Some(default_g35_wedge_path())),
+                    twin_miss: vec![],
+                    evidence_id: vec![],
+                    incoherent: false,
+                    receipt_draft: true,
+                    format: format.clone(),
+                },
+                output,
+            )?;
+        }
+    }
+    Ok(())
 }

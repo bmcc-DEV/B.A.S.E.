@@ -22,10 +22,14 @@ echo "=== 5/7 Specter live (twin + QMP) ==="
 echo "=== 6/7 Specter + QEMU smoke (legacy) ==="
 ./run_wedge_qemu_smoke.sh
 
-echo "=== 7/7 fase C assist (sem flash) ==="
+echo "=== 7/8 fase C assist (sem flash) ==="
 ./run_wedge_hw_assist.sh
+
+echo "=== 8/8 pack handoff externo (phandles + validate) ==="
+./pack_external_handoff.sh
 
 echo ""
 echo "Wedge pipeline OK (assist)."
-echo "Handoff → $PILOT/WEDGE_HANDOFF.md"
+echo "Path A one-shot: ./run_path_a.sh"
+echo "Handoff → $PILOT/out_real/handoff_external/"
 echo "generates_os=false · flashed=false"

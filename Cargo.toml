@@ -14,6 +14,7 @@ members = [
     "base-vm",
     "base-port",
     "base-virt",
+    "base-reason",
 ]
 # base-learn exists on disk but is intentionally out of the default workspace
 # until ONNX/classifier integration is wired.

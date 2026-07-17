@@ -4,6 +4,16 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 ## [Unreleased]
 
+### Added
+- Crate **`base-reason`** — QRM + belief graph + hypothesis set + triad gate + session strengthen/forget (≠ Transformer)
+- CLI `base reason report` / `base reason g35` — HW atlas → reason report + receipt draft (`lab_assist`)
+- Manifesto [docs/PLATFORM_RE.md](docs/PLATFORM_RE.md) · piloto [examples/pilot_moto_g35/REASONING.md](examples/pilot_moto_g35/REASONING.md)
+- `run_path_a.sh` — one-shot handoff externo (pack + phandle resolve + validate)
+- `resolve_dt_phandles.py` — UART `clocks = <&…>` a partir do vendor FDT
+- `lab_watch_assist.sh` — monitor ADB read-only → actualiza receipt (≠ flash)
+- Guia **postmarketOS** (`POSTMARKETOS.md`) — alvo de port sem Android userspace (manila/ums9620)
+- `EXTERNAL_TREE.md` · `pack_external_handoff.sh` — tree externo / handoff pack
+
 ## [v1.6.3-rc] — 2026-07-17
 
 ### Added
