@@ -1,13 +1,23 @@
 {
   "phase": "C",
+  "wedge": "linux_wedge_uart_ufs_g35",
   "device": "moto_g35_5g",
+  "product_model": null,
   "operator": "_______________",
   "date": "YYYY-MM-DD",
   "image_sha256": "_______________",
-  "method": "fastboot|edl|other",
-  "result": "boot_ok|panic|hang|not_run",
+  "method": "fastboot|edl|adb_sideload|other|not_run",
+  "result": "boot_ok|panic|hang|earlycon_seen|not_run",
   "console_log_path": null,
+  "earlycon_candidate": "earlycon=uart8250,mmio32,0x20200000,115200n8",
+  "wedge_bases": {
+    "uart": "0x20200000",
+    "gic": "0x12000000",
+    "ufs": "0x22000000"
+  },
   "sow_signed": false,
   "production": false,
-  "note": "lab receipt only — ≠ SaaS turnkey"
+  "flashed": false,
+  "generates_os": false,
+  "note": "lab receipt only — ≠ SaaS turnkey · fill after manual flash/test"
 }

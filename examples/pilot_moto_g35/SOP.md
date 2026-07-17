@@ -26,12 +26,18 @@
 
 ## 3. Receipt
 
-Preencher `hw_boot_receipt.example.json` → `hw_boot_receipt.json` (não commitir secrets):
+```bash
+./examples/pilot_moto_g35/run_wedge_hw_assist.sh
+# → out_real/wedge_hw/hw_boot_receipt.draft.json + PHASE_C_CHECKLIST.md
+# READ-ONLY — não faz flash
+```
+
+Preencher draft → `hw_boot_receipt.json` (não commitir):
 
 - hash do binário
 - operador / data
-- resultado: boot console / panic / hang
-- `production: false`
+- resultado: boot_ok / panic / hang / earlycon_seen
+- `production: false` · `flashed` só se flash manual ocorreu
 
 ## 4. Proibido
 

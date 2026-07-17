@@ -36,6 +36,7 @@ examples/pilot_moto_g35/out_qemu/
 examples/pilot_moto_g35/out_real/
 examples/pilot_moto_g35/out_virt/
 examples/pilot_moto_g35/real_fw/
+examples/pilot_moto_g35/hw_boot_receipt.json
 examples/pilot_imac_g3/out/
 examples/pilot_imac_g3/out_qemu/
 
