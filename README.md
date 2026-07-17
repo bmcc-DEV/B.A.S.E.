@@ -7,15 +7,23 @@
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**Motor de engenharia reversa comportamental assistida** — evidência → contratos → Reference Design.
+**Plataforma de engenharia reversa automatizada assistida por evidência** — percepção HW + raciocínio SW (QRM / belief / triad).
 
-> **Tag [`v1.6.1-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.1-rc)** · Twin↔guest [`v1.6.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.0-rc) · Specter Live [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc) · [CHANGELOG](CHANGELOG.md)
+> **Honesty:** `generates_os: false` · `auto_fix_complete: false` · flash = lab assist / manual  
+> **Tag [`v1.6.3-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.3-rc)** · Twin/Live · G35 wedge · [CHANGELOG](CHANGELOG.md) · [Platform RE](docs/PLATFORM_RE.md)
 >
-> G35 wedge absoluto (USB→atlas P0→stub→Specter) + Twin↔guest + OS-port assist.
->
-> Demo: `./examples/pilot_moto_g35/run_wedge_pipeline.sh` · `base virt demo all` · [WEDGE_HANDOFF](examples/pilot_moto_g35/WEDGE_HANDOFF.md).
->
-> **Não** é port ReactOS/TaurOS turnkey, PCB fabricável nem HIL production.
+> ≠ OS turnkey · ≠ PCB fabricável · ≠ HIL production · ≠ Transformer / “RE mágica”
+
+---
+
+## Divisão HW / SW
+
+| Lado | Papel | Crates |
+|------|--------|--------|
+| **Hardware-facing** | Aquisição de evidência imutável | `specterprobe`, `base-virt` (QMP/Live), `base-port` (USB×DT/wedge), `base-hil`, `base-core` evidence |
+| **Software reasoning** | Perguntas → crenças → hipóteses → triad | **`base-reason`** |
+
+Loop: **observar → perguntar → hipotetizar → lab/receipt → strengthen/forget**.
 
 ---
 
@@ -30,11 +38,11 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | `analyze` / `design` / `synth` / `replay` / `prove` / `bir` / `check` / `pipeline` | **REAL\*** no wedge |
 | `study` (Specter VM Forth + Lua) | **REAL\*** — loop autónomo; `auto_fix_complete=false` |
 | `reconstruct` | **REAL\*** — `stop_reason`; ≠ auto-fix |
-| `evolve` | **REAL\*** — métricas do HardwareSpec; opt-in no pipeline |
-| `fw` | **REAL\*** host (`make host`); ≠ silício |
-| `pcb` | **REAL\*** draft KiCad (`NOT FABRICABLE`) |
-| `hil` | **REAL\*** host + **Gate A** `lab-status`; production gated |
-| `port package` | **EXPERIMENTAL** — mapa/fósseis/atlas; ≠ OS rewrite |
+| `reason` | **REAL\*** — QRM/belief/triad sobre atlas/sinais; ≠ Transformer |
+| `port` (package / usb-probe / wedge / clocks-pinctrl) | **EXPERIMENTAL** — mapa/fósseis/atlas; ≠ OS rewrite |
+| `virt` (Specter Live / QMP / twin) | **EXPERIMENTAL** — ≠ OS turnkey |
+| `evolve` / `fw` / `pcb` | **REAL\*** drafts; PCB `NOT FABRICABLE` |
+| `hil` | **REAL\*** host + Gate A; production gated |
 
 ### Wedges / smokes
 
@@ -43,21 +51,24 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | RP UART / SPI | `run.sh` / `run_t1_b2.sh` |
 | STM32 USART/SPI/I2C/TIM/triple | `pilot_stm32/run*.sh` |
 | Specter study | `examples/pilot_study/run_study.sh` |
-| Moto G35 OS-port A | `examples/pilot_moto_g35/run.sh` |
+| Moto G35 Path A + reason | `run_path_a.sh` · `base reason g35` · [REASONING](examples/pilot_moto_g35/REASONING.md) |
+| Moto G35 wedge P0 | `run_wedge_pipeline.sh` · [WEDGE_HANDOFF](examples/pilot_moto_g35/WEDGE_HANDOFF.md) |
 | iMac G3 OS-port A | `examples/pilot_imac_g3/run.sh` |
-
-Docs: [Path to v1.4](base-vault/24%20-%20Path%20to%20v1.4/24.00%20-%20Index.md) · [Path to v1.1](base-vault/21%20-%20Path%20to%20v1.1/21.00%20-%20Index.md)
 
 ---
 
 ## Pipeline
 
 ```text
-Firmware → analyze → Evidence DB → BIR → Contracts → Solver → Reference Design
-                         ↓
-              study (Forth+Lua) / reconstruct
-                         ↓
-              [PCB/FW draft — opcional]
+Firmware / USB / DTB / QMP
+        ↓
+   Hardware-facing (Specter · wedge · twin)
+        ↓
+   Evidence DB → BIR → Contracts → Solver → Reference Design
+        ↓
+   base-reason (QRM · belief · triad) → report / receipt draft
+        ↓
+   study / reconstruct / [PCB·FW draft opcional]
 ```
 
 ---
@@ -70,8 +81,16 @@ cd B.A.S.E.
 cargo build -p base-cli
 
 ./examples/pilot/run.sh
-./examples/pilot/run_t1_b2.sh
 ./examples/pilot_study/run_study.sh
+./examples/pilot_moto_g35/run_wedge_pipeline.sh
+```
+
+### Reason (G35)
+
+```bash
+cargo build -p base-cli
+./target/debug/base reason g35 -o output/reason_g35
+# → reason_report.md · reason_receipt_draft.json (flashed: false)
 ```
 
 ### Specter study
@@ -81,40 +100,40 @@ base study path/to/hardware_spec.yaml \
   --policy examples/pilot_study/policy.lua \
   --program examples/pilot_study/study.base \
   -o out/study/
-# → study_report.json (stop_reason, auto_fix_complete=false)
 ```
 
-### Análise / design / HIL
+### Análise / HIL
 
 ```bash
 base analyze firmware.bin --mmio-traces mmio.json --classify uart -o output/
-base design output/hardware_spec.yaml --pcb -o output/design/
 base hil enumerate -o /tmp/hil/
 base hil flash /tmp/x.bin --mock-flash -o /tmp/hil/
 ```
 
-### Z3 (opcional)
-
-```bash
-cargo test -p base-core --features solver_z3 --lib smt
-```
-
 ---
 
-## Arquitetura
+## Arquitectura
 
 ```mermaid
-flowchart LR
-    FW[Firmware] --> SP[SpecterProbe]
-    SP --> EVD[Evidence DB]
-    EVD --> BIR[BIR]
-    BIR --> TC[Temporal Contracts]
-    TC --> SOLVER[Contract Solver]
-    SOLVER --> RD[Reference Design]
-    EVD --> VM[Specter VM]
-    Lua[Lua policy] --> VM
-    VM --> Report[study_report]
-    RD --> PCB[PCB draft]
+flowchart TB
+  subgraph hw [Hardware_Facing]
+    Acq[Specter_USB_DTB_QMP]
+    Twin[Twin_Live]
+    Atlas[Wedge_Atlas]
+    Hil[HIL]
+  end
+  subgraph sw [Software_Reasoning]
+    QRM[Question_Generator]
+    Bel[Belief_Graph]
+    Tri[Triad_Gate]
+  end
+  Acq --> QRM
+  Twin --> Bel
+  Atlas --> QRM
+  QRM --> Bel
+  Bel --> Tri
+  Tri --> Out[Report_Receipt_Draft]
+  Hil --> Bel
 ```
 
 ### Tensão Ψ
@@ -131,8 +150,9 @@ confidence = max(0, 1 - Ψ/(1+Ψ))
 | Comando | Notas |
 |---------|-------|
 | `analyze` / `synth` / `design` | Evidence → Reference Design |
-| `study` | Specter Forth + Lua |
-| `reconstruct` | Refine estrutural |
+| `reason` | QRM + belief + triad (HW signals → report) |
+| `port` / `virt` | Wedge atlas · Specter Live / QMP |
+| `study` / `reconstruct` | Specter Forth+Lua · refine |
 | `replay` / `prove` / `event-graph` / `bir` | Contratos |
 | `evolve` / `fw` / `pcb` / `check` / `pipeline` | Outputs + validação |
 | `hil` | Host REAL\*; production gated |
@@ -143,7 +163,7 @@ confidence = max(0, 1 - Ψ/(1+Ψ))
 
 | Mercado | Papel |
 |---------|-------|
-| Forense / segurança | Wedge principal |
+| Forense / segurança | Wedge principal + reason loop |
 | Educação / pesquisa | Pipeline + Ψ + Specter |
 | Preservação industrial | Consultoria + [SOW v1.1](base-vault/21%20-%20Path%20to%20v1.1/21.21%20-%20SOW%20Industrial%20Checklist.md) |
 | SaaS | Adiado |
@@ -152,7 +172,7 @@ confidence = max(0, 1 - Ψ/(1+Ψ))
 
 ### Claims proibidos
 
-PCB fabricável · ASIC drop-in · HIL production · SaaS turnkey · auto-fix completa · “produto industrial completo”
+PCB fabricável · ASIC drop-in · HIL production · SaaS turnkey · auto-fix completa · OS turnkey · “produto industrial completo”
 
 ---
 
@@ -160,11 +180,11 @@ PCB fabricável · ASIC drop-in · HIL production · SaaS turnkey · auto-fix co
 
 | Doc | Papel |
 |-----|-------|
-| [HIL Lab Gate A](base-vault/23%20-%20Path%20to%20v1.3/23.30%20-%20HIL%20Lab%20Gate.md) | `base hil lab-status` |
-| [SOW Industrial Gate](base-vault/22%20-%20Path%20to%20v1.2/22.30%20-%20SOW%20Industrial%20Gate.md) | Quando promover PCB/HIL/fix |
+| [Platform RE HW/SW](docs/PLATFORM_RE.md) | Divisão percepção / raciocínio |
+| [G35 Reasoning](examples/pilot_moto_g35/REASONING.md) | Slice vertical reason |
+| [G35 postmarketOS](examples/pilot_moto_g35/POSTMARKETOS.md) | Port externo (≠ B.A.S.E. gera OS) |
+| [WEDGE_HANDOFF](examples/pilot_moto_g35/WEDGE_HANDOFF.md) | Handoff tree externo |
 | [Maturity Matrix](base-vault/12%20-%20Path%20to%20Real/12.02%20-%20Maturity%20Matrix.md) | Fonte da verdade |
-| [Playbook v1.2](base-vault/22%20-%20Path%20to%20v1.2/22.20%20-%20Forensic%20Playbook.md) | Demo + gate |
-| [Specter VM Spec](base-vault/21%20-%20Path%20to%20v1.1/21.30%20-%20Specter%20VM%20Spec.md) | Palavras + Lua |
 | [CHANGELOG](CHANGELOG.md) | Tags |
 
 ---
