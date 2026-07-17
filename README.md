@@ -13,7 +13,7 @@
 >
 > Twin↔guest + Specter Live + OS Port Validation Assist.
 >
-> Demo: `./examples/pilot_moto_g35/run_virt_live.sh` · `base virt twin|bir-twin|watch`.
+> Demo: `base virt demo all` · `./examples/pilot_moto_g35/demo_virt.sh` · `run_virt_live.sh`.
 >
 > **Não** é port ReactOS/TaurOS turnkey, PCB fabricável nem HIL production.
 

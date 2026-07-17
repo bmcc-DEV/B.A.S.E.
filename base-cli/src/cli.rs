@@ -459,8 +459,8 @@ pub enum VirtCommand {
 
     /// QMP control: stop / cont / status / inject-nmi / quit / raw JSON
     Qmp {
-        /// Unix QMP socket
-        #[arg(long)]
+        /// Unix QMP socket (default: /tmp/base-qmp.sock)
+        #[arg(long, default_value = "/tmp/base-qmp.sock")]
         socket: PathBuf,
 
         /// Command: stop | cont | status | inject-nmi | reset | quit | probe | savevm | loadvm | probe-savevm | raw
@@ -546,6 +546,13 @@ pub enum VirtCommand {
         #[arg(long, default_value_t = 8)]
         poll_timeout_sec: u64,
     },
+
+    /// Zero-arg demos do piloto G35: watch | twin | qmp | all (≠ OS turnkey)
+    Demo {
+        /// Alvo: watch | twin | qmp | all
+        #[arg(default_value = "all")]
+        target: String,
+    },
 }
 
 /// `base port` — HAL/driver port assist
@@ -590,6 +597,33 @@ pub enum PortCommand {
         /// Optional flash.cfg
         #[arg(long)]
         flash_cfg: Option<PathBuf>,
+    },
+
+    /// Live USB phone probe (ADB / fastboot / lsusb) — inventário HW ≠ flash / ≠ OS turnkey
+    UsbProbe {
+        /// ADB serial (`adb -s`); default = first `device`
+        #[arg(long)]
+        serial: Option<String>,
+
+        #[arg(long, default_value_t = false)]
+        skip_adb: bool,
+
+        #[arg(long, default_value_t = false)]
+        skip_fastboot: bool,
+
+        #[arg(long, default_value_t = false)]
+        skip_lsusb: bool,
+    },
+
+    /// Cruzar USB inventory ↔ platform DTB inventory + bring-up checklist
+    UsbCross {
+        /// usb_hw_inventory.yaml (de `port usb-probe`)
+        #[arg(long)]
+        usb: PathBuf,
+
+        /// platform_inventory.yaml (de `port platform` / vendor_boot)
+        #[arg(long)]
+        platform: PathBuf,
     },
 }
 

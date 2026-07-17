@@ -12,7 +12,12 @@
 ## 2. Lab (fastboot / EDL — conforme unlock do dispositivo)
 
 ```bash
-# Exemplo — adaptar ao lab do Cliente (≠ CI):
+# Inventário vivo via USB (ADB autorizado ou bootloader) — read-only
+./examples/pilot_moto_g35/run_usb_probe.sh
+./examples/pilot_moto_g35/run_usb_cross.sh
+# → out_real/usb_cross/BRINGUP_CHECKLIST.md
+
+# Exemplo flash — adaptar ao lab do Cliente (≠ CI):
 # adb reboot bootloader
 # fastboot flash boot out/tauros_boot.img
 # fastboot reboot

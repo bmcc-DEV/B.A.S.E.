@@ -1445,6 +1445,86 @@ fn handle_port(action: &PortCommand, output: &Path) -> Result<()> {
             );
             assert!(!plat.generates_os);
         }
+        PortCommand::UsbProbe {
+            serial,
+            skip_adb,
+            skip_fastboot,
+            skip_lsusb,
+        } => {
+            tracing::info!(
+                "[PORT] USB HW probe — read-only · ≠ flash · ≠ OS turnkey"
+            );
+            let opts = base_port::UsbProbeOptions {
+                serial: serial.clone(),
+                skip_adb: *skip_adb,
+                skip_fastboot: *skip_fastboot,
+                skip_lsusb: *skip_lsusb,
+            };
+            let inv = base_port::run_usb_hw_probe(&opts);
+            fs::create_dir_all(output)?;
+            fs::write(output.join("usb_hw_inventory.yaml"), inv.to_yaml()?)?;
+            fs::write(
+                output.join("usb_hw_inventory.json"),
+                inv.to_json_pretty()?,
+            )?;
+            fs::write(output.join("USB_HW_PROBE.md"), inv.to_markdown())?;
+            assert!(!inv.generates_os);
+            assert!(!inv.auto_fix_complete);
+            if inv.skipped {
+                tracing::warn!(
+                    "[PORT] USB probe skipped: {}",
+                    inv.skip_reason.as_deref().unwrap_or("unknown")
+                );
+                println!(
+                    "usb-probe SKIP → {} ({})",
+                    output.display(),
+                    inv.skip_reason.as_deref().unwrap_or("no device")
+                );
+            } else {
+                tracing::info!(
+                    "[PORT] USB probe mode={:?} ok={} props={} sysfs={} dt_compat={} platform={}",
+                    inv.mode,
+                    inv.ok,
+                    inv.props.len(),
+                    inv.sysfs_classes.len(),
+                    inv.dt_compatibles.len(),
+                    inv.platform_devices.len()
+                );
+                println!(
+                    "usb-probe OK → {} (mode={:?} props={} platform={} dt_compat={})",
+                    output.display(),
+                    inv.mode,
+                    inv.props.len(),
+                    inv.platform_devices.len(),
+                    inv.dt_compatibles.len()
+                );
+            }
+        }
+        PortCommand::UsbCross { usb, platform } => {
+            tracing::info!(
+                "[PORT] USB×DTB cross — {} ↔ {}",
+                usb.display(),
+                platform.display()
+            );
+            let usb_yaml = fs::read_to_string(usb)?;
+            let plat_yaml = fs::read_to_string(platform)?;
+            let report = base_port::cross_usb_dt_files(&usb_yaml, &plat_yaml)?;
+            fs::create_dir_all(output)?;
+            fs::write(output.join("usb_dt_cross.yaml"), report.to_yaml()?)?;
+            fs::write(
+                output.join("usb_dt_cross.json"),
+                report.to_json_pretty()?,
+            )?;
+            fs::write(output.join("BRINGUP_CHECKLIST.md"), report.to_markdown())?;
+            assert!(!report.generates_os);
+            println!(
+                "usb-cross OK → {} (matches={} bringup={} target={})",
+                output.display(),
+                report.matches.len(),
+                report.bringup.len(),
+                report.port_target
+            );
+        }
     }
     Ok(())
 }
@@ -1883,6 +1963,17 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
             raw,
             tag,
         } => {
+            if !socket.exists() {
+                anyhow::bail!(
+                    "QMP socket ausente: {} (nenhum QEMU a ouvir). \
+                     `virt demo qmp` sobe, sonda e faz quit — para `qmp status` mantém o guest noutro terminal, p.ex.:\n\
+                     qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 64M -nographic \
+                     -kernel examples/pilot_moto_g35/kernel.bin \
+                     -qmp unix:{},server,nowait -serial none -monitor none",
+                    socket.display(),
+                    socket.display()
+                );
+            }
             match cmd.as_str() {
                 "probe" => {
                     let probe = base_virt::probe_session(socket)?;
@@ -2077,7 +2168,230 @@ fn handle_virt(action: &VirtCommand, output: &Path) -> Result<()> {
                 report.final_psi
             );
         }
+        VirtCommand::Demo { target } => {
+            handle_virt_demo(target, output)?;
+        }
     }
+    Ok(())
+}
+
+/// Resolve `examples/pilot_moto_g35/` walking up from CWD (and common relatives).
+fn resolve_pilot_g35_root() -> Result<PathBuf> {
+    let marker = Path::new("examples/pilot_moto_g35/virt/hardware_spec_mame_stub.yaml");
+    let cwd = std::env::current_dir()?;
+    let mut dir = cwd.clone();
+    for _ in 0..8 {
+        let cand = dir.join(marker);
+        if cand.is_file() {
+            return Ok(dir.join("examples/pilot_moto_g35"));
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    // Fallback: relative to this crate when run from target/
+    let from_exe = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()));
+    if let Some(mut d) = from_exe {
+        for _ in 0..6 {
+            let cand = d.join(marker);
+            if cand.is_file() {
+                return Ok(d.join("examples/pilot_moto_g35"));
+            }
+            if !d.pop() {
+                break;
+            }
+        }
+    }
+    anyhow::bail!(
+        "piloto G35 não encontrado (procure {} a partir de {}) — corre a partir da raiz do repo",
+        marker.display(),
+        cwd.display()
+    )
+}
+
+fn handle_virt_demo(target: &str, cli_output: &Path) -> Result<()> {
+    let t = target.trim().to_ascii_lowercase();
+    let allowed = ["watch", "twin", "qmp", "all"];
+    if !allowed.contains(&t.as_str()) {
+        anyhow::bail!("demo target inválido '{target}' (use: watch|twin|qmp|all)");
+    }
+
+    let pilot = resolve_pilot_g35_root()?;
+    let virt = pilot.join("virt");
+    let spec = virt.join("hardware_spec_mame_stub.yaml");
+    let ndjson = virt.join("sample_mmio.ndjson");
+    let mame = virt.join("sample_mame.trace");
+    let kernel = pilot.join("kernel.bin");
+
+    for (label, p) in [
+        ("spec", &spec),
+        ("ndjson", &ndjson),
+        ("mame", &mame),
+        ("kernel", &kernel),
+    ] {
+        if !p.is_file() {
+            anyhow::bail!("demo: ficheiro em falta ({label}): {}", p.display());
+        }
+    }
+
+    // Prefer explicit -o; default CLI "output" → /tmp/base_virt_demo
+    let root = if cli_output.as_os_str() == "output" {
+        PathBuf::from("/tmp/base_virt_demo")
+    } else {
+        cli_output.to_path_buf()
+    };
+    fs::create_dir_all(&root)?;
+
+    let run_watch = t == "watch" || t == "all";
+    let run_twin = t == "twin" || t == "all";
+    let run_qmp = t == "qmp" || t == "all";
+
+    if run_watch {
+        let out = root.join("watch");
+        fs::create_dir_all(&out)?;
+        let hw = HardwareSpec::from_yaml(&fs::read_to_string(&spec)?)?;
+        let cfg = base_virt::ContinuousDiffConfig {
+            window_events: 2,
+            max_ticks: 32,
+            poll_ms: 0,
+            poll_timeout_sec: 8,
+        };
+        let report = base_virt::run_continuous_diff_file(&hw, &ndjson, &cfg)?;
+        fs::write(out.join("continuous_diff.json"), report.to_json_pretty()?)?;
+        fs::write(out.join("continuous_diff.yaml"), report.to_yaml()?)?;
+        tracing::info!(
+            "demo watch → {} (ticks={} hit_rate={:.3})",
+            out.display(),
+            report.ticks.len(),
+            report.final_hit_rate
+        );
+        println!(
+            "demo watch OK → {} (ticks={} hit_rate={:.3} psi={:.3})",
+            out.display(),
+            report.ticks.len(),
+            report.final_hit_rate,
+            report.final_psi
+        );
+    }
+
+    if run_twin {
+        let out = root.join("twin");
+        fs::create_dir_all(&out)?;
+        let hw = HardwareSpec::from_yaml(&fs::read_to_string(&spec)?)?;
+        let db = base_virt::ingest_path_with_format(&mame, base_virt::TraceFormat::Mame)?;
+        fs::write(out.join("evidence_db.yaml"), db.to_yaml()?)?;
+        let twin = base_virt::compare_twin_guest(&hw, &db);
+        fs::write(out.join("twin_guest.json"), twin.to_json_pretty()?)?;
+        let (bir, bir_report) = base_virt::replay_bir_twin(&hw, &db, None)?;
+        fs::write(out.join("bir_device.yaml"), bir.to_yaml()?)?;
+        fs::write(
+            out.join("bir_twin_report.json"),
+            serde_json::to_string_pretty(&bir_report)?,
+        )?;
+        tracing::info!(
+            "demo twin → {} (hit_rate={:.3} bir_writes={})",
+            out.display(),
+            twin.hit_rate,
+            bir_report.writes_applied
+        );
+        println!(
+            "demo twin OK → {} (hit_rate={:.3} psi={:.3} bir_writes={})",
+            out.display(),
+            twin.hit_rate,
+            twin.psi_confidence,
+            bir_report.writes_applied
+        );
+    }
+
+    if run_qmp {
+        let out = root.join("qmp");
+        fs::create_dir_all(&out)?;
+        let sock = PathBuf::from("/tmp/base-qmp.sock");
+        let opts = base_virt::QemuLaunchOpts {
+            bin: "qemu-system-aarch64".into(),
+            kernel: Some(kernel.clone()),
+            timeout_sec: 8,
+            log_path: out.join("qemu.log"),
+            qmp_socket: Some(sock.clone()),
+            memory: "64M".into(),
+            extra_args: vec!["-serial".into(), "none".into(), "-monitor".into(), "none".into()],
+            plugin: None,
+            plugin_outfile: None,
+            plugin_args: Vec::new(),
+            ..Default::default()
+        };
+
+        match base_virt::spawn_qemu_live(&opts)? {
+            Err(skipped) => {
+                fs::write(out.join("qmp_demo.json"), serde_json::to_string_pretty(&skipped)?)?;
+                tracing::warn!(
+                    "demo qmp skipped: {}",
+                    skipped.skip_reason.as_deref().unwrap_or("unknown")
+                );
+                println!(
+                    "demo qmp SKIP → {} ({})",
+                    out.display(),
+                    skipped.skip_reason.as_deref().unwrap_or("qemu missing")
+                );
+            }
+            Ok(mut session) => {
+                let probe = base_virt::probe_savevm(&sock, "base_snap");
+                let status = base_virt::QmpClient::connect_unix_wait(
+                    &sock,
+                    std::time::Duration::from_secs(5),
+                )
+                .and_then(|mut c| c.query_status());
+
+                let status_v = status
+                    .as_ref()
+                    .map(|v| v.clone())
+                    .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}));
+                let probe_v = probe
+                    .as_ref()
+                    .map(|v| v.clone())
+                    .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}));
+
+                let summary = serde_json::json!({
+                    "phase": "virt_demo_qmp",
+                    "socket": sock.display().to_string(),
+                    "status": status_v,
+                    "probe_savevm": probe_v,
+                    "note": "savevm may fail without a block device for vmstate — expected",
+                    "generates_os": false,
+                    "honesty": base_core::HONESTY_NOTE,
+                });
+                fs::write(
+                    out.join("qmp_demo.json"),
+                    serde_json::to_string_pretty(&summary)?,
+                )?;
+
+                if let Ok(mut q) = base_virt::QmpClient::connect_unix(&sock) {
+                    let _ = q.quit();
+                    let _ = session.child.wait();
+                } else {
+                    let _ = session.child.kill();
+                    let _ = session.child.wait();
+                }
+
+                let ok = status.is_ok();
+                tracing::info!("demo qmp → {} (status_ok={ok})", out.display());
+                println!(
+                    "demo qmp OK → {} (status_ok={ok}; savevm machine-dependent)",
+                    out.display()
+                );
+            }
+        }
+    }
+
+    let md = format!(
+        "# Virt demo ({t})\n\n{}\n\n- pilot: {}\n- out: {}\n- generates_os: false\n",
+        base_core::HONESTY_BANNER,
+        pilot.display(),
+        root.display(),
+    );
+    fs::write(root.join("CASE_SUMMARY_DEMO.md"), md)?;
     Ok(())
 }
 

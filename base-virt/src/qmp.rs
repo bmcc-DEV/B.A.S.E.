@@ -18,8 +18,8 @@ pub enum QmpError {
     Json(#[from] serde_json::Error),
     #[error("qmp: {0}")]
     Protocol(String),
-    #[error("timeout waiting for qmp socket")]
-    Timeout,
+    #[error("timeout waiting for qmp socket at {0} — corre `base virt demo qmp` ou sobe QEMU com -qmp unix:PATH,server,nowait")]
+    Timeout(String),
 }
 
 pub struct QmpClient {
@@ -57,7 +57,7 @@ impl QmpClient {
                 }
             }
             if start.elapsed() >= timeout {
-                return Err(QmpError::Timeout);
+                return Err(QmpError::Timeout(path.display().to_string()));
             }
             std::thread::sleep(Duration::from_millis(50));
         }
