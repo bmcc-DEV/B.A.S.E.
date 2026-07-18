@@ -2,7 +2,9 @@
 //!
 //! Honesty: not Wine, not a complete Win32 ABI, not “runs any PE”.
 
+pub mod elf;
 pub mod emit;
+pub mod gaps;
 pub mod honesty;
 pub mod lift;
 pub mod roundtrip;

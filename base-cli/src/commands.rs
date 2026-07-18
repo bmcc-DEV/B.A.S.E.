@@ -2755,6 +2755,43 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
             );
             fs::write(work.join("ASSEMBLE_ARM_REPORT.md"), report)?;
         }
+        RecompCommand::Elf {
+            input,
+            name,
+            target,
+        } => {
+            let (text, module) = base_recomp::elf::lift_elf_text(input, name)?;
+            let sir_path = output.join("recomp.sir.json");
+            fs::write(&sir_path, serde_json::to_string_pretty(&module)?)?;
+            tracing::info!(
+                "ELF {} {} bytes vma={:#x} gaps={} → {}",
+                text.section_name,
+                text.bytes.len(),
+                text.vma,
+                module.lift_gaps,
+                sir_path.display()
+            );
+            let md = format!(
+                "# ELF recomp (Path v1.8)\n\n- input: `{}`\n- section: `{}`\n- arch: `{}`\n- bytes: {}\n- vma: {:#x}\n- elf64: {}\n- gaps: {}\n\n{}{}\n",
+                text.path,
+                text.section_name,
+                text.architecture,
+                text.bytes.len(),
+                text.vma,
+                text.is_64,
+                module.lift_gaps,
+                base_recomp::gaps::gaps_markdown(&module),
+                base_recomp::honesty::markdown_section()
+            );
+            fs::write(output.join("RECOMP_REPORT.md"), md)?;
+            if let Some(t) = target {
+                let isa: base_recomp::target::TargetIsa = t.parse()?;
+                let asm = base_recomp::emit::emit_module(&module, isa);
+                let asm_path = output.join(format!("emit_{}.s", isa.as_str()));
+                fs::write(&asm_path, asm)?;
+                tracing::info!("ASM written {}", asm_path.display());
+            }
+        }
     }
     Ok(())
 }
@@ -2779,9 +2816,10 @@ fn write_recomp_artifacts(
     );
 
     let md = format!(
-        "# Static recomp lift\n\n- name: `{name}`\n- bytes: {}\n- gaps: {}\n\n{}\n",
+        "# Static recomp lift\n\n- name: `{name}`\n- bytes: {}\n- gaps: {}\n\n{}{}\n",
         bytes.len(),
         module.lift_gaps,
+        base_recomp::gaps::gaps_markdown(&module),
         base_recomp::honesty::markdown_section()
     );
     fs::write(output.join("RECOMP_REPORT.md"), md)?;

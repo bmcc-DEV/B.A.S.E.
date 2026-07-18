@@ -72,16 +72,29 @@ fn emit_function(name: &str, ops: &[Op], target: TargetIsa) -> String {
     s
 }
 
-fn vreg_name(v: VReg) -> String {
-    format!("v{}", v.0)
-}
-
 fn emit_x86_64(op: &Op) -> String {
     match op {
         Op::Nop => "  nop\n".into(),
         Op::Ret => "  ret\n".into(),
         Op::MovImm { dst, imm } => format!("  mov ${imm:#x}, %{}\n", x64_reg(*dst)),
         Op::AddImm { dst, imm } => format!("  add ${imm:#x}, %{}\n", x64_reg(*dst)),
+        Op::SubImm { dst, imm } => format!("  sub ${imm:#x}, %{}\n", x64_reg(*dst)),
+        Op::Clear { dst } => format!("  xor %{0}, %{0}\n", x64_reg(*dst)),
+        Op::Inc { dst } => format!("  inc %{}\n", x64_reg(*dst)),
+        Op::Dec { dst } => format!("  dec %{}\n", x64_reg(*dst)),
+        Op::Push { src } => format!("  push %{}\n", x64_reg(*src)),
+        Op::Pop { dst } => format!("  pop %{}\n", x64_reg(*dst)),
+        Op::CallRel { rel, target } => {
+            // Unresolved external — do not emit fake absolute `call imm` (invalid gas).
+            format!(
+                "  /* call rel={rel} target={target:?} — unresolved symbol */\n  ud2\n"
+            )
+        }
+        Op::JmpRel { rel, target } => {
+            format!(
+                "  /* jmp rel={rel} target={target:?} — unresolved label */\n  ud2\n"
+            )
+        }
         Op::Unknown { offset, note, .. } => {
             format!("  /* gap @{offset}: {note} */\n  ud2\n")
         }
@@ -91,6 +104,13 @@ fn emit_x86_64(op: &Op) -> String {
 fn x64_reg(v: VReg) -> &'static str {
     match v.0 {
         0 => "eax",
+        1 => "ecx",
+        2 => "edx",
+        3 => "ebx",
+        4 => "esp",
+        5 => "ebp",
+        6 => "esi",
+        7 => "edi",
         _ => "eax",
     }
 }
@@ -103,6 +123,27 @@ fn emit_arm(op: &Op) -> String {
         Op::AddImm { dst, imm } => {
             let r = arm_reg(*dst);
             format!("  add {r}, {r}, #{imm}\n")
+        }
+        Op::SubImm { dst, imm } => {
+            let r = arm_reg(*dst);
+            format!("  sub {r}, {r}, #{imm}\n")
+        }
+        Op::Clear { dst } => format!("  mov {}, #0\n", arm_reg(*dst)),
+        Op::Inc { dst } => {
+            let r = arm_reg(*dst);
+            format!("  add {r}, {r}, #1\n")
+        }
+        Op::Dec { dst } => {
+            let r = arm_reg(*dst);
+            format!("  sub {r}, {r}, #1\n")
+        }
+        Op::Push { src } => format!("  push {{{}}}\n", arm_reg(*src)),
+        Op::Pop { dst } => format!("  pop {{{}}}\n", arm_reg(*dst)),
+        Op::CallRel { rel, target } => {
+            format!("  @ call rel {rel} target={target:?}\n  nop\n")
+        }
+        Op::JmpRel { rel, target } => {
+            format!("  @ jmp rel {rel} target={target:?}\n  nop\n")
         }
         Op::Unknown { offset, note, .. } => format!("  @ gap @{offset}: {note}\n  udf #0\n"),
     }
@@ -121,6 +162,27 @@ fn emit_aarch64(op: &Op) -> String {
             let r = a64_reg(*dst);
             format!("  add {r}, {r}, #{imm}\n")
         }
+        Op::SubImm { dst, imm } => {
+            let r = a64_reg(*dst);
+            format!("  sub {r}, {r}, #{imm}\n")
+        }
+        Op::Clear { dst } => format!("  mov {}, wzr\n", a64_reg(*dst)),
+        Op::Inc { dst } => {
+            let r = a64_reg(*dst);
+            format!("  add {r}, {r}, #1\n")
+        }
+        Op::Dec { dst } => {
+            let r = a64_reg(*dst);
+            format!("  sub {r}, {r}, #1\n")
+        }
+        Op::Push { src } => format!("  str {}, [sp, #-16]!\n", a64_x(*src)),
+        Op::Pop { dst } => format!("  ldr {}, [sp], #16\n", a64_x(*dst)),
+        Op::CallRel { rel, target } => {
+            format!("  // call rel {rel} target={target:?}\n  nop\n")
+        }
+        Op::JmpRel { rel, target } => {
+            format!("  // jmp rel {rel} target={target:?}\n  nop\n")
+        }
         Op::Unknown { offset, note, .. } => {
             format!("  // gap @{offset}: {note}\n  brk #0\n")
         }
@@ -131,6 +193,10 @@ fn a64_reg(v: VReg) -> String {
     format!("w{}", v.0.min(30))
 }
 
+fn a64_x(v: VReg) -> String {
+    format!("x{}", v.0.min(30))
+}
+
 fn emit_mips(op: &Op) -> String {
     match op {
         Op::Nop => "  nop\n".into(),
@@ -139,6 +205,33 @@ fn emit_mips(op: &Op) -> String {
         Op::AddImm { dst, imm } => {
             let r = mips_reg(*dst);
             format!("  addiu {r}, {r}, {imm}\n")
+        }
+        Op::SubImm { dst, imm } => {
+            let r = mips_reg(*dst);
+            format!("  addiu {r}, {r}, -{imm}\n")
+        }
+        Op::Clear { dst } => format!("  move {}, $zero\n", mips_reg(*dst)),
+        Op::Inc { dst } => {
+            let r = mips_reg(*dst);
+            format!("  addiu {r}, {r}, 1\n")
+        }
+        Op::Dec { dst } => {
+            let r = mips_reg(*dst);
+            format!("  addiu {r}, {r}, -1\n")
+        }
+        Op::Push { src } => format!(
+            "  addiu $sp, $sp, -4\n  sw {}, 0($sp)\n",
+            mips_reg(*src)
+        ),
+        Op::Pop { dst } => format!(
+            "  lw {}, 0($sp)\n  addiu $sp, $sp, 4\n",
+            mips_reg(*dst)
+        ),
+        Op::CallRel { rel, target } => {
+            format!("  # call rel {rel} target={target:?}\n  nop\n")
+        }
+        Op::JmpRel { rel, target } => {
+            format!("  # jmp rel {rel} target={target:?}\n  nop\n")
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  break\n")
@@ -159,6 +252,27 @@ fn emit_ppc(op: &Op) -> String {
             let r = ppc_reg(*dst);
             format!("  addi {r}, {r}, {imm}\n")
         }
+        Op::SubImm { dst, imm } => {
+            let r = ppc_reg(*dst);
+            format!("  addi {r}, {r}, -{imm}\n")
+        }
+        Op::Clear { dst } => format!("  li {}, 0\n", ppc_reg(*dst)),
+        Op::Inc { dst } => {
+            let r = ppc_reg(*dst);
+            format!("  addi {r}, {r}, 1\n")
+        }
+        Op::Dec { dst } => {
+            let r = ppc_reg(*dst);
+            format!("  addi {r}, {r}, -1\n")
+        }
+        Op::Push { src } => format!("  stwu {}, -16(1)\n", ppc_reg(*src)),
+        Op::Pop { dst } => format!("  lwz {}, 0(1)\n  addi 1, 1, 16\n", ppc_reg(*dst)),
+        Op::CallRel { rel, target } => {
+            format!("  # call rel {rel} target={target:?}\n  nop\n")
+        }
+        Op::JmpRel { rel, target } => {
+            format!("  # jmp rel {rel} target={target:?}\n  nop\n")
+        }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  trap\n")
         }
@@ -178,6 +292,27 @@ fn emit_sparc(op: &Op) -> String {
             let r = sparc_reg(*dst);
             format!("  add {r}, {imm}, {r}\n")
         }
+        Op::SubImm { dst, imm } => {
+            let r = sparc_reg(*dst);
+            format!("  sub {r}, {imm}, {r}\n")
+        }
+        Op::Clear { dst } => format!("  clr {}\n", sparc_reg(*dst)),
+        Op::Inc { dst } => {
+            let r = sparc_reg(*dst);
+            format!("  inc {r}\n")
+        }
+        Op::Dec { dst } => {
+            let r = sparc_reg(*dst);
+            format!("  dec {r}\n")
+        }
+        Op::Push { src } => format!("  save %sp, -96, %sp\n  mov {}, %l0\n", sparc_reg(*src)),
+        Op::Pop { dst } => format!("  mov %l0, {}\n  restore\n", sparc_reg(*dst)),
+        Op::CallRel { rel, target } => {
+            format!("  ! call rel {rel} target={target:?}\n  nop\n")
+        }
+        Op::JmpRel { rel, target } => {
+            format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+        }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  ta 1\n")
         }
@@ -189,12 +324,10 @@ fn sparc_reg(v: VReg) -> String {
 }
 
 fn emit_superh(op: &Op) -> String {
-    // SH uses r0..r15; v0 → r0 for the subset.
     match op {
         Op::Nop => "  nop\n".into(),
         Op::Ret => "  rts\n  nop\n".into(),
         Op::MovImm { dst, imm } => {
-            // SH immediate mov is constrained; emit synthetic comment + mov #imm, Rn when fits.
             if *imm <= 0x7f {
                 format!("  mov #{imm}, {}\n", sh_reg(*dst))
             } else {
@@ -214,6 +347,27 @@ fn emit_superh(op: &Op) -> String {
                 )
             }
         }
+        Op::SubImm { dst, imm } => {
+            if *imm <= 0x7f {
+                format!("  add #-{imm}, {}\n", sh_reg(*dst))
+            } else {
+                format!(
+                    "  ! sub imm {imm:#x} -> {} (literal pool TODO)\n  nop\n",
+                    sh_reg(*dst)
+                )
+            }
+        }
+        Op::Clear { dst } => format!("  mov #0, {}\n", sh_reg(*dst)),
+        Op::Inc { dst } => format!("  add #1, {}\n", sh_reg(*dst)),
+        Op::Dec { dst } => format!("  add #-1, {}\n", sh_reg(*dst)),
+        Op::Push { src } => format!("  mov.l {}, @-r15\n", sh_reg(*src)),
+        Op::Pop { dst } => format!("  mov.l @r15+, {}\n", sh_reg(*dst)),
+        Op::CallRel { rel, target } => {
+            format!("  ! call rel {rel} target={target:?}\n  nop\n")
+        }
+        Op::JmpRel { rel, target } => {
+            format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+        }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  trapa #0\n")
         }
@@ -222,11 +376,6 @@ fn emit_superh(op: &Op) -> String {
 
 fn sh_reg(v: VReg) -> String {
     format!("r{}", v.0.min(15))
-}
-
-#[allow(dead_code)]
-fn _vreg_debug(v: VReg) -> String {
-    vreg_name(v)
 }
 
 #[cfg(test)]
@@ -248,10 +397,9 @@ mod tests {
     }
 
     #[test]
-    fn amd64_emit_matches_x86_64_name() {
-        let m = lift_x86_32(&[0xC3], "f").unwrap();
+    fn emit_clear_x86_64() {
+        let m = lift_x86_32(&[0x31, 0xC0, 0xC3], "z").unwrap();
         let a = emit_module(&m, TargetIsa::X86_64);
-        assert!(a.contains("target=x86_64"));
-        assert!(a.contains("ret"));
+        assert!(a.contains("xor %eax, %eax"));
     }
 }

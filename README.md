@@ -10,7 +10,7 @@
 **Plataforma de engenharia reversa automatizada assistida por evidência** — percepção HW + raciocínio SW (QRM / belief / triad).
 
 > **Honesty:** `generates_os: false` · `auto_fix_complete: false` · `static_recomp_complete: false` · flash = lab assist / manual  
-> **Path v1.7** static recomp (R0–R5) · Tag [`v1.6.3-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.3-rc) · pronto para `v1.7.0-rc` · [CHANGELOG](CHANGELOG.md) · [Platform RE](docs/PLATFORM_RE.md) · [Static Recomp](docs/STATIC_RECOMP.md)
+> **Tags:** [`v1.8.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.8.0-rc) · [`v1.7.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.7.0-rc) · [`v1.6.3-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.3-rc) · [CHANGELOG](CHANGELOG.md) · [Platform RE](docs/PLATFORM_RE.md) · [Static Recomp](docs/STATIC_RECOMP.md)
 >
 > ≠ OS turnkey · ≠ PCB fabricável · ≠ HIL production · ≠ Transformer / “RE mágica” · ≠ Wine / Win32 completo
 
@@ -22,7 +22,7 @@
 |------|--------|--------|
 | **Hardware-facing** | Aquisição de evidência imutável | `specterprobe`, `base-virt` (QMP/Live), `base-port` (USB×DT/wedge), `base-hil`, `base-core` evidence |
 | **Software reasoning** | Perguntas → crenças → hipóteses → triad | **`base-reason`** |
-| **Static recomp** | x86 → SIR → multi-ISA (Path v1.7) | **`base-recomp`** |
+| **Static recomp** | x86 → SIR → multi-ISA (Path v1.7 + v1.8 ELF) | **`base-recomp`** |
 
 Loop: **observar → perguntar → hipotetizar → lab/receipt → strengthen/forget**.
 
@@ -40,7 +40,7 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | `study` (Specter VM Forth + Lua) | **REAL\*** — loop autónomo; `auto_fix_complete=false` |
 | `reconstruct` | **REAL\*** — `stop_reason`; ≠ auto-fix |
 | `reason` | **REAL\*** — QRM/belief/triad sobre atlas/sinais; ≠ Transformer |
-| `recomp` | **EXPERIMENTAL** — lift subset + emit multi-ISA; ≠ Wine / ≠ PE arbitrário |
+| `recomp` | **EXPERIMENTAL** — lift + ELF `.text` + emit multi-ISA; ≠ Wine / ≠ PE |
 | `port` (package / usb-probe / wedge / clocks-pinctrl) | **EXPERIMENTAL** — mapa/fósseis/atlas; ≠ OS rewrite |
 | `virt` (Specter Live / QMP / twin) | **EXPERIMENTAL** — ≠ OS turnkey |
 | `evolve` / `fw` / `pcb` | **REAL\*** drafts; PCB `NOT FABRICABLE` |

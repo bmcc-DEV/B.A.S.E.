@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[command(name = "base", version, about = "B.A.S.E. — Behavioral ASIC Synthesis Engine")]
 #[command(long_about = "Transform hardware behavior into new PCB + firmware.
   Pipeline: analyze → synth → pcb → fw → check → evolve
-  Assist: paleo · port · virt · reason · recomp (static x86→SIR)
+  Assist: paleo · port · virt · reason · recomp (lift|elf|roundtrip)
   Honesty: generates_os=false · auto_fix_complete=false · static_recomp_complete=false")]
 pub struct Cli {
     #[command(subcommand)]
@@ -388,6 +388,19 @@ pub enum RecompCommand {
 
         #[arg(long, default_value = "fn0")]
         name: String,
+    },
+
+    /// Load ELF `.text`, lift x86 stream → SIR (+ optional emit)
+    Elf {
+        /// ELF32/ELF64 object or executable
+        #[arg(long)]
+        input: PathBuf,
+
+        #[arg(long, default_value = "fn0")]
+        name: String,
+
+        #[arg(long)]
+        target: Option<String>,
     },
 }
 

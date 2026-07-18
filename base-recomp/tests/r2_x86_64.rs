@@ -41,12 +41,36 @@ fn host_roundtrip_add3() {
 }
 
 #[test]
+fn host_roundtrip_add3_gas_encoding() {
+    // gas encodes `add $2,%eax` as 83 c0 02 (not 05 iv)
+    if !host_supports_x86_64_roundtrip() {
+        eprintln!("skip: host roundtrip tools/arch unavailable");
+        return;
+    }
+    let bytes = [
+        0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3,
+    ];
+    let dir = tempfile_dir("r2_add3_gas");
+    smoke_x86_64(&bytes, "add3", 3, &dir).expect("roundtrip gas add3");
+}
+
+#[test]
+fn host_roundtrip_xor_clear() {
+    if !host_supports_x86_64_roundtrip() {
+        eprintln!("skip: host roundtrip tools/arch unavailable");
+        return;
+    }
+    let bytes = [0x31, 0xC0, 0xC3]; // xor eax,eax; ret
+    let dir = tempfile_dir("r2_xor");
+    smoke_x86_64(&bytes, "z", 0, &dir).expect("roundtrip xor clear");
+}
+
+#[test]
 fn host_roundtrip_ret_zero() {
     if !host_supports_x86_64_roundtrip() {
         eprintln!("skip: host roundtrip tools/arch unavailable");
         return;
     }
-    // xor eax,eax is unsupported — use mov 0 ; ret
     let bytes = [0xB8, 0x00, 0x00, 0x00, 0x00, 0xC3];
     let dir = tempfile_dir("r2_zero");
     smoke_x86_64(&bytes, "z", 0, &dir).expect("roundtrip zero");

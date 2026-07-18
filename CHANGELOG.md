@@ -1,11 +1,21 @@
 # Changelog
 
-Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`, `v1.0.0`, `v1.1.0-rc`, `v1.2.0-rc`, `v1.2.0`, `v1.3.0-rc`, `v1.4.0-rc`, `v1.5.0-rc`, `v1.6.0-rc`, `v1.6.1-rc`, `v1.6.2-rc`, `v1.6.3-rc`, `v1.7.0-rc`.
+Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.0-rc`, `v0.4.0-rc`, `v0.4.0`, `v0.5.0-rc`, `v0.5.0`, `v0.6.0-rc`, `v0.6.0`, `v0.7.0-rc`, `v0.7.0`, `v0.8.0-rc`, `v0.8.0`, `v0.9.0-rc`, `v0.9.0`, `v1.0.0-rc`, `v1.0.0`, `v1.1.0-rc`, `v1.2.0-rc`, `v1.2.0`, `v1.3.0-rc`, `v1.4.0-rc`, `v1.5.0-rc`, `v1.6.0-rc`, `v1.6.1-rc`, `v1.6.2-rc`, `v1.6.3-rc`, `v1.7.0-rc`, `v1.8.0-rc`.
 
 ## [Unreleased]
 
 ### Added
-- (vazio — ver `v1.7.0-rc`)
+- (vazio — ver `v1.8.0-rc`)
+
+## [v1.8.0-rc] — 2026-07-18
+
+### Added
+- **Path to v1.8** (`base-vault/28`) — lifter x86 alargado + ELF `.text`
+- `base recomp elf` — load ELF32/64 x86 → SIR → emit (rejeita arch ≠ x86)
+- Novos SIR ops: `SubImm`, `Clear`, `Inc`/`Dec`, `Push`/`Pop`, `CallRel`/`JmpRel`
+- `gaps_markdown` — gaps listados no `RECOMP_REPORT.md`
+- Fixture `base-recomp/tests/fixtures/add3.o`
+- Call/jmp emit honesto (`ud2` até symbols; sem `call imm` inválido)
 
 ## [v1.7.0-rc] — 2026-07-18
 

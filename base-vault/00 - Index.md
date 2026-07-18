@@ -10,7 +10,7 @@ tags:
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
-**v1.0.0 ✅ · [[27 - Path to v1.7/27.00 - Index|Path to v1.7]] ✅ R0–R5 · pronto `v1.7.0-rc` · [`v1.6.1-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.1-rc) · [`v1.6.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.0-rc) · [[26 - Path to v1.6/26.00 - Index|Path to v1.6]] · [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc) · [[25 - Path to v1.5/25.00 - Index|Path to v1.5]] · [`v1.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.4.0-rc) · [[24 - Path to v1.4/24.00 - Index|Path to v1.4]] · [[23 - Path to v1.3/23.00 - Index|Path to v1.3]] · [[22 - Path to v1.2/22.00 - Index|Path to v1.2]] · [[21 - Path to v1.1/21.00 - Index|Path to v1.1]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
+**v1.0.0 ✅ · [[28 - Path to v1.8/28.00 - Index|Path to v1.8]] · [[27 - Path to v1.7/27.00 - Index|Path to v1.7]] ✅ `v1.7.0-rc` · [`v1.6.1-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.1-rc) · [`v1.6.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.0-rc) · [[26 - Path to v1.6/26.00 - Index|Path to v1.6]] · [`v1.5.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.5.0-rc) · [[25 - Path to v1.5/25.00 - Index|Path to v1.5]] · [`v1.4.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.4.0-rc) · [[24 - Path to v1.4/24.00 - Index|Path to v1.4]] · [[23 - Path to v1.3/23.00 - Index|Path to v1.3]] · [[22 - Path to v1.2/22.00 - Index|Path to v1.2]] · [[21 - Path to v1.1/21.00 - Index|Path to v1.1]] · [[12 - Path to Real/12.02 - Maturity Matrix|Maturity Matrix]]**
 
 ```mermaid
 flowchart LR
@@ -49,7 +49,8 @@ flowchart LR
 | [[14 - Path to v0.4/14.00 - Index\|🛤️ Path to v0.4]] | v0.4.0 ✅ (T0–T5) |
 | [[15 - Path to v0.5/15.00 - Index\|🚀 Path to v0.5]] | v0.5.0 ✅ (U0–U5) |
 | [[15 - Path to v0.5/15.20 - Forensic Playbook\|🧭 Playbook v0.5]] | Demo forense RP + STM32 |
-| [[27 - Path to v1.7/27.00 - Index\|🔀 Path to v1.7]] | Static recomp x86→multi-ISA · SIR · `base-recomp` |
+| [[28 - Path to v1.8/28.00 - Index\|📬 Path to v1.8]] | Lifter alargado + ELF `.text` · pós `v1.7.0-rc` |
+| [[27 - Path to v1.7/27.00 - Index\|🔀 Path to v1.7]] | Static recomp x86→multi-ISA · SIR · `base-recomp` · `v1.7.0-rc` |
 | [[26 - Path to v1.6/26.00 - Index\|🚀 Path to v1.6]] | Twin↔guest · `v1.6.0-rc` · wedge G35 `v1.6.1-rc` |
 | [[25 - Path to v1.5/25.00 - Index\|🚀 Path to v1.5]] | Specter Live · `v1.5.0-rc` · `base virt` |
 | [[24 - Path to v1.4/24.00 - Index\|🚀 Path to v1.4]] | OS-port + USB/wedge P0 · `v1.6.1-rc` |
@@ -93,7 +94,7 @@ flowchart LR
 | `base-check` | 20 | Validação: trace Saleae/PCAP/JSON, comparator, HTML report |
 | `base-evolve` | 7 | Evolução: bottleneck analysis, trade-offs, migration plans |
 | `base-virt` | — | Specter Live: NDJSON→Evidence→Ψ · QEMU launcher opt-in |
-| `base-recomp` | — | Static x86→SIR→multi-ISA (`static_recomp_complete: false`) |
+| `base-recomp` | — | Static x86→SIR→multi-ISA + ELF `.text` (v1.7/v1.8; `static_recomp_complete: false`) |
 | `base-cli` | 3 | CLI unificada |
 | `base-hil` | 6 | HIL Cluster: RP2350 probe firmware, host agent |
 | `base-bsl` | 0* | BSL Language (parser pest — gramática pendente) |

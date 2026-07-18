@@ -31,6 +31,7 @@ tags:
 | **Static recomp** | Lift estático + emit por ISA. ≠ Wine · ≠ JIT · `win32_abi_complete: false`. |
 | **amd64** | Alias de **x86_64** — um único backend em `TargetIsa::X86_64`. |
 | **SuperH** | Família Hitachi/Renesas SH-2 (Saturn) / SH-4 (Dreamcast); alvo `TargetIsa::SuperH`. |
+| **ELF text** | Secção `.text` (ou SHF_EXECINSTR) de ELF x86/x86_64 — `base recomp elf`. |
 | **Trace** | Sequência temporal de eventos (MMIO reads/writes, IRQs, DMA) capturada de hardware real. |
 | **RTL** | Register Transfer Level. Descrição de hardware em Verilog/VHDL. |
 | **GDSII** | Formato de arquivo padrão para fabricação de chips. |

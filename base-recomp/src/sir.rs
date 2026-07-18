@@ -10,10 +10,21 @@ pub struct VReg(pub u32);
 pub enum Op {
     Nop,
     Ret,
-    /// `dst := imm` (32-bit for now).
+    /// `dst := imm` (32-bit).
     MovImm { dst: VReg, imm: u32 },
     /// `dst := dst + imm`
     AddImm { dst: VReg, imm: u32 },
+    /// `dst := dst - imm`
+    SubImm { dst: VReg, imm: u32 },
+    /// `dst := 0` (from `xor dst,dst`)
+    Clear { dst: VReg },
+    Inc { dst: VReg },
+    Dec { dst: VReg },
+    Push { src: VReg },
+    Pop { dst: VReg },
+    /// Relative call; `target` = absolute VMA if known, else `None` + `rel`.
+    CallRel { rel: i32, target: Option<u64> },
+    JmpRel { rel: i32, target: Option<u64> },
     /// Unliftable / unsupported opcode — wedge for `base-reason`.
     Unknown { offset: u64, bytes: Vec<u8>, note: String },
 }
@@ -36,6 +47,11 @@ pub struct Module {
     pub source_isa: String,
     pub functions: Vec<Function>,
     pub lift_gaps: usize,
+    /// Optional provenance (ELF path / section).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_vma: Option<u64>,
 }
 
 impl Module {
