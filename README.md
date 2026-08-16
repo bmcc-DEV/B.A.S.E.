@@ -22,7 +22,7 @@
 |------|--------|--------|
 | **Hardware-facing** | Aquisição de evidência imutável | `specterprobe`, `base-virt` (QMP/Live), `base-port` (USB×DT/wedge), `base-hil`, `base-core` evidence |
 | **Software reasoning** | Perguntas → crenças → hipóteses → triad | **`base-reason`** |
-| **Static recomp** | x86 → SIR → multi-ISA (Path v1.7 + v1.8 ELF) | **`base-recomp`** |
+| **Static recomp** | x86 → SIR → multi-ISA + **preservação semântica** (Path v1.7 → v1.9) | **`base-recomp`** |
 
 Loop: **observar → perguntar → hipotetizar → lab/receipt → strengthen/forget**.
 
@@ -40,10 +40,11 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | `study` (Specter VM Forth + Lua) | **REAL\*** — loop autónomo; `auto_fix_complete=false` |
 | `reconstruct` | **REAL\*** — `stop_reason`; ≠ auto-fix |
 | `reason` | **REAL\*** — QRM/belief/triad sobre atlas/sinais; ≠ Transformer |
-| `recomp` | **EXPERIMENTAL** — lift + ELF `.text` + emit multi-ISA; ≠ Wine / ≠ PE |
+| `recomp` | **EXPERIMENTAL** — lift x86 → SIR → encode/decode **11 ISAs** + verifier round-trip (literal/semantic/differential) + catálogo semântico; ≠ Wine / ≠ PE |
+| `recomp verify` / `semantics` | Round-trip por dimensão (`enc`/`dec`/`literal`/`semantic`/`exec`/`differential`) + sweep gerado |
 | `port` (package / usb-probe / wedge / clocks-pinctrl) | **EXPERIMENTAL** — mapa/fósseis/atlas; ≠ OS rewrite |
 | `virt` (Specter Live / QMP / twin) | **EXPERIMENTAL** — ≠ OS turnkey |
-| `evolve` / `fw` / `pcb` | **REAL\*** drafts; PCB `NOT FABRICABLE` |
+| `evolve` / `fw` / `pcb` | **REAL\*** drafts; PCB `NOT FABRICABLE` → pacote [hardware/](hardware/README.md) (Claim B) |
 | `hil` | **REAL\*** host + Gate A; production gated |
 
 ### Wedges / smokes
@@ -56,6 +57,41 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | Moto G35 Path A + reason | `run_path_a.sh` · `base reason g35` · [REASONING](examples/pilot_moto_g35/REASONING.md) |
 | Moto G35 wedge P0 | `run_wedge_pipeline.sh` · [WEDGE_HANDOFF](examples/pilot_moto_g35/WEDGE_HANDOFF.md) |
 | iMac G3 OS-port A | `examples/pilot_imac_g3/run.sh` |
+
+---
+
+## Preservação semântica (Path v1.9)
+
+> *"O que este hardware faz?" ≠ "como foi implementado"* — B.A.S.E. preserva a **semântica**
+> das 11 arquiteturas (PowerPC · MIPS · DEC Alpha · PA-RISC · ARM · M88k · IA-64 · SPARC ·
+> i860 · ColdFire · SuperH), não apenas executa binários.
+
+| ISA | Encode | Decode | Differential |
+|-----|--------|--------|--------------|
+| MIPS · PPC · SuperH · **Alpha** · **PA-RISC** · **ColdFire** | ✅ subset | ✅ | ✅ verificado |
+| ARM · AArch64 · SPARC · x86_64 | ✅ subset | — pendente | — |
+| M88k · IA-64 · i860 | emit texto | — pendente | — |
+
+```bash
+base recomp semantics                        # catálogo semântico (regs, endianness, flags, quirks, ABI) + JSON
+base recomp verify --hex 90C3 --target mips  # SIR → encode → bytes → decode → SIR′ (literal + semântico)
+base recomp verify --all                     # cobertura por dimensão por ISA
+base recomp verify --sweep --target coldfire # matriz gerada imms × estados × kinds (comportamento)
+```
+
+Três níveis de confiança:
+
+```text
+literal      "os mesmos bytes recuperam a mesma forma?"
+semantic     "a forma recuperada tem o mesmo significado?"     (domínio 32-bit do SIR)
+differential "ela produz o mesmo estado arquitetural?"         (largura real do ISA)
+```
+
+O verifier **já pegou bugs reais de encoding** que o round-trip representacional não via:
+PPC `r0` (lê como 0 no RA de `addi`) e ColdFire `Dn` (bits 5-3 sem shift). Eixos
+`abi`/`privileged`/`mmu`/`system` = **0% (não modelados)** — explícito, nunca um score
+único que pareça "80% do MIPS". Fonte: [docs/STATIC_RECOMP.md](docs/STATIC_RECOMP.md) ·
+vault [`29 - Path to v1.9`](base-vault/29%20-%20Path%20to%20v1.9/29.00%20-%20Index.md)
 
 ---
 
@@ -85,6 +121,16 @@ cargo build -p base-cli
 ./examples/pilot/run.sh
 ./examples/pilot_study/run_study.sh
 ./examples/pilot_moto_g35/run_wedge_pipeline.sh
+```
+
+### Recomp / preservação semântica
+
+```bash
+cargo build -p base-cli
+./target/debug/base recomp semantics
+./target/debug/base recomp verify --hex B80100000083C002C3 --target mips -o output/verify
+./target/debug/base recomp verify --all
+./target/debug/base recomp verify --sweep --target coldfire
 ```
 
 ### Reason (G35)
@@ -154,8 +200,10 @@ confidence = max(0, 1 - Ψ/(1+Ψ))
 | `analyze` / `synth` / `design` | Evidence → Reference Design |
 | `reason` | QRM + belief + triad (HW signals → report) |
 | `port` / `virt` | Wedge atlas · Specter Live / QMP |
+| **Identify API** (`base-api`) | Canonical v1: `/v1/identify` · `/v1/prove` · `/v1/usage` · OpenAPI · `saas_production=false` |
 | `study` / `reconstruct` | Specter Forth+Lua · refine |
 | `replay` / `prove` / `event-graph` / `bir` | Contratos |
+| `recomp` | lift x86 → SIR → encode/decode/emit 14 alvos · `semantics` (catálogo 11 ISAs) · `verify` (round-trip + cobertura por dimensão + sweep) |
 | `evolve` / `fw` / `pcb` / `check` / `pipeline` | Outputs + validação |
 | `hil` | Host REAL\*; production gated |
 

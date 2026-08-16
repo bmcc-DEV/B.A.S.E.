@@ -5,7 +5,61 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 ## [Unreleased]
 
 ### Added
-- (vazio — ver `v1.8.0-rc`)
+- **Preservação de semântica das 11 arquiteturas** (`base-recomp`) — PowerPC, MIPS,
+  DEC Alpha, PA-RISC, ARM, M88k, IA-64, SPARC, i860, ColdFire, SuperH
+  - `semantics.rs` — catálogo semântico serde (registradores, endianness, delay slots,
+    flags, register windows, predicação, ABI, quirks, status de encode) → `base recomp semantics`
+  - Novos alvos `TargetIsa`: `alpha` · `parisc` (HPPA) · `m88k` · `ia64` · `i860` · `coldfire` (14 no total)
+  - Encoders: Alpha (Nop/Ret/imm-adds via LDA; verificado contra LLVM+QEMU opcodes),
+    PA-RISC (Nop/`bv %r0(%rp)`; verificado contra SLEIGH Ghidra), ColdFire (68k subset;
+    verificado via capstone m68k)
+  - M88k/IA-64/i860: emit texto + encode `Unsupported` (honesto; encoder pendente)
+- CLI `base recomp semantics` — dump do catálogo + `semantics_catalog.json`
+- **Verifier round-trip** (`verify.rs` + `decode.rs`) — `SIR → encode → bytes → decode → SIR′`
+  - Comparação literal (`SIR == SIR′`) + semântica (`semantic_key` normaliza Clear/Inc/Dec/SubImm)
+  - Decoders subset **Alpha / PA-RISC / ColdFire** (além de MIPS/PPC/SuperH) — invertem
+    exatamente o que os encoders emitem; delay slots de `jr`/`rts`/`bv` dobrados no `Ret`;
+    ColdFire suporta comprimento variável (moveq/move.l #imm/addi/subi)
+  - **Cobertura por dimensão** (nunca um "preservation score" único):
+    `enc` / `dec` / `literal` / `semantic` por ISA + status `FULL|PARTIAL|PENDING|NONE`
+    (mips/ppc/sh/alpha = semantic 67%, parisc 17%, coldfire 83%; sem decoder → `PENDING`,
+    sem encoder → `NONE`; eixos `abi/privileged/mmu/system` = `0%` não modelados)
+  - Fix `ppc` r0 colisão (movido p/ `r3..r31`) — round-trip literal de `add3` em 5 ISAs
+- **Execução semântica de referência** (`semexec.rs`) — `execute_reference(SIR, state, width, endian)
+  == execute_isa(decode(encode(SIR)), state)` (comportamento, não representação)
+  - `MachineState { gpr, pc, flags, mem }` · width 64 (Alpha) / 32 (demais)
+  - **Memória real**: `load`/`store` (endianness do catálogo semântico, widths 1/2/4/8,
+    64 KiB, `MemError::OutOfBounds/BadWidth`) · `Push`/`Pop` executáveis via `SP = VReg 4`
+  - `Flags { carry, overflow, zero, negative, extra }` estruturado (ops ainda não setam
+    flags — próximo rung)
+  - Dimensão `differential` na cobertura: imeds de borda (`0xFFFFFFFF`) + estado de borda
+    (alpha 50% — LDA sign-extend a 64 bits detectado; sh 33% — immed 32-bit não encodável;
+    mips/ppc 67%; coldfire 83% com push/pop)
+  - **Sweep gerado** (`differential_sweep` + CLI `verify --sweep`): kinds × 10 imms × 4
+    estados — coldfire 256/256 match, mips 176/176, alpha 160/176 (16 mismatches só em
+    add/sub_imm negativos, gap documentado)
+  - **Pegou bug real ColdFire**: `Dn` em bits 5-3 sem `<< 3` no grupo
+    addi/subi/clr/addq/subq/push (`clr.l d3` virava `0x4283` = `clr.l (a3)+`) — só D0
+    passava no roundtrip antigo (VReg 0); corrigido + teste de reg não-zero
+  - `semantic_key` normaliza imms para i32 (domínio 32-bit do SIR) — o desvio de largura
+    (Alpha 64-bit) fica na dimensão `differential`, não na semântica
+- CLI `base recomp verify --hex … --target <isa>` · `--all` (tabela com enc/dec/literal/semantic/exec/differential) · `--sweep --target <isa>`
+- **Fix encoder PPC**: VReg → `r3..r31` (r0 lê como 0 no RA de `addi`; colisão
+  `MovImm`/`AddImm` que quebrava o round-trip) — golden `ppc_add3.s` atualizado
+- Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
+- Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
+
+### Changed
+- `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9
+
+### Added (continuação Path v1.9)
+- **`hardware/`** — scaffold OSHWA-style (docs, BOM template, fab notes, scripts KiCad CLI, ponte `base pcb`)
+  - Honesty: `engineering_draft — NOT FABRICABLE` até Claim B (Industrial Gate)
+  - `hardware/scripts/validate-project.sh` · `export-gerbers.sh` · `ingest-base-pcb.sh`
+- **Path to v1.9** — PE `.text`, símbolos→call/jmp labels, `encode` SIR→bytes (MIPS/PPC/SPARC/SH/ARM/…), runtime stub Saturn/DC
+- CLI `base recomp pe|encode|runtime`
+- Feature opcional `capstone` em `base-recomp`
+- Honesty: `runs_on_saturn` / `runs_on_dreamcast` = false
 
 ## [v1.8.0-rc] — 2026-07-18
 
