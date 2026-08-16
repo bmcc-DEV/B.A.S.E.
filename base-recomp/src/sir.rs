@@ -22,9 +22,19 @@ pub enum Op {
     Dec { dst: VReg },
     Push { src: VReg },
     Pop { dst: VReg },
-    /// Relative call; `target` = absolute VMA if known, else `None` + `rel`.
-    CallRel { rel: i32, target: Option<u64> },
-    JmpRel { rel: i32, target: Option<u64> },
+    /// Relative call; optional resolved symbol name for emit.
+    CallRel {
+        rel: i32,
+        target: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        symbol: Option<String>,
+    },
+    JmpRel {
+        rel: i32,
+        target: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        symbol: Option<String>,
+    },
     /// Unliftable / unsupported opcode — wedge for `base-reason`.
     Unknown { offset: u64, bytes: Vec<u8>, note: String },
 }

@@ -347,7 +347,7 @@ pub enum RecompCommand {
         #[arg(long, default_value = "fn0")]
         name: String,
 
-        /// Also emit assembly for this target (x86_64|amd64|arm|arm64|mips|ppc|sparc|sh2|sh4)
+        /// Also emit assembly for this target (x86_64|amd64|arm|arm64|mips|ppc|sparc|sh2|sh4|alpha|parisc|m88k|ia64|i860|coldfire)
         #[arg(long)]
         target: Option<String>,
     },
@@ -366,6 +366,9 @@ pub enum RecompCommand {
 
     /// List canonical target ISAs (amd64 ≡ x86_64)
     Targets,
+
+    /// Dump the semantic catalog of the 11 preserved ISAs (serde JSON)
+    Semantics,
 
     /// Host smoke: lift → emit x86_64 → `as`/`cc` → run (expect return in eax)
     Roundtrip {
@@ -402,6 +405,56 @@ pub enum RecompCommand {
         #[arg(long)]
         target: Option<String>,
     },
+
+    /// Load PE `.text` (x86) → SIR (+ optional emit). ≠ Win32 / ≠ runs_any_pe
+    Pe {
+        #[arg(long)]
+        input: PathBuf,
+
+        #[arg(long, default_value = "fn0")]
+        name: String,
+
+        #[arg(long)]
+        target: Option<String>,
+    },
+
+    /// Encode SIR from hex lift → raw machine bytes (portable; no cross-as)
+    Encode {
+        #[arg(long)]
+        hex: String,
+
+        #[arg(long, default_value = "fn0")]
+        name: String,
+
+        /// Target ISA (x86_64|amd64|arm|arm64|mips|ppc|sparc|sh2|sh4|alpha|parisc|m88k|ia64|i860|coldfire|…)
+        #[arg(long)]
+        target: String,
+    },
+
+    /// Round-trip verify: SIR → encode → decode → SIR′ (literal + semantic equivalence)
+    Verify {
+        /// Hex byte string (x86-32 subset, no gaps); ignored with --all/--sweep
+        #[arg(long, required_unless_present_any = ["all", "sweep"])]
+        hex: Option<String>,
+
+        #[arg(long, default_value = "fn0")]
+        name: String,
+
+        /// Target ISA with a decoder (mips|ppc|sh2|sh4|alpha|parisc|coldfire) — omit with --all
+        #[arg(long)]
+        target: Option<String>,
+
+        /// Preservation score table for every canonical target
+        #[arg(long)]
+        all: bool,
+
+        /// Generated differential sweep for --target (imms × states × kinds)
+        #[arg(long)]
+        sweep: bool,
+    },
+
+    /// Print Saturn/Dreamcast runtime stub status (always runs=false)
+    Runtime,
 }
 
 /// `base reason` — Software reasoning over Hardware-facing evidence

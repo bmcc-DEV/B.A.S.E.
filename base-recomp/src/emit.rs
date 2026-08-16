@@ -68,6 +68,42 @@ fn emit_function(name: &str, ops: &[Op], target: TargetIsa) -> String {
                 s.push_str(&emit_superh(op));
             }
         }
+        TargetIsa::Alpha => {
+            s.push_str(&format!(".globl {name}\n{name}:\n"));
+            for op in ops {
+                s.push_str(&emit_alpha(op));
+            }
+        }
+        TargetIsa::PaRisc => {
+            s.push_str(&format!(".global {name}\n{name}:\n"));
+            for op in ops {
+                s.push_str(&emit_parisc(op));
+            }
+        }
+        TargetIsa::M88k => {
+            s.push_str(&format!(".global {name}\n{name}:\n"));
+            for op in ops {
+                s.push_str(&emit_m88k(op));
+            }
+        }
+        TargetIsa::Ia64 => {
+            s.push_str(&format!(".global {name}\n{name}:\n"));
+            for op in ops {
+                s.push_str(&emit_ia64(op));
+            }
+        }
+        TargetIsa::I860 => {
+            s.push_str(&format!(".global {name}\n{name}:\n"));
+            for op in ops {
+                s.push_str(&emit_i860(op));
+            }
+        }
+        TargetIsa::ColdFire => {
+            s.push_str(&format!(".globl {name}\n{name}:\n"));
+            for op in ops {
+                s.push_str(&emit_coldfire(op));
+            }
+        }
     }
     s
 }
@@ -84,16 +120,31 @@ fn emit_x86_64(op: &Op) -> String {
         Op::Dec { dst } => format!("  dec %{}\n", x64_reg(*dst)),
         Op::Push { src } => format!("  push %{}\n", x64_reg(*src)),
         Op::Pop { dst } => format!("  pop %{}\n", x64_reg(*dst)),
-        Op::CallRel { rel, target } => {
-            // Unresolved external — do not emit fake absolute `call imm` (invalid gas).
-            format!(
-                "  /* call rel={rel} target={target:?} — unresolved symbol */\n  ud2\n"
-            )
+        Op::CallRel {
+            rel,
+            target,
+            symbol,
+        } => {
+            if let Some(name) = symbol {
+                format!("  call {name}\n")
+            } else {
+                format!(
+                    "  /* call rel={rel} target={target:?} — unresolved symbol */\n  ud2\n"
+                )
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!(
-                "  /* jmp rel={rel} target={target:?} — unresolved label */\n  ud2\n"
-            )
+        Op::JmpRel {
+            rel,
+            target,
+            symbol,
+        } => {
+            if let Some(name) = symbol {
+                format!("  jmp {name}\n")
+            } else {
+                format!(
+                    "  /* jmp rel={rel} target={target:?} — unresolved label */\n  ud2\n"
+                )
+            }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  /* gap @{offset}: {note} */\n  ud2\n")
@@ -139,11 +190,19 @@ fn emit_arm(op: &Op) -> String {
         }
         Op::Push { src } => format!("  push {{{}}}\n", arm_reg(*src)),
         Op::Pop { dst } => format!("  pop {{{}}}\n", arm_reg(*dst)),
-        Op::CallRel { rel, target } => {
-            format!("  @ call rel {rel} target={target:?}\n  nop\n")
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  bl {name}\n")
+            } else {
+                format!("  @ call rel {rel} target={target:?}\n  nop\n")
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!("  @ jmp rel {rel} target={target:?}\n  nop\n")
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  b {name}\n")
+            } else {
+                format!("  @ jmp rel {rel} target={target:?}\n  nop\n")
+            }
         }
         Op::Unknown { offset, note, .. } => format!("  @ gap @{offset}: {note}\n  udf #0\n"),
     }
@@ -177,11 +236,19 @@ fn emit_aarch64(op: &Op) -> String {
         }
         Op::Push { src } => format!("  str {}, [sp, #-16]!\n", a64_x(*src)),
         Op::Pop { dst } => format!("  ldr {}, [sp], #16\n", a64_x(*dst)),
-        Op::CallRel { rel, target } => {
-            format!("  // call rel {rel} target={target:?}\n  nop\n")
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  bl {name}\n")
+            } else {
+                format!("  // call rel {rel} target={target:?}\n  nop\n")
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!("  // jmp rel {rel} target={target:?}\n  nop\n")
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  b {name}\n")
+            } else {
+                format!("  // jmp rel {rel} target={target:?}\n  nop\n")
+            }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  // gap @{offset}: {note}\n  brk #0\n")
@@ -227,11 +294,19 @@ fn emit_mips(op: &Op) -> String {
             "  lw {}, 0($sp)\n  addiu $sp, $sp, 4\n",
             mips_reg(*dst)
         ),
-        Op::CallRel { rel, target } => {
-            format!("  # call rel {rel} target={target:?}\n  nop\n")
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  jal {name}\n")
+            } else {
+                format!("  # call rel {rel} target={target:?}\n  nop\n")
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!("  # jmp rel {rel} target={target:?}\n  nop\n")
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  j {name}\n")
+            } else {
+                format!("  # jmp rel {rel} target={target:?}\n  nop\n")
+            }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  break\n")
@@ -267,11 +342,19 @@ fn emit_ppc(op: &Op) -> String {
         }
         Op::Push { src } => format!("  stwu {}, -16(1)\n", ppc_reg(*src)),
         Op::Pop { dst } => format!("  lwz {}, 0(1)\n  addi 1, 1, 16\n", ppc_reg(*dst)),
-        Op::CallRel { rel, target } => {
-            format!("  # call rel {rel} target={target:?}\n  nop\n")
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  jal {name}\n")
+            } else {
+                format!("  # call rel {rel} target={target:?}\n  nop\n")
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!("  # jmp rel {rel} target={target:?}\n  nop\n")
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  j {name}\n")
+            } else {
+                format!("  # jmp rel {rel} target={target:?}\n  nop\n")
+            }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  trap\n")
@@ -280,7 +363,8 @@ fn emit_ppc(op: &Op) -> String {
 }
 
 fn ppc_reg(v: VReg) -> String {
-    format!("r{}", v.0.min(31))
+    // r0 reads as 0 in addi (RA field); r1/r2 ABI-special → window r3..r31.
+    format!("r{}", 3 + v.0.min(28))
 }
 
 fn emit_sparc(op: &Op) -> String {
@@ -307,11 +391,19 @@ fn emit_sparc(op: &Op) -> String {
         }
         Op::Push { src } => format!("  save %sp, -96, %sp\n  mov {}, %l0\n", sparc_reg(*src)),
         Op::Pop { dst } => format!("  mov %l0, {}\n  restore\n", sparc_reg(*dst)),
-        Op::CallRel { rel, target } => {
-            format!("  ! call rel {rel} target={target:?}\n  nop\n")
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  ! call {name}\n  nop\n")
+            } else {
+                format!("  ! call rel {rel} target={target:?}\n  nop\n")
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  bra {name}\n  nop\n")
+            } else {
+                format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+            }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  ta 1\n")
@@ -362,11 +454,19 @@ fn emit_superh(op: &Op) -> String {
         Op::Dec { dst } => format!("  add #-1, {}\n", sh_reg(*dst)),
         Op::Push { src } => format!("  mov.l {}, @-r15\n", sh_reg(*src)),
         Op::Pop { dst } => format!("  mov.l @r15+, {}\n", sh_reg(*dst)),
-        Op::CallRel { rel, target } => {
-            format!("  ! call rel {rel} target={target:?}\n  nop\n")
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  ! call {name}\n  nop\n")
+            } else {
+                format!("  ! call rel {rel} target={target:?}\n  nop\n")
+            }
         }
-        Op::JmpRel { rel, target } => {
-            format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  bra {name}\n  nop\n")
+            } else {
+                format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+            }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  trapa #0\n")
@@ -376,6 +476,364 @@ fn emit_superh(op: &Op) -> String {
 
 fn sh_reg(v: VReg) -> String {
     format!("r{}", v.0.min(15))
+}
+
+fn emit_alpha(op: &Op) -> String {
+    let disp = |imm: u32| format!("{}", imm as i32);
+    match op {
+        Op::Nop => "  nop\n".into(),
+        Op::Ret => "  ret r31, (r26)\n".into(),
+        Op::MovImm { dst, imm } if (*imm as i32) >= -32768 && (*imm as i32) <= 32767 => {
+            format!("  lda r{}, {}(r31)\n", alpha_reg(*dst), disp(*imm))
+        }
+        Op::MovImm { dst, imm } => {
+            format!(
+                "  # mov imm {imm:#x} -> r{} (ldah/lda TODO)\n  nop\n",
+                alpha_reg(*dst)
+            )
+        }
+        Op::AddImm { dst, imm } if (*imm as i32) >= -32768 && (*imm as i32) <= 32767 => {
+            format!("  lda r{}, {}(r{})\n", alpha_reg(*dst), disp(*imm), alpha_reg(*dst))
+        }
+        Op::AddImm { dst, imm } => {
+            format!(
+                "  # add imm {imm:#x} -> r{} (ldah/lda TODO)\n  nop\n",
+                alpha_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } if (*imm as i32) >= -32768 && (*imm as i32) <= 32767 => {
+            format!(
+                "  lda r{}, -{}(r{})\n",
+                alpha_reg(*dst),
+                -(*imm as i32),
+                alpha_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } => {
+            format!(
+                "  # sub imm {imm:#x} -> r{} (ldah/lda TODO)\n  nop\n",
+                alpha_reg(*dst)
+            )
+        }
+        Op::Clear { dst } => format!("  lda r{}, 0(r31)\n", alpha_reg(*dst)),
+        Op::Inc { dst } => format!("  lda r{}, 1(r{})\n", alpha_reg(*dst), alpha_reg(*dst)),
+        Op::Dec { dst } => format!("  lda r{}, -1(r{})\n", alpha_reg(*dst), alpha_reg(*dst)),
+        Op::Push { src } => format!("  lda sp, -8(sp)\n  stq {}, 0(sp)\n", alpha_reg(*src)),
+        Op::Pop { dst } => format!("  ldq {}, 0(sp)\n  lda sp, 8(sp)\n", alpha_reg(*dst)),
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  jsr r26, {name}\n")
+            } else {
+                format!("  # call rel={rel} target={target:?} — unresolved symbol\n  nop\n")
+            }
+        }
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  br r31, {name}\n")
+            } else {
+                format!("  # jmp rel={rel} target={target:?} — unresolved label\n  nop\n")
+            }
+        }
+        Op::Unknown { offset, note, .. } => {
+            format!("  # gap @{offset}: {note}\n  call_pal 1\n")
+        }
+    }
+}
+
+fn alpha_reg(v: VReg) -> String {
+    format!("r{}", v.0.min(31))
+}
+
+fn emit_parisc(op: &Op) -> String {
+    match op {
+        Op::Nop => "  nop\n".into(),
+        Op::Ret => "  bv %r0(%rp)\n  nop\n".into(),
+        Op::MovImm { dst, imm } if (*imm as i32) >= -8192 && (*imm as i32) <= 8191 => {
+            format!("  ldo {}(%r0), {}\n", *imm as i32, parisc_reg(*dst))
+        }
+        Op::MovImm { dst, imm } => {
+            format!(
+                "  # mov imm {imm:#x} -> {} (ldil/ldo TODO)\n  nop\n",
+                parisc_reg(*dst)
+            )
+        }
+        Op::AddImm { dst, imm } if (*imm as i32) >= -8192 && (*imm as i32) <= 8191 => {
+            format!(
+                "  ldo {}({}), {}\n",
+                *imm as i32,
+                parisc_reg(*dst),
+                parisc_reg(*dst)
+            )
+        }
+        Op::AddImm { dst, imm } => {
+            format!(
+                "  # add imm {imm:#x} -> {} (ldil/ldo TODO)\n  nop\n",
+                parisc_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } if (*imm as i32) >= -8192 && (*imm as i32) <= 8191 => {
+            format!(
+                "  ldo -{}({}), {}\n",
+                *imm as i32,
+                parisc_reg(*dst),
+                parisc_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } => {
+            format!(
+                "  # sub imm {imm:#x} -> {} (ldil/ldo TODO)\n  nop\n",
+                parisc_reg(*dst)
+            )
+        }
+        Op::Clear { dst } => format!("  ldo 0(%r0), {}\n", parisc_reg(*dst)),
+        Op::Inc { dst } => format!("  ldo 1({}), {}\n", parisc_reg(*dst), parisc_reg(*dst)),
+        Op::Dec { dst } => format!("  ldo -1({}), {}\n", parisc_reg(*dst), parisc_reg(*dst)),
+        Op::Push { src } => {
+            format!("  # push {} (stwm/ldwm TODO)\n  nop\n", parisc_reg(*src))
+        }
+        Op::Pop { dst } => {
+            format!("  # pop {} (stwm/ldwm TODO)\n  nop\n", parisc_reg(*dst))
+        }
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  bl {name}, %rp\n")
+            } else {
+                format!("  # call rel={rel} target={target:?} — unresolved symbol\n  nop\n")
+            }
+        }
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  b {name}\n  nop\n")
+            } else {
+                format!("  # jmp rel={rel} target={target:?} — unresolved label\n  nop\n")
+            }
+        }
+        Op::Unknown { offset, note, .. } => {
+            format!("  # gap @{offset}: {note}\n  break 0,0\n")
+        }
+    }
+}
+
+fn parisc_reg(v: VReg) -> String {
+    // avoid %r0 (zero) · %r1 (assembler temp) · %r2 (rp) — VReg window starts at r3.
+    format!("%r{}", 3 + v.0.min(28))
+}
+
+fn emit_m88k(op: &Op) -> String {
+    match op {
+        Op::Nop => "  or r0, r0, r0\n".into(),
+        Op::Ret => "  jmp r1\n  nop\n".into(),
+        Op::MovImm { dst, imm } if *imm <= 0xffff => {
+            format!("  or {}, r0, {imm}\n", m88k_reg(*dst))
+        }
+        Op::MovImm { dst, imm } => {
+            let hi = imm >> 16;
+            let lo = imm & 0xffff;
+            format!("  or.u {}, r0, {hi:#x}\n  or {}, {}, {lo:#x}\n", m88k_reg(*dst), m88k_reg(*dst), m88k_reg(*dst))
+        }
+        Op::AddImm { dst, imm } if *imm <= 0xffff => {
+            format!("  addu {}, {}, {imm}\n", m88k_reg(*dst), m88k_reg(*dst))
+        }
+        Op::AddImm { dst, imm } => {
+            format!(
+                "  # add imm {imm:#x} -> {} (addu imm TODO)\n  nop\n",
+                m88k_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } if *imm <= 0xffff => {
+            format!("  subu {}, {}, {imm}\n", m88k_reg(*dst), m88k_reg(*dst))
+        }
+        Op::SubImm { dst, imm } => {
+            format!(
+                "  # sub imm {imm:#x} -> {} (subu imm TODO)\n  nop\n",
+                m88k_reg(*dst)
+            )
+        }
+        Op::Clear { dst } => format!("  or {}, r0, 0\n", m88k_reg(*dst)),
+        Op::Inc { dst } => format!("  addu {}, {}, 1\n", m88k_reg(*dst), m88k_reg(*dst)),
+        Op::Dec { dst } => format!("  subu {}, {}, 1\n", m88k_reg(*dst), m88k_reg(*dst)),
+        Op::Push { src } => format!("  subu r31, r31, 4\n  st {}, r31, r0\n", m88k_reg(*src)),
+        Op::Pop { dst } => format!("  ld {}, r31, r0\n  addu r31, r31, 4\n", m88k_reg(*dst)),
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  bsr {name}\n  nop\n")
+            } else {
+                format!("  # call rel={rel} target={target:?} — unresolved symbol\n  nop\n")
+            }
+        }
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  br {name}\n  nop\n")
+            } else {
+                format!("  # jmp rel={rel} target={target:?} — unresolved label\n  nop\n")
+            }
+        }
+        Op::Unknown { offset, note, .. } => {
+            format!("  # gap @{offset}: {note}\n  trap 1\n")
+        }
+    }
+}
+
+fn m88k_reg(v: VReg) -> String {
+    // avoid r0 (zero) · r1 (link) — VReg window starts at r2.
+    format!("r{}", 2 + v.0.min(29))
+}
+
+fn emit_ia64(op: &Op) -> String {
+    match op {
+        Op::Nop => "  nop.m 0\n".into(),
+        Op::Ret => "  br.ret.sptk.many b0\n".into(),
+        Op::MovImm { dst, imm } if (*imm as i32) >= -2097152 && (*imm as i32) <= 2097151 => {
+            format!("  mov r{}, = {}\n", ia64_reg(*dst), *imm as i32)
+        }
+        Op::MovImm { dst, imm } => {
+            format!(
+                "  // mov imm {imm:#x} -> r{} (movl TODO)\n  nop.m 0\n",
+                ia64_reg(*dst)
+            )
+        }
+        Op::AddImm { dst, imm } if (*imm as i32) >= -2097152 && (*imm as i32) <= 2097151 => {
+            format!("  adds r{}, = {}, r{}\n", ia64_reg(*dst), *imm as i32, ia64_reg(*dst))
+        }
+        Op::AddImm { dst, imm } => {
+            format!(
+                "  // add imm {imm:#x} -> r{} (movl/adds TODO)\n  nop.m 0\n",
+                ia64_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } if (*imm as i32) >= -2097152 && (*imm as i32) <= 2097151 => {
+            format!(
+                "  adds r{}, = -{}, r{}\n",
+                ia64_reg(*dst),
+                *imm as i32,
+                ia64_reg(*dst)
+            )
+        }
+        Op::SubImm { dst, imm } => {
+            format!(
+                "  // sub imm {imm:#x} -> r{} (movl/adds TODO)\n  nop.m 0\n",
+                ia64_reg(*dst)
+            )
+        }
+        Op::Clear { dst } => format!("  mov r{}, = r0\n", ia64_reg(*dst)),
+        Op::Inc { dst } => format!("  adds r{}, = 1, r{}\n", ia64_reg(*dst), ia64_reg(*dst)),
+        Op::Dec { dst } => format!("  adds r{}, = -1, r{}\n", ia64_reg(*dst), ia64_reg(*dst)),
+        Op::Push { src } => {
+            format!("  adds r12 = -16, r12\n  st8 [r12] = r{}\n", ia64_reg(*src))
+        }
+        Op::Pop { dst } => {
+            format!("  ld8 r{} = [r12]\n  adds r12 = 16, r12\n", ia64_reg(*dst))
+        }
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  br.call.sptk.many b0 = {name}\n")
+            } else {
+                format!("  // call rel={rel} target={target:?} — unresolved symbol\n  nop.m 0\n")
+            }
+        }
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  br.sptk.many {name}\n")
+            } else {
+                format!("  // jmp rel={rel} target={target:?} — unresolved label\n  nop.m 0\n")
+            }
+        }
+        Op::Unknown { offset, note, .. } => {
+            format!("  // gap @{offset}: {note}\n  break.i 0\n")
+        }
+    }
+}
+
+fn ia64_reg(v: VReg) -> String {
+    // avoid r0 (zero) · r1 (gp) — VReg window starts at r4.
+    format!("r{}", 4 + v.0.min(122))
+}
+
+fn emit_i860(op: &Op) -> String {
+    match op {
+        Op::Nop => "  nop\n".into(),
+        Op::Ret => "  br r1\n  nop\n".into(),
+        Op::MovImm { dst, imm } => format!(
+            "  # mov imm {imm:#x} -> r{} (orh/or TODO)\n  nop\n",
+            i860_reg(*dst)
+        ),
+        Op::AddImm { dst, imm } => format!(
+            "  # add imm {imm:#x} -> r{} (add TODO)\n  nop\n",
+            i860_reg(*dst)
+        ),
+        Op::SubImm { dst, imm } => format!(
+            "  # sub imm {imm:#x} -> r{} (sub TODO)\n  nop\n",
+            i860_reg(*dst)
+        ),
+        Op::Clear { dst } => format!("  # clear r{} (xor r0 TODO)\n  nop\n", i860_reg(*dst)),
+        Op::Inc { dst } => format!("  # inc r{} (add 1 TODO)\n  nop\n", i860_reg(*dst)),
+        Op::Dec { dst } => format!("  # dec r{} (sub 1 TODO)\n  nop\n", i860_reg(*dst)),
+        Op::Push { src } => format!("  # push r{} (st TODO)\n  nop\n", i860_reg(*src)),
+        Op::Pop { dst } => format!("  # pop r{} (ld TODO)\n  nop\n", i860_reg(*dst)),
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  # call {name}\n  nop\n")
+            } else {
+                format!("  # call rel={rel} target={target:?} — unresolved symbol\n  nop\n")
+            }
+        }
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  # jmp {name}\n  nop\n")
+            } else {
+                format!("  # jmp rel={rel} target={target:?} — unresolved label\n  nop\n")
+            }
+        }
+        Op::Unknown { offset, note, .. } => {
+            format!("  # gap @{offset}: {note}\n  nop\n")
+        }
+    }
+}
+
+fn i860_reg(v: VReg) -> String {
+    format!("r{}", v.0.min(31))
+}
+
+fn emit_coldfire(op: &Op) -> String {
+    match op {
+        Op::Nop => "  nop\n".into(),
+        Op::Ret => "  rts\n".into(),
+        Op::MovImm { dst, imm } => {
+            if (*imm as i32) >= -128 && (*imm as i32) <= 127 {
+                format!("  moveq #{}, {}\n", *imm as i32, coldfire_reg(*dst))
+            } else {
+                format!("  move.l #{imm}, {}\n", coldfire_reg(*dst))
+            }
+        }
+        Op::AddImm { dst, imm } => format!("  addi.l #{imm}, {}\n", coldfire_reg(*dst)),
+        Op::SubImm { dst, imm } => format!("  subi.l #{imm}, {}\n", coldfire_reg(*dst)),
+        Op::Clear { dst } => format!("  clr.l {}\n", coldfire_reg(*dst)),
+        Op::Inc { dst } => format!("  addq.l #1, {}\n", coldfire_reg(*dst)),
+        Op::Dec { dst } => format!("  subq.l #1, {}\n", coldfire_reg(*dst)),
+        Op::Push { src } => format!("  move.l {}, -(A7)\n", coldfire_reg(*src)),
+        Op::Pop { dst } => format!("  move.l (A7)+, {}\n", coldfire_reg(*dst)),
+        Op::CallRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  jsr {name}\n")
+            } else {
+                format!("  | call rel={rel} target={target:?} — unresolved symbol\n  illegal\n")
+            }
+        }
+        Op::JmpRel { rel, target, symbol } => {
+            if let Some(name) = symbol {
+                format!("  jmp {name}\n")
+            } else {
+                format!("  | jmp rel={rel} target={target:?} — unresolved label\n  illegal\n")
+            }
+        }
+        Op::Unknown { offset, note, .. } => {
+            format!("  | gap @{offset}: {note}\n  illegal\n")
+        }
+    }
+}
+
+fn coldfire_reg(v: VReg) -> String {
+    format!("D{}", v.0.min(7))
 }
 
 #[cfg(test)]
@@ -401,5 +859,32 @@ mod tests {
         let m = lift_x86_32(&[0x31, 0xC0, 0xC3], "z").unwrap();
         let a = emit_module(&m, TargetIsa::X86_64);
         assert!(a.contains("xor %eax, %eax"));
+    }
+
+    #[test]
+    fn emit_preservation_isas_mnemonics() {
+        let m = lift_x86_32(&[0x90, 0xC3], "demo").unwrap();
+        let checks = [
+            (TargetIsa::Alpha, "ret r31, (r26)"),
+            (TargetIsa::PaRisc, "bv %r0(%rp)"),
+            (TargetIsa::M88k, "jmp r1"),
+            (TargetIsa::Ia64, "br.ret.sptk.many b0"),
+            (TargetIsa::I860, "br r1"),
+            (TargetIsa::ColdFire, "rts"),
+        ];
+        for (isa, needle) in checks {
+            let asm = emit_module(&m, isa);
+            assert!(asm.contains(needle), "missing `{needle}` for {isa}");
+        }
+    }
+
+    #[test]
+    fn emit_coldfire_add3() {
+        let m = lift_x86_32(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3], "add3")
+            .unwrap();
+        let asm = emit_module(&m, TargetIsa::ColdFire);
+        assert!(asm.contains("moveq #1, D0"));
+        assert!(asm.contains("addi.l #2, D0"));
+        assert!(asm.contains("rts"));
     }
 }

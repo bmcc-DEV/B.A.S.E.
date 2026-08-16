@@ -1,0 +1,505 @@
+//! Subset decoders: bytes → SIR ops, inverting the encoders in [`crate::encode`].
+//!
+//! Coverage is deliberately bounded: each decoder understands *exactly* the encodings
+//! our encoders produce for the lifted SIR subset. A word outside that subset becomes
+//! `Op::Unknown` (gap), mirroring the lifter's honesty. Full ISA decode is future work
+//! (the catalog `encode_status`/decoder availability is the source of truth).
+
+use crate::sir::{Op, VReg};
+use crate::target::TargetIsa;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum DecodeError {
+    #[error("no decoder for {0} yet (encode-only target)")]
+    NoDecoder(String),
+    #[error("unexpected end of stream decoding {0} @{1:#x}")]
+    Truncated(&'static str, u64),
+}
+
+/// Decode `bytes` back into SIR ops for `isa`. Unsupported targets error; unknown
+/// words become `Op::Unknown` gaps (never a silent mis-decode).
+pub fn decode_ops(bytes: &[u8], isa: TargetIsa) -> Result<Vec<Op>, DecodeError> {
+    match isa {
+        TargetIsa::Mips => decode_mips(bytes),
+        TargetIsa::Ppc => decode_ppc(bytes),
+        TargetIsa::SuperH(_) => decode_superh(bytes),
+        TargetIsa::Alpha => decode_alpha(bytes),
+        TargetIsa::PaRisc => decode_parisc(bytes),
+        TargetIsa::ColdFire => decode_coldfire(bytes),
+        other => Err(DecodeError::NoDecoder(other.to_string())),
+    }
+}
+
+/// True when `decode_ops` understands this ISA's encoded subset.
+pub fn has_decoder(isa: TargetIsa) -> bool {
+    matches!(
+        isa,
+        TargetIsa::Mips
+            | TargetIsa::Ppc
+            | TargetIsa::SuperH(_)
+            | TargetIsa::Alpha
+            | TargetIsa::PaRisc
+            | TargetIsa::ColdFire
+    )
+}
+
+fn sext16(w: u32) -> i32 {
+    (w as u16 as i16) as i32
+}
+
+fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    let v = |reg: u32| VReg(reg.saturating_sub(8)); // encoder maps VReg → $t8..
+    while i + 4 <= bytes.len() {
+        let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0x03E00008 {
+            // jr $ra — encoder always appends the delay-slot nop.
+            ops.push(Op::Ret);
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "jr $ra delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
+            continue;
+        }
+        if w == 0 {
+            ops.push(Op::Nop);
+            i += 4;
+            continue;
+        }
+        let opc = w >> 26;
+        let rs = (w >> 21) & 0x1f;
+        let rt = (w >> 16) & 0x1f;
+        let imm = sext16(w & 0xffff);
+        let funct = w & 0x3f;
+        if opc == 0 && funct == 0x25 && rs == 0 && rt == 0 {
+            // or $t, $zero, $zero
+            ops.push(Op::Clear { dst: v((w >> 11) & 0x1f) });
+            i += 4;
+            continue;
+        }
+        if opc == 9 {
+            // addiu
+            if rs == 0 {
+                ops.push(Op::MovImm {
+                    dst: v(rt),
+                    imm: imm as u32,
+                });
+            } else if rs == rt {
+                ops.push(arith(v(rt), imm));
+            } else {
+                ops.push(gap(i, w, "mips addiu rs!=0, rs!=rt".into()));
+            }
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, format!("mips opcode {opc:#x} outside encoder subset")));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("mips", i as u64));
+    }
+    Ok(ops)
+}
+
+fn decode_ppc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 4 <= bytes.len() {
+        let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0x4E800020 {
+            ops.push(Op::Ret); // blr
+            i += 4;
+            continue;
+        }
+        if w == 0x60000000 {
+            ops.push(Op::Nop); // ori r0, r0, 0
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 14 {
+            // addi — encoder maps VReg → r3..
+            let rt = (w >> 21) & 0x1f;
+            let ra = (w >> 16) & 0x1f;
+            let imm = sext16(w & 0xffff);
+            let d = VReg(rt.saturating_sub(3));
+            if ra == 0 {
+                ops.push(Op::MovImm { dst: d, imm: imm as u32 });
+            } else if ra == rt {
+                ops.push(arith(d, imm));
+            } else {
+                ops.push(gap(i, w, "ppc addi ra!=0, ra!=rt".into()));
+            }
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, format!("ppc opcode {:#x} outside encoder subset", w >> 26)));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("ppc", i as u64));
+    }
+    Ok(ops)
+}
+
+fn decode_superh(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 2 <= bytes.len() {
+        let w = u16::from_le_bytes(bytes[i..i + 2].try_into().unwrap());
+        if w == 0x000B {
+            // rts — encoder always appends the delay-slot nop.
+            ops.push(Op::Ret);
+            i += 2;
+            if i + 2 <= bytes.len() {
+                let d = u16::from_le_bytes(bytes[i..i + 2].try_into().unwrap());
+                if d != 0x0009 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_le_bytes().to_vec(),
+                        note: "rts delay slot is not a nop".into(),
+                    });
+                }
+                i += 2;
+            }
+            continue;
+        }
+        if w == 0x0009 {
+            ops.push(Op::Nop);
+            i += 2;
+            continue;
+        }
+        let n = ((w >> 8) & 0x0f) as u32;
+        let imm = (w & 0xff) as u8 as i8 as i32;
+        match w & 0xF000 {
+            0xE000 => {
+                // mov #imm, Rn
+                ops.push(Op::MovImm { dst: VReg(n), imm: imm as u32 });
+                i += 2;
+                continue;
+            }
+            0x7000 => {
+                // add #imm, Rn
+                ops.push(arith(VReg(n), imm));
+                i += 2;
+                continue;
+            }
+            _ => {
+                ops.push(Op::Unknown {
+                    offset: i as u64,
+                    bytes: w.to_le_bytes().to_vec(),
+                    note: format!("sh halfword {w:#06x} outside encoder subset"),
+                });
+                i += 2;
+            }
+        }
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("superh", i as u64));
+    }
+    Ok(ops)
+}
+
+/// `dst += imm` → Add/Sub/Inc/Dec, matching the encoders' imm canonicalization.
+fn arith(dst: VReg, imm: i32) -> Op {
+    match imm {
+        1 => Op::Inc { dst },
+        -1 => Op::Dec { dst },
+        _ if imm < 0 => Op::SubImm { dst, imm: (-imm) as u32 },
+        _ => Op::AddImm { dst, imm: imm as u32 },
+    }
+}
+
+fn decode_alpha(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 4 <= bytes.len() {
+        let w = u32::from_le_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0x6BFA8001 {
+            ops.push(Op::Ret); // ret r31, (r26) — no delay slot on Alpha
+            i += 4;
+            continue;
+        }
+        if w == 0x23FF0000 {
+            ops.push(Op::Nop); // lda r31, 0(r31)
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 0x08 {
+            // lda ra, disp(rb)
+            let ra = (w >> 21) & 0x1f;
+            let rb = (w >> 16) & 0x1f;
+            let disp = sext16(w & 0xffff);
+            let d = VReg(ra);
+            if rb == 31 && ra != 31 {
+                ops.push(Op::MovImm { dst: d, imm: disp as u32 });
+            } else if rb == ra && ra != 31 {
+                ops.push(arith(d, disp));
+            } else {
+                ops.push(gap(i, w, "alpha lda with rb outside {r31, ra}".into()));
+            }
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, format!("alpha opcode {:#x} outside encoder subset", w >> 26)));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("alpha", i as u64));
+    }
+    Ok(ops)
+}
+
+fn decode_parisc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 4 <= bytes.len() {
+        let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0xE840C000 || w == 0xE840C002 {
+            // bv %r0(%rp) / bv,n — encoder appends the delay-slot nop.
+            ops.push(Op::Ret);
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0x08000240 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "bv delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
+            continue;
+        }
+        if w == 0x08000240 {
+            ops.push(Op::Nop); // or %r0, %r0, %r0
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, "parisc word outside encoder subset".into()));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("parisc", i as u64));
+    }
+    Ok(ops)
+}
+
+fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 2 <= bytes.len() {
+        let w = u16::from_be_bytes(bytes[i..i + 2].try_into().unwrap());
+        if w == 0x4E71 {
+            ops.push(Op::Nop);
+            i += 2;
+            continue;
+        }
+        if w == 0x4E75 {
+            ops.push(Op::Ret); // rts
+            i += 2;
+            continue;
+        }
+        if (w & 0xF100) == 0x7000 {
+            // moveq #imm, Dn
+            let dn = ((w >> 9) & 7) as u32;
+            let imm = (w & 0xff) as u8 as i8 as i32;
+            ops.push(Op::MovImm { dst: VReg(dn), imm: imm as u32 });
+            i += 2;
+            continue;
+        }
+        if (w & 0xF83F) == 0x203C {
+            // move.l #imm, Dn
+            if i + 6 > bytes.len() {
+                return Err(DecodeError::Truncated("coldfire", i as u64));
+            }
+            let dn = ((w >> 6) & 7) as u32;
+            let imm = u32::from_be_bytes(bytes[i + 2..i + 6].try_into().unwrap());
+            ops.push(Op::MovImm { dst: VReg(dn), imm });
+            i += 6;
+            continue;
+        }
+        if (w & 0xF83F) == 0x201F {
+            // move.l (A7)+, Dn
+            let dn = ((w >> 6) & 7) as u32;
+            ops.push(Op::Pop { dst: VReg(dn) });
+            i += 2;
+            continue;
+        }
+        let d = |v: u16| VReg((v >> 3) as u32 & 7);
+        let mut imm32 = || -> Result<u32, DecodeError> {
+            if i + 6 > bytes.len() {
+                Err(DecodeError::Truncated("coldfire", i as u64))
+            } else {
+                Ok(u32::from_be_bytes(bytes[i + 2..i + 6].try_into().unwrap()))
+            }
+        };
+        match w & 0xFFC0 {
+            0x0680 => {
+                let imm = imm32()?;
+                ops.push(Op::AddImm { dst: d(w), imm }); // addi.l #imm, Dn
+                i += 6;
+            }
+            0x0480 => {
+                let imm = imm32()?;
+                ops.push(Op::SubImm { dst: d(w), imm }); // subi.l #imm, Dn
+                i += 6;
+            }
+            0x4280 => {
+                ops.push(Op::Clear { dst: d(w) }); // clr.l Dn
+                i += 2;
+            }
+            0x5280 => {
+                ops.push(Op::Inc { dst: d(w) }); // addq.l #1, Dn
+                i += 2;
+            }
+            0x5380 => {
+                ops.push(Op::Dec { dst: d(w) }); // subq.l #1, Dn
+                i += 2;
+            }
+            0x29C0 => {
+                ops.push(Op::Push { src: d(w) }); // move.l Dn, -(A7)
+                i += 2;
+            }
+            _ => {
+                ops.push(Op::Unknown {
+                    offset: i as u64,
+                    bytes: w.to_be_bytes().to_vec(),
+                    note: format!("coldfire word {w:#06x} outside encoder subset"),
+                });
+                i += 2;
+            }
+        }
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("coldfire", i as u64));
+    }
+    Ok(ops)
+}
+
+fn gap(offset: usize, word: u32, note: String) -> Op {
+    Op::Unknown {
+        offset: offset as u64,
+        bytes: word.to_be_bytes().to_vec(),
+        note,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encode::{encode_module, EncodeError};
+    use crate::lift::lift_x86_32;
+    use crate::target::{SuperHFlavor, TargetIsa};
+
+    fn roundtrip(bytes: &[u8], isa: TargetIsa) -> Result<Vec<Op>, EncodeError> {
+        let m = lift_x86_32(bytes, "f").unwrap();
+        let enc = encode_module(&m, isa)?;
+        Ok(decode_ops(&enc, isa).expect("decode"))
+    }
+
+    #[test]
+    fn mips_decodes_what_it_encodes() {
+        for (bytes, expect) in [
+            (&[0x90, 0xC3][..], vec![Op::Nop, Op::Ret]),
+            (
+                &[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3][..],
+                vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret],
+            ),
+        ] {
+            assert_eq!(roundtrip(bytes, TargetIsa::Mips).unwrap(), expect);
+        }
+    }
+
+    #[test]
+    fn ppc_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::Ppc).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        let ops = roundtrip(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3], TargetIsa::Ppc)
+            .unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn superh_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::SuperH(SuperHFlavor::Sh2)).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+    }
+
+    #[test]
+    fn sh_add3_clear_normalizes_via_semantics() {
+        // xor eax,eax (Clear) → mov #0,r0 on SH; decode gives MovImm{0,0}.
+        let m = lift_x86_32(&[0x31, 0xC0, 0xC3], "z").unwrap();
+        let enc = encode_module(&m, TargetIsa::SuperH(SuperHFlavor::Sh2)).unwrap();
+        let ops = decode_ops(&enc, TargetIsa::SuperH(SuperHFlavor::Sh2)).unwrap();
+        assert_eq!(ops[0], Op::MovImm { dst: VReg(0), imm: 0 });
+    }
+
+    #[test]
+    fn alpha_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::Alpha).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        let ops = roundtrip(
+            &[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3],
+            TargetIsa::Alpha,
+        )
+        .unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn parisc_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::PaRisc).unwrap();
+        // nop ; bv %r0(%rp) (+ folded delay nop)
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+    }
+
+    #[test]
+    fn coldfire_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::ColdFire).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        let ops = roundtrip(
+            &[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3],
+            TargetIsa::ColdFire,
+        )
+        .unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn coldfire_push_pop_roundtrip() {
+        // push eax ; pop eax (x86 push/pop lift)
+        let ops = roundtrip(&[0x50, 0x58, 0xC3], TargetIsa::ColdFire).unwrap();
+        assert_eq!(ops, vec![Op::Push { src: VReg(0) }, Op::Pop { dst: VReg(0) }, Op::Ret]);
+    }
+
+    #[test]
+    fn no_decoder_for_encode_only_targets() {
+        for t in [TargetIsa::M88k, TargetIsa::Ia64, TargetIsa::I860] {
+            assert!(!has_decoder(t), "{t} should not have a decoder yet");
+            assert!(matches!(decode_ops(&[], t), Err(DecodeError::NoDecoder(_))));
+        }
+        assert!(has_decoder(TargetIsa::Alpha));
+        assert!(has_decoder(TargetIsa::PaRisc));
+        assert!(has_decoder(TargetIsa::ColdFire));
+    }
+}

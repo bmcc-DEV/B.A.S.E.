@@ -7,6 +7,8 @@ use thiserror::Error;
 pub enum LiftError {
     #[error("empty input")]
     Empty,
+    #[error("enable crate feature `capstone` to use Capstone lift")]
+    CapstoneDisabled,
 }
 
 /// GP encoding: eax=0 … edi=7.
@@ -160,6 +162,7 @@ fn decode_one(bytes: &[u8], i: usize, base_vma: u64) -> Option<(Op, usize)> {
                 Op::CallRel {
                     rel,
                     target: Some(target),
+                    symbol: None,
                 },
                 5,
             ))
@@ -172,6 +175,7 @@ fn decode_one(bytes: &[u8], i: usize, base_vma: u64) -> Option<(Op, usize)> {
                 Op::JmpRel {
                     rel,
                     target: Some(target),
+                    symbol: None,
                 },
                 5,
             ))
@@ -184,6 +188,7 @@ fn decode_one(bytes: &[u8], i: usize, base_vma: u64) -> Option<(Op, usize)> {
                 Op::JmpRel {
                     rel: rel8,
                     target: Some(target),
+                    symbol: None,
                 },
                 2,
             ))
@@ -247,7 +252,8 @@ mod tests {
             m.functions[0].blocks[0].ops[0],
             Op::CallRel {
                 rel: 0,
-                target: Some(0x1005)
+                target: Some(0x1005),
+                symbol: None,
             }
         ));
     }

@@ -18,6 +18,18 @@ pub enum TargetIsa {
     Sparc,
     /// SuperH / Hitachi — SH-2 (Saturn) · SH-4 (Dreamcast) flavor via [`SuperHFlavor`].
     SuperH(SuperHFlavor),
+    /// DEC Alpha / AXP (21164, EV5, …) — 64-bit, r31 = zero, no flags.
+    Alpha,
+    /// HP PA-RISC / HPPA 1.1/2.0 — r0 = zero, branch delay slot, `%rp` return.
+    PaRisc,
+    /// Motorola 88000 (88100/88110) — r0 = zero, branch delay slot.
+    M88k,
+    /// Intel Itanium (IA-64) — EPIC bundles, predication, RSE.
+    Ia64,
+    /// Intel i860 / 80860 — r0 = zero, dual core/FPU pipelines.
+    I860,
+    /// Motorola/Freescale ColdFire — 68k-derived, D0–D7 + A0–A7.
+    ColdFire,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -29,7 +41,7 @@ pub enum SuperHFlavor {
 }
 
 #[derive(Debug, Error)]
-#[error("unknown target ISA: {0} (try x86_64|amd64|arm|arm64|mips|ppc|sparc|sh2|sh4)")]
+#[error("unknown target ISA: {0} (try x86_64|amd64|arm|arm64|mips|ppc|sparc|sh2|sh4|alpha|parisc|m88k|ia64|i860|coldfire)")]
 pub struct ParseTargetError(pub String);
 
 impl TargetIsa {
@@ -43,6 +55,12 @@ impl TargetIsa {
             TargetIsa::Sparc,
             TargetIsa::SuperH(SuperHFlavor::Sh2),
             TargetIsa::SuperH(SuperHFlavor::Sh4),
+            TargetIsa::Alpha,
+            TargetIsa::PaRisc,
+            TargetIsa::M88k,
+            TargetIsa::Ia64,
+            TargetIsa::I860,
+            TargetIsa::ColdFire,
         ]
     }
 
@@ -56,6 +74,12 @@ impl TargetIsa {
             TargetIsa::Sparc => "sparc",
             TargetIsa::SuperH(SuperHFlavor::Sh2) => "sh2",
             TargetIsa::SuperH(SuperHFlavor::Sh4) => "sh4",
+            TargetIsa::Alpha => "alpha",
+            TargetIsa::PaRisc => "parisc",
+            TargetIsa::M88k => "m88k",
+            TargetIsa::Ia64 => "ia64",
+            TargetIsa::I860 => "i860",
+            TargetIsa::ColdFire => "coldfire",
         }
     }
 }
@@ -80,6 +104,12 @@ impl FromStr for TargetIsa {
             "sparc" | "sparc32" => TargetIsa::Sparc,
             "sh" | "superh" | "sh2" | "hitachi" => TargetIsa::SuperH(SuperHFlavor::Sh2),
             "sh4" => TargetIsa::SuperH(SuperHFlavor::Sh4),
+            "alpha" | "axp" | "alpha-axp" => TargetIsa::Alpha,
+            "parisc" | "pa-risc" | "hppa" | "pa" => TargetIsa::PaRisc,
+            "m88k" | "88000" | "m88000" | "motorola88k" => TargetIsa::M88k,
+            "ia64" | "itanium" | "ia-64" => TargetIsa::Ia64,
+            "i860" | "80860" | "i860xp" | "860" => TargetIsa::I860,
+            "coldfire" | "m68k" | "68k" | "cf" => TargetIsa::ColdFire,
             other => return Err(ParseTargetError(other.to_string())),
         })
     }
@@ -109,6 +139,27 @@ mod tests {
 
     #[test]
     fn all_canonical_len() {
-        assert_eq!(TargetIsa::all_canonical().len(), 8);
+        assert_eq!(TargetIsa::all_canonical().len(), 14);
+    }
+
+    #[test]
+    fn preservation_isas_parse() {
+        for (alias, isa) in [
+            ("alpha", TargetIsa::Alpha),
+            ("axp", TargetIsa::Alpha),
+            ("parisc", TargetIsa::PaRisc),
+            ("pa-risc", TargetIsa::PaRisc),
+            ("hppa", TargetIsa::PaRisc),
+            ("m88k", TargetIsa::M88k),
+            ("88000", TargetIsa::M88k),
+            ("ia64", TargetIsa::Ia64),
+            ("itanium", TargetIsa::Ia64),
+            ("i860", TargetIsa::I860),
+            ("80860", TargetIsa::I860),
+            ("coldfire", TargetIsa::ColdFire),
+            ("cf", TargetIsa::ColdFire),
+        ] {
+            assert_eq!(alias.parse::<TargetIsa>().unwrap(), isa, "alias {alias}");
+        }
     }
 }

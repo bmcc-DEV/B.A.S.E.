@@ -1,4 +1,4 @@
-//! Load `.text` from ELF32/ELF64 (x86 / x86_64 only) + symbols.
+//! Load `.text` from PE32/PE32+ (x86 / x86_64 only). ≠ Win32 ABI · ≠ runs_any_pe.
 
 use std::fs;
 use std::path::Path;
@@ -11,21 +11,23 @@ use crate::sir::Module;
 use crate::symbols::{resolve_symbols, SymbolMap};
 
 #[derive(Debug, Error)]
-pub enum ElfError {
+pub enum PeError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("object parse: {0}")]
     Object(String),
-    #[error("no .text or executable section found")]
+    #[error("not a PE image")]
+    NotPe,
+    #[error("no .text / executable section")]
     NoText,
-    #[error("ELF architecture {0:?} not supported — need X86_64 or I386")]
+    #[error("PE architecture {0:?} not supported — need X86_64 or I386")]
     UnsupportedArch(Architecture),
     #[error(transparent)]
     Lift(#[from] LiftError),
 }
 
 #[derive(Debug, Clone)]
-pub struct ElfText {
+pub struct PeText {
     pub bytes: Vec<u8>,
     pub vma: u64,
     pub section_name: String,
@@ -39,39 +41,37 @@ fn arch_ok(arch: Architecture) -> bool {
     matches!(arch, Architecture::X86_64 | Architecture::I386)
 }
 
-fn collect_symbols(file: &object::File<'_>) -> SymbolMap {
-    let mut symbols = SymbolMap::new();
-    for sym in file.symbols() {
-        if let Ok(name) = sym.name() {
-            if !name.is_empty() {
-                symbols
-                    .entry(sym.address())
-                    .or_insert_with(|| name.to_string());
-            }
-        }
-    }
-    symbols
-}
-
-pub fn load_elf_text(path: &Path) -> Result<ElfText, ElfError> {
+/// Extract PE `.text` (+ symbol map). Does **not** load imports / run Win32.
+pub fn load_pe_text(path: &Path) -> Result<PeText, PeError> {
     let data = fs::read(path)?;
-    let file = object::File::parse(&*data).map_err(|e| ElfError::Object(e.to_string()))?;
+    let file = object::File::parse(&*data).map_err(|e| PeError::Object(e.to_string()))?;
+    if file.format() != object::BinaryFormat::Pe {
+        return Err(PeError::NotPe);
+    }
     let arch = file.architecture();
     if !arch_ok(arch) {
-        return Err(ElfError::UnsupportedArch(arch));
+        return Err(PeError::UnsupportedArch(arch));
     }
     let is_64 = file.is_64();
     let path_s = path.display().to_string();
     let architecture = format!("{arch:?}");
-    let symbols = collect_symbols(&file);
+
+    let mut symbols = SymbolMap::new();
+    for sym in file.symbols() {
+        if let Ok(name) = sym.name() {
+            if !name.is_empty() {
+                symbols.entry(sym.address()).or_insert_with(|| name.to_string());
+            }
+        }
+    }
 
     if let Some(sec) = file.section_by_name(".text") {
         let bytes = sec
             .data()
-            .map_err(|e| ElfError::Object(e.to_string()))?
+            .map_err(|e| PeError::Object(e.to_string()))?
             .to_vec();
         if !bytes.is_empty() {
-            return Ok(ElfText {
+            return Ok(PeText {
                 bytes,
                 vma: sec.address(),
                 section_name: ".text".into(),
@@ -85,8 +85,8 @@ pub fn load_elf_text(path: &Path) -> Result<ElfText, ElfError> {
 
     for sec in file.sections() {
         let exec = match sec.flags() {
-            object::SectionFlags::Elf { sh_flags } => {
-                sh_flags & u64::from(object::elf::SHF_EXECINSTR) != 0
+            object::SectionFlags::Coff { characteristics } => {
+                characteristics & object::pe::IMAGE_SCN_MEM_EXECUTE != 0
             }
             _ => false,
         };
@@ -95,16 +95,15 @@ pub fn load_elf_text(path: &Path) -> Result<ElfText, ElfError> {
         }
         let bytes = sec
             .data()
-            .map_err(|e| ElfError::Object(e.to_string()))?
+            .map_err(|e| PeError::Object(e.to_string()))?
             .to_vec();
         if bytes.is_empty() {
             continue;
         }
-        let name = sec.name().unwrap_or("exec").to_string();
-        return Ok(ElfText {
+        return Ok(PeText {
             bytes,
             vma: sec.address(),
-            section_name: name,
+            section_name: sec.name().unwrap_or("exec").to_string(),
             is_64,
             path: path_s,
             architecture,
@@ -112,11 +111,11 @@ pub fn load_elf_text(path: &Path) -> Result<ElfText, ElfError> {
         });
     }
 
-    Err(ElfError::NoText)
+    Err(PeError::NoText)
 }
 
-pub fn lift_elf_text(path: &Path, fn_name: &str) -> Result<(ElfText, Module), ElfError> {
-    let text = load_elf_text(path)?;
+pub fn lift_pe_text(path: &Path, fn_name: &str) -> Result<(PeText, Module), PeError> {
+    let text = load_pe_text(path)?;
     let mut module = lift_x86_32_at(&text.bytes, fn_name, text.vma)?;
     resolve_symbols(&mut module, &text.symbols);
     module.source = Some(format!("{}:{}", text.path, text.section_name));

@@ -2719,6 +2719,33 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
                 println!("  {}", t.as_str());
             }
         }
+        RecompCommand::Semantics => {
+            use base_recomp::semantics;
+            let catalog = semantics::PRESERVED_ISAS;
+            println!(
+                "semantic catalog: {} preserved ISAs (preservar semântica ≠ executar binário)\n",
+                catalog.len()
+            );
+            for s in catalog {
+                println!(
+                    "  {:<10} {} · {}b {} · gpr {} · flags {} · delay {} · enc {:?}",
+                    s.name,
+                    s.family,
+                    s.word_bits,
+                    match s.endianness {
+                        semantics::Endianness::Little => "LE",
+                        semantics::Endianness::Big => "BE",
+                    },
+                    s.gpr_count,
+                    if s.architectural_flags { "yes" } else { "no" },
+                    s.branch_delay_slots,
+                    s.encode_status
+                );
+            }
+            let json_path = output.join("semantics_catalog.json");
+            fs::write(&json_path, semantics::to_json())?;
+            println!("\ncatalog JSON → {}", json_path.display());
+        }
         RecompCommand::Lift { hex, name, target } => {
             let bytes = parse_hex_bytes(hex)?;
             write_recomp_artifacts(&bytes, name, target.as_deref(), output)?;
@@ -2791,6 +2818,142 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
                 fs::write(&asm_path, asm)?;
                 tracing::info!("ASM written {}", asm_path.display());
             }
+        }
+        RecompCommand::Pe {
+            input,
+            name,
+            target,
+        } => {
+            let (text, module) = base_recomp::pe::lift_pe_text(input, name)?;
+            let sir_path = output.join("recomp.sir.json");
+            fs::write(&sir_path, serde_json::to_string_pretty(&module)?)?;
+            tracing::info!(
+                "PE {} {} bytes arch={} gaps={} → {}",
+                text.section_name,
+                text.bytes.len(),
+                text.architecture,
+                module.lift_gaps,
+                sir_path.display()
+            );
+            let md = format!(
+                "# PE recomp (Path v1.9)\n\n- input: `{}`\n- section: `{}`\n- arch: `{}`\n- bytes: {}\n- gaps: {}\n- symbols: {}\n\n{}{}\n{}\n",
+                text.path,
+                text.section_name,
+                text.architecture,
+                text.bytes.len(),
+                module.lift_gaps,
+                text.symbols.len(),
+                base_recomp::gaps::gaps_markdown(&module),
+                base_recomp::honesty::markdown_section(),
+                base_recomp::runtime::markdown_runtime()
+            );
+            fs::write(output.join("RECOMP_REPORT.md"), md)?;
+            if let Some(t) = target {
+                let isa: base_recomp::target::TargetIsa = t.parse()?;
+                let asm = base_recomp::emit::emit_module(&module, isa);
+                fs::write(output.join(format!("emit_{}.s", isa.as_str())), asm)?;
+            }
+        }
+        RecompCommand::Encode { hex, name, target } => {
+            let bytes = parse_hex_bytes(hex)?;
+            let module = base_recomp::lift::lift_x86_32(&bytes, name)?;
+            let isa: base_recomp::target::TargetIsa = target.parse()?;
+            let code = base_recomp::encode::encode_module(&module, isa)?;
+            let bin = output.join(format!("encode_{}.bin", isa.as_str()));
+            fs::write(&bin, &code)?;
+            tracing::info!("encoded {} bytes → {}", code.len(), bin.display());
+            let md = format!(
+                "# Encode (portable / WASM-friendly)\n\n- target: `{isa}`\n- bytes: {}\n- note: no host cross-as; SIR→machine code\n\n{}\n{}\n",
+                code.len(),
+                base_recomp::honesty::markdown_section(),
+                base_recomp::runtime::markdown_runtime()
+            );
+            fs::write(output.join("ENCODE_REPORT.md"), md)?;
+        }
+        RecompCommand::Verify { hex, name, target, all, sweep } => {
+            if *all {
+                println!("{}", base_recomp::verify::coverage_table());
+                return Ok(());
+            }
+            let t: base_recomp::target::TargetIsa =
+                target.as_deref().expect("use --target <isa> or --all").parse()?;
+            if *sweep {
+                let s = base_recomp::semexec::differential_sweep(t);
+                println!(
+                    "sweep target={t} applicable={} matched={} mismatches={}",
+                    s.applicable,
+                    s.matched,
+                    s.mismatches.len()
+                );
+                for (label, ref_st, isa_st) in s.mismatches.iter().take(10) {
+                    println!(
+                        "  mismatch {label}: ref gpr0={:#x} pc={:#x} ≠ isa gpr0={:#x} pc={:#x}",
+                        ref_st.gpr(0), ref_st.pc, isa_st.gpr(0), isa_st.pc
+                    );
+                }
+                if s.mismatches.len() > 10 {
+                    println!("  … {} more", s.mismatches.len() - 10);
+                }
+                return Ok(());
+            }
+            let bytes = parse_hex_bytes(hex.as_deref().expect("--hex or --all/--sweep"))?;
+            let module = base_recomp::lift::lift_x86_32(&bytes, name)?;
+            let ops = module.functions[0].blocks[0].ops.clone();
+            let report = base_recomp::verify::verify_ops(ops.clone(), t);
+            let verdict = if report.verified() {
+                if report.literal_match { "VERIFIED (literal)" } else { "VERIFIED (semantic)" }
+            } else if report.note.starts_with("encode:") {
+                "NOT VERIFIED — encoder gap"
+            } else if report.note.starts_with("no decoder") {
+                "NOT VERIFIED — decoder pending"
+            } else {
+                "NOT VERIFIED"
+            };
+            println!("target={t} ops_in={} ops_out={} {verdict}", ops.len(), report.ops_out.len());
+            if let Some((idx, a, b)) = &report.first_mismatch {
+                println!("  first mismatch @{idx}: in={a:?} out={b:?}");
+            }
+            if !report.note.is_empty() {
+                println!("  note: {}", report.note);
+            }
+            // Behavioral check: reference semantics vs the ISA's, same initial state.
+            use base_recomp::semexec::{differential_ops, MachineState};
+            let state = MachineState::new().with_gpr(26, 0x8000);
+            let diff = differential_ops(ops.clone(), t, &state);
+            let diff_line = if diff.matched() {
+                format!(
+                    "DIFFERENTIAL MATCH — execute_reference == execute_isa (gpr0={:#x} pc={:#x})",
+                    diff.reference.gpr(0),
+                    diff.reference.pc
+                )
+            } else if !diff.note.is_empty() {
+                format!("DIFFERENTIAL GAP — {}", diff.note)
+            } else {
+                format!(
+                    "DIFFERENTIAL GAP — ref gpr0={:#x} pc={:#x} ≠ isa gpr0={:#x} pc={:#x}",
+                    diff.reference.gpr(0),
+                    diff.reference.pc,
+                    diff.isa.gpr(0),
+                    diff.isa.pc
+                )
+            };
+            println!("  {diff_line}");
+            let md = format!(
+                "# Verify round-trip (Path v1.9)\n\n- target: `{t}`\n- ops_in: {}\n- ops_out: {}\n- literal_match: {}\n- semantic_match: {}\n- verified: {}\n- note: `{}`\n- first mismatch: {:?}\n- differential: `{diff_line}`\n\n{}\n",
+                report.ops_in.len(),
+                report.ops_out.len(),
+                report.literal_match,
+                report.semantic_match,
+                report.verified(),
+                report.note,
+                report.first_mismatch.as_ref().map(|(i, a, b)| format!("@{i} {a:?} → {b:?}")),
+                base_recomp::honesty::markdown_section()
+            );
+            fs::write(output.join("VERIFY_REPORT.md"), md)?;
+        }
+        RecompCommand::Runtime => {
+            print!("{}", base_recomp::runtime::markdown_runtime());
+            print!("{}", base_recomp::honesty::markdown_section());
         }
     }
     Ok(())
