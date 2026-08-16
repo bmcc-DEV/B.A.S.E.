@@ -89,9 +89,9 @@ fn parisc_bv_n_accepts_return() {
 #[test]
 fn pending_status_not_full() {
     let x = coverage(TargetIsa::X86_64);
-    // x86 decoder landed: 10/14 kinds round-trip (call/jmp + ld/st = gaps).
+    // x86 decoder landed: 12/14 kinds round-trip (call/jmp = linker reloc gap).
     assert_eq!(x.status, "PARTIAL");
-    assert_eq!(x.semantic_pct, 71, "{x:?}");
+    assert_eq!(x.semantic_pct, 86, "{x:?}");
     let m88k = coverage(TargetIsa::M88k);
     assert_eq!(m88k.status, "NONE");
 }

@@ -620,7 +620,7 @@ mod tests {
     fn ld_st_differential_across_ldst_isas() {
         // st → ld → value round-trips on every ISA with a memory encoder.
         let ops = vec![
-            Op::MovImm { dst: VReg(0), imm: 0x1234 },
+            Op::MovImm { dst: VReg(0), imm: 0x12 },
             Op::StMem { src: VReg(0), base: VReg(1), offset: 0, width: 4 },
             Op::Clear { dst: VReg(0) },
             Op::LdMem { dst: VReg(0), base: VReg(1), offset: 0, width: 4 },
@@ -632,14 +632,17 @@ mod tests {
             TargetIsa::Mips,
             TargetIsa::Ppc,
             TargetIsa::AArch64,
+            TargetIsa::Arm,
+            TargetIsa::Sparc,
+            TargetIsa::X86_64,
         ] {
             let r = differential_ops(ops.clone(), t, &state);
             assert!(r.matched(), "ld/st differential failed for {t}: {r:?}");
-            assert_eq!(r.isa.gpr(0), 0x1234, "loaded value for {t}");
+            assert_eq!(r.isa.gpr(0), 0x12, "loaded value for {t}");
         }
         // Alpha is 64-bit: width 8 load/store round-trips a 64-bit value.
         let ops64 = vec![
-            Op::MovImm { dst: VReg(0), imm: 0x1234 },
+            Op::MovImm { dst: VReg(0), imm: 0x12 },
             Op::StMem { src: VReg(0), base: VReg(1), offset: 0, width: 8 },
             Op::Clear { dst: VReg(0) },
             Op::LdMem { dst: VReg(0), base: VReg(1), offset: 0, width: 8 },

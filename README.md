@@ -70,7 +70,7 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | ISA | Encode | Decode | Differential |
 |-----|--------|--------|--------------|
 | MIPS · PPC · SuperH · **Alpha** · **PA-RISC** · **ColdFire** · **AArch64** · **ARM** · **SPARC** · **x86_64** | ✅ subset | ✅ | ✅ verificado |
-| **MIPS · PPC · Alpha · AArch64** | ✅ **load/store** (lw/sw · lwz/stw · ldq/stq · ldr/str) | ✅ | ✅ **memória real** (sweep limpo) |
+| **MIPS · PPC · Alpha · AArch64 · ARM · SPARC · x86_64** | ✅ **load/store** (lw/sw · lwz/stw · ldq/stq · ldr/str · ld/st SPARC · ModRM x86) | ✅ | ✅ **memória real** (sweep limpo) |
 | **ColdFire** | ✅ **load/store + push/pop** (12/14 kinds, 86%) | ✅ | ✅ **memória real** (BE, sweep 268/268) |
 | M88k · IA-64 · i860 | emit texto | — pendente | — |
 

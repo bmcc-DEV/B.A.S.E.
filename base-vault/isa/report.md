@@ -1,11 +1,11 @@
 | ISA | level | codec | semantic | differential |
 |---|---|---|---|---|
-| x86_64 | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
-| arm | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
+| x86_64 | P5 — Evidence-sealed | enc 86% · dec 86% | 86% | 86% |
+| arm | P4 — Behavior-preserved | enc 71% · dec 71% | 71% | 43% |
 | aarch64 | P4 — Behavior-preserved | enc 71% · dec 71% | 71% | 43% |
 | mips | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
 | ppc | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
-| sparc | P3 — Semantic-preserved | enc 29% · dec 29% | 29% | 29% |
+| sparc | P4 — Behavior-preserved | enc 43% · dec 43% | 43% | 43% |
 | sh2 | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
 | sh4 | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
 | alpha | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
@@ -24,16 +24,16 @@ Target: x86_64
 Preservation level: P5 — Evidence-sealed
 
 Codec:
-  encoder+decoder subset: round-trip literal 71% · semantic 71%
+  encoder+decoder subset: round-trip literal 86% · semantic 86%
 
 Semantic:
-  integer ops: pass (71%)
+  integer ops: pass (86%)
 
 Differential:
-  sweep 256/256 match · 0 mismatch(es) · differential 71%
+  sweep 268/268 match · 0 mismatch(es) · differential 86%
 
 Known gaps:
-  - 10 of 12 SIR op kinds round-trip semantically
+  - 12 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:
@@ -44,21 +44,21 @@ Claims:
 Architecture Preservation Report
 ================================
 Target: arm
-  family: ARM (A32/A64) · word: 32 bit · endian: Little · GPRs: 16 · flags: n/z/c/v · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec")
+  family: ARM (A32/A64) · word: 32 bit · endian: Little · GPRs: 16 · flags: n/z/c/v · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem")
 Preservation level: P4 — Behavior-preserved
 
 Codec:
-  encoder+decoder subset: round-trip literal 50% · semantic 57%
+  encoder+decoder subset: round-trip literal 64% · semantic 71%
 
 Semantic:
-  integer ops: pass (57%)
+  integer ops: pass (71%)
 
 Differential:
-  sweep 104/104 match · 0 mismatch(es) · differential 29%
+  sweep 112/112 match · 0 mismatch(es) · differential 43%
 
 Known gaps:
   - encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not
-  - 8 of 12 SIR op kinds round-trip semantically
+  - 10 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:
@@ -142,20 +142,20 @@ Claims:
 Architecture Preservation Report
 ================================
 Target: sparc
-  family: Sun SPARC · word: 32 bit · endian: Big · GPRs: 32 · flags: icc/xcc: z/n/c/v · encode: Partial("Nop, Ret, Clear, MovImm")
-Preservation level: P3 — Semantic-preserved
+  family: Sun SPARC · word: 32 bit · endian: Big · GPRs: 32 · flags: icc/xcc: z/n/c/v · encode: Partial("Nop, Ret, Clear, MovImm, LdMem, StMem")
+Preservation level: P4 — Behavior-preserved
 
 Codec:
-  encoder+decoder subset: round-trip literal 29% · semantic 29%
+  encoder+decoder subset: round-trip literal 43% · semantic 43%
 
 Semantic:
-  integer ops: pass (29%)
+  integer ops: pass (43%)
 
 Differential:
-  sweep 56/56 match · 0 mismatch(es) · differential 29%
+  sweep 64/64 match · 0 mismatch(es) · differential 43%
 
 Known gaps:
-  - 4 of 12 SIR op kinds round-trip semantically
+  - 6 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:

@@ -104,6 +104,14 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
     em todas as ISAs com decoder (mips/ppc/alpha 184/184, aarch64 144/144)
   - Alpha decoder ganhou `decode_alpha` ldq/stq; encoder corrigido de `0x29<<26` (era
     `0x29000000` = opcode 0x0a — shift errado)
+- **ld/st ARM/SPARC/x86** — memória completa capstone-verificada
+  - ARM `ldr/str` (`0xE5900000`/`0xE5800000`, offset 0; capstone: `0xE5910000` = `ldr r0,[r1]`)
+  - SPARC `ld/st` (op=3, op3=0x00/0x04, %l0..%l7; capstone: `0xE0046000` = `ld [%l1],%l0`)
+  - x86 ModRM `8B/89 00|rm` (`mov eax,[base]`/`mov [base],eax`; capstone-verificado)
+  - **x86_64 atinge 86% em todas as dimensões** (12/14 kinds — só call/jmp, reloc);
+    ARM 71% (43% diff), SPARC 43%; sweep limpo: x86 268/268, arm 112/112, sparc 64/64
+  - SH `mov.l @Rm,Rn` ficou como gap: capstone SH não cobre o formato — não inventar
+    opcode sem fonte confiável (honestidade)
 - Tests: `ld_st_execute_and_differential_on_coldfire` (memória BE/LE + differential),
   encode/decoder ColdFire capstone-goldens (push/pop/ld/st), cobertura 14 kinds
   atualizada em r7/verify

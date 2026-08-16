@@ -524,6 +524,37 @@ fn decode_arm(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // LDR/STR rd, [rn] — single data transfer (P=1 U=1 B=0 W=0, L=1/0), offset 0.
+        if (w & 0xFFF0_0000) == 0xE590_0000 {
+            // ldr rd, [rn] — capstone-verified (0xE5910000 = ldr r0, [r1]).
+            if w & 0xfff != 0 {
+                ops.push(gap(i, w, "arm ldr with imm offset != 0".into()));
+            } else {
+                ops.push(Op::LdMem {
+                    dst: VReg((w >> 12) & 0xf),
+                    base: VReg((w >> 16) & 0xf),
+                    offset: 0,
+                    width: 4,
+                });
+            }
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFF0_0000) == 0xE580_0000 {
+            // str rd, [rn].
+            if w & 0xfff != 0 {
+                ops.push(gap(i, w, "arm str with imm offset != 0".into()));
+            } else {
+                ops.push(Op::StMem {
+                    src: VReg((w >> 12) & 0xf),
+                    base: VReg((w >> 16) & 0xf),
+                    offset: 0,
+                    width: 4,
+                });
+            }
+            i += 4;
+            continue;
+        }
         ops.push(gap(i, w, format!("arm word {w:#010x} outside encoder subset")));
         i += 4;
     }
@@ -687,6 +718,38 @@ fn decode_x86(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 }
                 i += 2;
             }
+            0x8B => {
+                // mov reg, r/m32 — encoder emits mod=00, reg=eax(000), rm=base (LdMem).
+                need(i, 2, "x86 8B")?;
+                let modrm = bytes[i + 1];
+                if modrm >> 6 != 0 || (modrm >> 3) & 7 != 0 {
+                    ops.push(gap(i, w32(bytes, i), "x86 8B not [base]→eax".into()));
+                } else {
+                    ops.push(Op::LdMem {
+                        dst: VReg(0),
+                        base: VReg((modrm & 7) as u32),
+                        offset: 0,
+                        width: 4,
+                    });
+                }
+                i += 2;
+            }
+            0x89 => {
+                // mov r/m32, reg — encoder emits mod=00, reg=eax(000), rm=base (StMem).
+                need(i, 2, "x86 89")?;
+                let modrm = bytes[i + 1];
+                if modrm >> 6 != 0 || (modrm >> 3) & 7 != 0 {
+                    ops.push(gap(i, w32(bytes, i), "x86 89 not eax→[base]".into()));
+                } else {
+                    ops.push(Op::StMem {
+                        src: VReg(0),
+                        base: VReg((modrm & 7) as u32),
+                        offset: 0,
+                        width: 4,
+                    });
+                }
+                i += 2;
+            }
             0x40..=0x47 => {
                 ops.push(Op::Inc { dst: VReg((b & 7) as u32) });
                 i += 1;
@@ -776,6 +839,40 @@ fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 imm13
             };
             ops.push(Op::MovImm { dst: VReg(rd - 16), imm });
+            i += 4;
+            continue;
+        }
+        if (w & 0xC1F0_3FFF) == 0xC000_2000 {
+            // ld [%rs], %rd — op=3, op3=0, i=1, imm13=0 (capstone-verified).
+            let rd = (w >> 25) & 0x1f;
+            let rs = (w >> 14) & 0x1f;
+            if !(16..24).contains(&rd) || !(16..24).contains(&rs) {
+                ops.push(gap(i, w, "sparc ld outside %l0..%l7".into()));
+            } else {
+                ops.push(Op::LdMem {
+                    dst: VReg(rd - 16),
+                    base: VReg(rs - 16),
+                    offset: 0,
+                    width: 4,
+                });
+            }
+            i += 4;
+            continue;
+        }
+        if (w & 0xC1F0_3FFF) == 0xC020_2000 {
+            // st %rd, [%rs] — op=3, op3=0x04, i=1, imm13=0.
+            let rd = (w >> 25) & 0x1f;
+            let rs = (w >> 14) & 0x1f;
+            if !(16..24).contains(&rd) || !(16..24).contains(&rs) {
+                ops.push(gap(i, w, "sparc st outside %l0..%l7".into()));
+            } else {
+                ops.push(Op::StMem {
+                    src: VReg(rd - 16),
+                    base: VReg(rs - 16),
+                    offset: 0,
+                    width: 4,
+                });
+            }
             i += 4;
             continue;
         }

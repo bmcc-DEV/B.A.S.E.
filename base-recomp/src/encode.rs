@@ -74,10 +74,18 @@ fn encode_x86(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Dec { dst } => vec![0x48 + (dst.0 as u8 & 7)],
         Op::Push { src } => vec![0x50 + (src.0 as u8 & 7)],
         Op::Pop { dst } => vec![0x58 + (dst.0 as u8 & 7)],
+        Op::LdMem { dst, base, offset, width } if dst.0 == 0 && *offset == 0 && *width == 4 => {
+            // mov eax, [base] — ModRM mod=00, reg=000 (eax), rm=base (capstone-verified).
+            vec![0x8B, 0x00 | (base.0 as u8 & 7)]
+        }
+        Op::StMem { src, base, offset, width } if src.0 == 0 && *offset == 0 && *width == 4 => {
+            // mov [base], eax.
+            vec![0x89, 0x00 | (base.0 as u8 & 7)]
+        }
         Op::LdMem { .. } | Op::StMem { .. } => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::X86_64,
-                "LdMem/StMem encoder pending (x86 addressing)".into(),
+                "LdMem/StMem with dst/src != eax or offset/width outside subset".into(),
             ))
         }
         Op::CallRel { symbol: Some(_), .. } | Op::JmpRel { symbol: Some(_), .. } => {
@@ -118,6 +126,18 @@ fn encode_arm(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Dec { dst } => {
             let rd = dst.0.min(12);
             enc(0xE2400000 | (rd << 12) | (rd << 16) | 1)
+        }
+        Op::LdMem { dst, base, offset, width } if *offset == 0 && *width == 4 => {
+            let rd = dst.0.min(12);
+            let rn = base.0.min(12);
+            // ldr rd, [rn] — capstone-verified (0xE5910000 = ldr r0, [r1]).
+            enc(0xE5900000 | (rn << 16) | (rd << 12))
+        }
+        Op::StMem { src, base, offset, width } if *offset == 0 && *width == 4 => {
+            let rd = src.0.min(12);
+            let rn = base.0.min(12);
+            // str rd, [rn] — capstone-verified (0xE5810000 = str r0, [r1]).
+            enc(0xE5800000 | (rn << 16) | (rd << 12))
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -311,6 +331,18 @@ fn encode_sparc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let r = 16 + dst.0.min(7);
             // or %g0, imm, rd
             enc(0x80102000 | (r << 25) | (*imm as u32 & 0x1fff))
+        }
+        Op::LdMem { dst, base, offset, width } if *offset == 0 && *width == 4 => {
+            let rd = 16 + dst.0.min(7);
+            let rs = 16 + base.0.min(7);
+            // ld [%rs], %rd — op=3, op3=0x00, i=1, imm13=0 (capstone-verified).
+            enc(0xC0000000 | (rd << 25) | (rs << 14) | 0x2000)
+        }
+        Op::StMem { src, base, offset, width } if *offset == 0 && *width == 4 => {
+            let rd = 16 + src.0.min(7);
+            let rs = 16 + base.0.min(7);
+            // st %rd, [%rs] — op=3, op3=0x04, i=1, imm13=0 (capstone-verified).
+            enc(0xC0000000 | (rd << 25) | (4 << 19) | (rs << 14) | 0x2000)
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -707,6 +739,33 @@ mod tests {
         assert_eq!(
             encode_module(&st(VReg(0), VReg(1), 8), TargetIsa::Alpha).unwrap(),
             vec![0x00, 0x00, 0x01, 0xB4] // 0xB4000000 LE
+        );
+        // ARM: ldr r0,[r1] / str r0,[r1] — 0xE5910000 / 0xE5810000.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 4), TargetIsa::Arm).unwrap(),
+            vec![0x00, 0x00, 0x91, 0xE5]
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 4), TargetIsa::Arm).unwrap(),
+            vec![0x00, 0x00, 0x81, 0xE5]
+        );
+        // SPARC: ld [%l1],%l0 / st %l0,[%l1] — 0xE0046000 / 0xE0246000.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 4), TargetIsa::Sparc).unwrap(),
+            vec![0xE0, 0x04, 0x60, 0x00]
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 4), TargetIsa::Sparc).unwrap(),
+            vec![0xE0, 0x24, 0x60, 0x00]
+        );
+        // x86: mov eax,[ecx] / mov [ecx],eax — 0x8B01 / 0x8901.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 4), TargetIsa::X86_64).unwrap(),
+            vec![0x8B, 0x01]
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 4), TargetIsa::X86_64).unwrap(),
+            vec![0x89, 0x01]
         );
     }
 }

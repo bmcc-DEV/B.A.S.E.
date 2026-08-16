@@ -225,7 +225,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "bi-endian; newer cores BE8",
             "v4–v8 spanned: M-profile, A-profile, R-profile",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec"),
+        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
     ),
     s(
         "m88k",
@@ -303,7 +303,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "traps are the exception mechanism (ta/tret)",
             "V8 32-bit; V9 64-bit with %asi address spaces",
         ],
-        EncodeStatus::Partial("Nop, Ret, Clear, MovImm"),
+        EncodeStatus::Partial("Nop, Ret, Clear, MovImm, LdMem, StMem"),
     ),
     s(
         "i860",

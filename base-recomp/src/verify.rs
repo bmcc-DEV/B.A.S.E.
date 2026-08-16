@@ -646,9 +646,9 @@ mod tests {
             (TargetIsa::PaRisc, 14),
             (TargetIsa::ColdFire, 86),     // + push/pop/ld/st (only ISA that encodes them)
             (TargetIsa::AArch64, 43), // + ld/st (offset 0; scaled imm ≠ 0 is a gap)
-            (TargetIsa::Arm, 29), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
-            (TargetIsa::Sparc, 29), // only mov/clear round-trip; imm13 sign-extends (-1 edge fits)
-            (TargetIsa::X86_64, 71), // full imm32 + push/pop; only call/jmp + ld/st missing
+            (TargetIsa::Arm, 43), // + ld/st (offset 0; imm offset ≠ 0 is a gap)
+            (TargetIsa::Sparc, 43), // + ld/st (op3=0/4); only mov/clear before
+            (TargetIsa::X86_64, 86), // full imm32 + push/pop + ld/st; only call/jmp (reloc)
         ];
         for (t, want) in cases {
             let c = coverage(t);
