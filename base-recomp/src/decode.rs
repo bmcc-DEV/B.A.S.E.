@@ -84,6 +84,23 @@ fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // Push/Pop idiom folds: addiu $sp,-4 ; sw rt,0($sp)  /  lw rt,0($sp) ; addiu $sp,+4.
+        if w == 0x27BDFFFC && i + 8 <= bytes.len() {
+            let w2 = u32::from_be_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if (w2 >> 26) == 0x2B && ((w2 >> 21) & 0x1f) == 29 && (w2 & 0xffff) == 0 {
+                ops.push(Op::Push { src: v((w2 >> 16) & 0x1f) });
+                i += 8;
+                continue;
+            }
+        }
+        if (w >> 26) == 0x23 && ((w >> 21) & 0x1f) == 29 && (w & 0xffff) == 0 && i + 8 <= bytes.len() {
+            let w2 = u32::from_be_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if w2 == 0x27BD0004 {
+                ops.push(Op::Pop { dst: v((w >> 16) & 0x1f) });
+                i += 8;
+                continue;
+            }
+        }
         let opc = w >> 26;
         let rs = (w >> 21) & 0x1f;
         let rt = (w >> 16) & 0x1f;
@@ -111,25 +128,76 @@ fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             continue;
         }
         if opc == 0x23 {
-            // lw $rt, imm($rs) — LdMem (width 4, encoder subset).
-            ops.push(Op::LdMem {
-                dst: v(rt),
-                base: v(rs),
-                offset: imm,
-                width: 4,
-            });
+            // lw $rt, imm($rs) — LdMem (width 4, encoder subset). $sp (29) base is the
+            // pop idiom (folded above); a stray sp-based load is outside the subset.
+            if rs == 29 {
+                ops.push(gap(i, w, "mips lw with $sp base outside push/pop idiom".into()));
+            } else {
+                ops.push(Op::LdMem {
+                    dst: v(rt),
+                    base: v(rs),
+                    offset: imm,
+                    width: 4,
+                });
+            }
             i += 4;
             continue;
         }
         if opc == 0x2B {
             // sw $rt, imm($rs) — StMem (width 4).
-            ops.push(Op::StMem {
-                src: v(rt),
-                base: v(rs),
-                offset: imm,
-                width: 4,
+            if rs == 29 {
+                ops.push(gap(i, w, "mips sw with $sp base outside push/pop idiom".into()));
+            } else {
+                ops.push(Op::StMem {
+                    src: v(rt),
+                    base: v(rs),
+                    offset: imm,
+                    width: 4,
+                });
+            }
+            i += 4;
+            continue;
+        }
+        if opc == 0x03 {
+            // jal — the encoder appends the delay-slot nop (fold it).
+            ops.push(Op::CallRel {
+                rel: ((w & 0x03FF_FFFF) as i32) << 2,
+                target: None,
+                symbol: None,
             });
             i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "jal delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
+            continue;
+        }
+        if opc == 0x04 && rs == 0 && rt == 0 {
+            // beq $zero,$zero (the unconditional PC-relative jump) + delay nop.
+            ops.push(Op::JmpRel {
+                rel: (imm << 2) as i32,
+                target: None,
+                symbol: None,
+            });
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "branch delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
             continue;
         }
         ops.push(gap(i, w, format!("mips opcode {opc:#x} outside encoder subset")));
@@ -153,6 +221,32 @@ fn decode_ppc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         }
         if w == 0x60000000 {
             ops.push(Op::Nop); // ori r0, r0, 0
+            i += 4;
+            continue;
+        }
+        // stwu rS,-4(r1) → Push; lwzu rS,4(r1) → Pop (single-instruction stack ops).
+        if w >> 26 == 37 && ((w >> 16) & 0x1f) == 1 && sext16(w & 0xffff) == -4 {
+            ops.push(Op::Push { src: VReg(((w >> 21) & 0x1f).saturating_sub(3)) });
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 33 && ((w >> 16) & 0x1f) == 1 && sext16(w & 0xffff) == 4 {
+            ops.push(Op::Pop { dst: VReg(((w >> 21) & 0x1f).saturating_sub(3)) });
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 18 {
+            // b/bl — LI (24-bit signed, scaled by 4) relative to the branch's own PC.
+            if w & 2 != 0 {
+                ops.push(gap(i, w, "ppc absolute branch (AA=1) outside encoder subset".into()));
+            } else {
+                let li = ((w & 0x03FF_FFFC) << 8) as i32 >> 8; // sign-extend the 24-bit LI field
+                if w & 1 != 0 {
+                    ops.push(Op::CallRel { rel: li, target: None, symbol: None });
+                } else {
+                    ops.push(Op::JmpRel { rel: li, target: None, symbol: None });
+                }
+            }
             i += 4;
             continue;
         }
@@ -228,6 +322,78 @@ fn decode_superh(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 2;
             continue;
         }
+        // Memory group: mov.l @r15+,Rn → Pop; mov.l @Rm,Rn → LdMem (offset 0).
+        if (w & 0xF000) == 0x5000 {
+            let n = ((w >> 8) & 0x0f) as u32;
+            let m = ((w >> 4) & 0x0f) as u32;
+            let lo = w & 0x000f;
+            if m == 15 && lo == 0x6 {
+                // mov.l @r15+, Rn (post-increment load — SH-4 manual; binutils SH
+                // prints the 0110 form as a displacement — documented quirk).
+                ops.push(Op::Pop { dst: VReg(n) });
+                i += 2;
+                continue;
+            }
+            if lo == 0 {
+                ops.push(Op::LdMem { dst: VReg(n), base: VReg(m), offset: 0, width: 4 });
+                i += 2;
+                continue;
+            }
+            ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: w.to_le_bytes().to_vec(),
+                        note: "sh mov.l @Rm,Rn with nonzero low nibble".into(),
+                    });
+            i += 2;
+            continue;
+        }
+        // mov.l Rn,@-r15 → Push; mov.l Rn,@Rm → StMem (offset 0).
+        if (w & 0xF000) == 0x2000 {
+            let n = ((w >> 8) & 0x0f) as u32; // base register
+            let m = ((w >> 4) & 0x0f) as u32; // source register
+            let lo = w & 0x000f;
+            if n == 15 && lo == 0x6 {
+                ops.push(Op::Push { src: VReg(m) });
+                i += 2;
+                continue;
+            }
+            if lo == 0x2 {
+                ops.push(Op::StMem { src: VReg(m), base: VReg(n), offset: 0, width: 4 });
+                i += 2;
+                continue;
+            }
+            ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: w.to_le_bytes().to_vec(),
+                        note: "sh mov.l Rn,@Rm with nonzero low nibble".into(),
+                    });
+            i += 2;
+            continue;
+        }
+        // bra disp12 / bsr disp12 — unconditional branch / call, delay-slot nop appended.
+        let group = w & 0xF000;
+        if group == 0xA000 || group == 0xB000 {
+            let disp = (w & 0x0FFF) as u16 as i16 as i32;
+            let disp = if w & 0x0800 != 0 { disp - 0x1000 } else { disp };
+            if group == 0xB000 {
+                ops.push(Op::CallRel { rel: disp << 1, target: None, symbol: None });
+            } else {
+                ops.push(Op::JmpRel { rel: disp << 1, target: None, symbol: None });
+            }
+            i += 2;
+            if i + 2 <= bytes.len() {
+                let d = u16::from_le_bytes(bytes[i..i + 2].try_into().unwrap());
+                if d != 0x0009 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_le_bytes().to_vec(),
+                        note: "branch delay slot is not a nop".into(),
+                    });
+                }
+                i += 2;
+            }
+            continue;
+        }
         let n = ((w >> 8) & 0x0f) as u32;
         let imm = (w & 0xff) as u8 as i8 as i32;
         match w & 0xF000 {
@@ -281,6 +447,38 @@ fn decode_alpha(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         }
         if w == 0x23FF0000 {
             ops.push(Op::Nop); // lda r31, 0(r31)
+            i += 4;
+            continue;
+        }
+        // Push/Pop idiom folds (8-byte slot on Alpha): lda sp,-8(sp); stq rx,0(sp) /
+        // ldq rx,0(sp); lda sp,8(sp). Must precede the general lda/stq/ldq handlers.
+        if w == 0x23DEFFF8 && i + 8 <= bytes.len() {
+            let w2 = u32::from_le_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if (w2 >> 26) == 0x2D && ((w2 >> 16) & 0x1f) == 30 && (w2 & 0xffff) == 0 {
+                ops.push(Op::Push { src: VReg((w2 >> 21) & 0x1f) });
+                i += 8;
+                continue;
+            }
+        }
+        if (w >> 26) == 0x29 && ((w >> 16) & 0x1f) == 30 && (w & 0xffff) == 0 && i + 8 <= bytes.len() {
+            let w2 = u32::from_le_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if w2 == 0x23DE0008 {
+                ops.push(Op::Pop { dst: VReg((w >> 21) & 0x1f) });
+                i += 8;
+                continue;
+            }
+        }
+        if w >> 26 == 0x34 {
+            // bsr $26, disp — disp21 signed, scaled by 4.
+            let disp = ((w & 0x1F_FFFF) << 11) as i32 >> 11;
+            ops.push(Op::CallRel { rel: disp << 2, target: None, symbol: None });
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 0x30 {
+            // br — unconditional branch.
+            let disp = ((w & 0x1F_FFFF) << 11) as i32 >> 11;
+            ops.push(Op::JmpRel { rel: disp << 2, target: None, symbol: None });
             i += 4;
             continue;
         }
@@ -384,6 +582,30 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         if w == 0x4E75 {
             ops.push(Op::Ret); // rts
             i += 2;
+            continue;
+        }
+        if (w & 0xFF00) == 0x6000 || (w & 0xFF00) == 0x6100 {
+            // bra.w/bsr.w = 0x60 0x00 / 0x61 0x00 + word16; the .b forms (0x60xx, xx≠0)
+            // are outside the encoder subset.
+            if w == 0x6000 || w == 0x6100 {
+                if i + 4 > bytes.len() {
+                    return Err(DecodeError::Truncated("coldfire", i as u64));
+                }
+                let disp = i16::from_be_bytes(bytes[i + 2..i + 4].try_into().unwrap());
+                if w == 0x6100 {
+                    ops.push(Op::CallRel { rel: disp as i32, target: None, symbol: None });
+                } else {
+                    ops.push(Op::JmpRel { rel: disp as i32, target: None, symbol: None });
+                }
+                i += 4;
+            } else {
+                ops.push(Op::Unknown {
+                    offset: i as u64,
+                    bytes: w.to_be_bytes().to_vec(),
+                    note: "coldfire bra.b/bsr.b outside encoder subset".into(),
+                });
+                i += 2;
+            }
             continue;
         }
         if (w & 0xF100) == 0x7000 {
@@ -500,11 +722,57 @@ fn decode_arm(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // push {rX} / pop {rX} — single-register STMDB/LDMIA with base sp.
+        let single = |reglist: u32| -> Option<VReg> {
+            if reglist & (reglist - 1) == 0 && reglist != 0 {
+                let bit = reglist.trailing_zeros();
+                (bit < 13).then(|| VReg(bit)) // sp/lr/pc registers are outside the subset
+            } else {
+                None
+            }
+        };
+        if (w & 0xFFFF_0000) == 0xE92D_0000 {
+            match single(w & 0xFFFF) {
+                Some(reg) => ops.push(Op::Push { src: reg }),
+                None => ops.push(gap(i, w, "arm push with multi-register list (outside subset)".into())),
+            }
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFFF_0000) == 0xE8BD_0000 {
+            match single(w & 0xFFFF) {
+                Some(reg) => ops.push(Op::Pop { dst: reg }),
+                None => ops.push(gap(i, w, "arm pop with multi-register list (outside subset)".into())),
+            }
+            i += 4;
+            continue;
+        }
+        if (w & 0xFF00_0000) == 0xEB00_0000 {
+            // bl +imm24 (cond AL, L=1) — llvm-mc verified.
+            let imm = ((w & 0x00FF_FFFF) << 8) as i32 >> 8;
+            ops.push(Op::CallRel { rel: imm << 2, target: None, symbol: None });
+            i += 4;
+            continue;
+        }
+        if (w & 0xFF00_0000) == 0xEA00_0000 {
+            // b +imm24 (cond AL, L=0).
+            let imm = ((w & 0x00FF_FFFF) << 8) as i32 >> 8;
+            ops.push(Op::JmpRel { rel: imm << 2, target: None, symbol: None });
+            i += 4;
+            continue;
+        }
         if (w & 0xFFFF_0F00) == 0xE3A0_0000 {
             // MOV Rd, #imm8 (cond=AL, opcode 1101, Rn=0000, rotate=0000) — encoder MovImm/Clear.
             let rd = (w >> 12) & 0xf;
             let imm = w & 0xff;
             ops.push(Op::MovImm { dst: VReg(rd), imm });
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFF0_0F00) == 0xE3E0_0000 && (w & 0x0000_00FF) == 0 {
+            // mvn rd, #0 → rd = -1 (encoder's MovImm{0xFFFFFFFF} form, llvm-mc verified).
+            let rd = (w >> 12) & 0xf;
+            ops.push(Op::MovImm { dst: VReg(rd), imm: 0xFFFF_FFFF });
             i += 4;
             continue;
         }
@@ -579,6 +847,31 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // str wX,[sp,#-4]! / ldr wX,[sp],#4 — single-word stack ops (llvm-mc verified).
+        if (w & 0xFFFF_FFE0) == 0xB81F_CFE0 {
+            ops.push(Op::Push { src: VReg(w & 0x1f) });
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFFF_FFE0) == 0xB840_47E0 {
+            ops.push(Op::Pop { dst: VReg(w & 0x1f) });
+            i += 4;
+            continue;
+        }
+        if (w >> 26) == 0x05 {
+            // b +imm26 — displacement scaled by 4.
+            let imm = ((w & 0x03FF_FFFF) << 6) as i32 >> 6;
+            ops.push(Op::JmpRel { rel: imm << 2, target: None, symbol: None });
+            i += 4;
+            continue;
+        }
+        if (w >> 26) == 0x25 {
+            // bl +imm26.
+            let imm = ((w & 0x03FF_FFFF) << 6) as i32 >> 6;
+            ops.push(Op::CallRel { rel: imm << 2, target: None, symbol: None });
+            i += 4;
+            continue;
+        }
         if (w & 0xFFFF_FFE0) == 0x2A1F_03E0 {
             // ORR Wd, WZR, WZR (MOV Wd, WZR) — encoder Clear.
             ops.push(Op::Clear { dst: VReg(w & 0x1f) });
@@ -589,6 +882,12 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             // MOVZ Wd, #imm16 — encoder MovImm.
             let imm = (w >> 5) & 0xffff;
             ops.push(Op::MovImm { dst: VReg(w & 0x1f), imm });
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFFF_FFE0) == 0x1280_0000 {
+            // MOVN Wd, #0 → Wd = -1 (encoder's MovImm{0xFFFFFFFF} form, llvm-mc verified).
+            ops.push(Op::MovImm { dst: VReg(w & 0x1f), imm: 0xFFFF_FFFF });
             i += 4;
             continue;
         }
@@ -758,13 +1057,27 @@ fn decode_x86(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 ops.push(Op::Dec { dst: VReg((b & 7) as u32) });
                 i += 1;
             }
-            0x50..=0x57 => {
+             0x50..=0x57 => {
                 ops.push(Op::Push { src: VReg((b & 7) as u32) });
                 i += 1;
             }
             0x58..=0x5F => {
                 ops.push(Op::Pop { dst: VReg((b & 7) as u32) });
                 i += 1;
+            }
+            0xE8 => {
+                // call rel32 — displacement relative to the NEXT instruction.
+                need(i, 5, "x86 call")?;
+                let rel = i32::from_le_bytes(bytes[i + 1..i + 5].try_into().unwrap());
+                ops.push(Op::CallRel { rel, target: None, symbol: None });
+                i += 5;
+            }
+            0xE9 => {
+                // jmp rel32.
+                need(i, 5, "x86 jmp")?;
+                let rel = i32::from_le_bytes(bytes[i + 1..i + 5].try_into().unwrap());
+                ops.push(Op::JmpRel { rel, target: None, symbol: None });
+                i += 5;
             }
             other => {
                 ops.push(Op::Unknown {
@@ -794,6 +1107,86 @@ fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         if w == 0x01000000 {
             ops.push(Op::Nop); // sethi %hi(0), %g0
             i += 4;
+            continue;
+        }
+        let op = w >> 30;
+        let op3 = (w >> 19) & 0x3f;
+        let i_bit = (w >> 13) & 1;
+        let rd = (w >> 25) & 0x1f;
+        let rs1 = (w >> 14) & 0x1f;
+        let imm13 = w & 0x1fff;
+        let imm13 = if imm13 & 0x1000 != 0 { (imm13 as i32 - 0x2000) } else { imm13 as i32 };
+        // Push/Pop idiom folds (sp = %o6 = 14): add %sp,-4,%sp; st rd,[%sp] /
+        // ld [%sp],rd; add %sp,4,%sp. Must precede the general add/sub handler.
+        if w == 0x9C03BFFC && i + 8 <= bytes.len() {
+            let w2 = u32::from_be_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if (w2 >> 30) == 3 && (w2 >> 19) & 0x3f == 4
+                && ((w2 >> 14) & 0x1f) == 14 && (w2 >> 13) & 1 == 1 && (w2 & 0x1fff) == 0
+            {
+                let r = (w2 >> 25) & 0x1f;
+                if (16..24).contains(&r) {
+                    ops.push(Op::Push { src: VReg(r - 16) });
+                    i += 8;
+                    continue;
+                }
+            }
+        }
+        if (w >> 30) == 3 && op3 == 0 && rs1 == 14 && i_bit == 1 && imm13 == 0
+            && i + 8 <= bytes.len()
+        {
+            let w2 = u32::from_be_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if w2 == 0x9C03A004 && (16..24).contains(&rd) {
+                ops.push(Op::Pop { dst: VReg(rd - 16) });
+                i += 8;
+                continue;
+            }
+        }
+        if op == 2 && (op3 == 0 || op3 == 4) && i_bit == 1 && rd == rs1 && (16..24).contains(&rd) {
+            // add/sub %rd, imm13, %rd — SIR arith on the %l0..%l7 window.
+            if op3 == 4 {
+                ops.push(arith(VReg(rd - 16), -imm13));
+            } else {
+                ops.push(arith(VReg(rd - 16), imm13));
+            }
+            i += 4;
+            continue;
+        }
+        if op == 1 {
+            // call disp30 — encoder appends the delay-slot nop (fold it).
+            let disp = (w & 0x3FFF_FFFF) as i32;
+            let disp = if disp & 0x2000_0000 != 0 { disp - 0x4000_0000 } else { disp };
+            ops.push(Op::CallRel { rel: disp << 2, target: None, symbol: None });
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0x01000000 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "call delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
+            continue;
+        }
+        if op == 0 && ((w >> 25) & 0xf) == 8 && ((w >> 22) & 7) == 2 {
+            // ba disp22 — unconditional branch, delay-slot nop appended.
+            let disp = w & 0x3F_FFFF;
+            let disp = if disp & 0x20_0000 != 0 { (disp as i32 - 0x40_0000) } else { disp as i32 };
+            ops.push(Op::JmpRel { rel: disp << 2, target: None, symbol: None });
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0x01000000 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "branch delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
             continue;
         }
         if w == 0x81C3E008 {
@@ -1040,8 +1433,9 @@ mod tests {
             ops,
             vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::Clear { dst: VReg(0) }, Op::Ret]
         );
-        // add eax,2 is an encode gap, not a pass.
-        assert!(encode_module(&lift_x86_32(&[0x83, 0xC0, 0x02], "g").unwrap(), TargetIsa::Sparc).is_err());
+        // add eax,2 now encodes (add %l0,2,%l0) and round-trips.
+        let ops = roundtrip(&[0x83, 0xC0, 0x02, 0xC3], TargetIsa::Sparc).unwrap();
+        assert_eq!(ops, vec![Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]);
     }
 
     #[test]

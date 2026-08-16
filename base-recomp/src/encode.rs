@@ -88,10 +88,18 @@ fn encode_x86(op: &Op) -> Result<Vec<u8>, EncodeError> {
                 "LdMem/StMem with dst/src != eax or offset/width outside subset".into(),
             ))
         }
-        Op::CallRel { symbol: Some(_), .. } | Op::JmpRel { symbol: Some(_), .. } => {
-            return Err(EncodeError::UnresolvedBranch); // need linker for reloc
+        Op::CallRel { rel, .. } => {
+            // call rel32 — relative to the NEXT instruction (x86 semantics).
+            let mut v = vec![0xE8];
+            v.extend_from_slice(&(*rel as u32).to_le_bytes());
+            v
         }
-        Op::CallRel { .. } | Op::JmpRel { .. } => return Err(EncodeError::UnresolvedBranch),
+        Op::JmpRel { rel, .. } => {
+            // jmp rel32.
+            let mut v = vec![0xE9];
+            v.extend_from_slice(&(*rel as u32).to_le_bytes());
+            v
+        }
         Op::Unknown { .. } => return Err(EncodeError::Unsupported(TargetIsa::X86_64, "Unknown".into())),
     })
 }
@@ -110,6 +118,21 @@ fn encode_arm(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::MovImm { dst, imm } if *imm <= 0xff => {
             let rd = dst.0.min(12);
             enc(0xE3A00000 | (rd << 12) | (*imm & 0xff))
+        }
+        Op::MovImm { dst, imm } if *imm == 0xFFFF_FFFF => {
+            // mvn rd, #0 → rd = -1. ARM MOV Rd,#imm8 cannot hold 0xFFFFFFFF.
+            let rd = dst.0.min(12);
+            enc(0xE3E00000 | (rd << 12))
+        }
+        Op::AddImm { dst, imm } if *imm == 0xFFFF_FFFF => {
+            // add -1 → sub rd, rd, #1.
+            let rd = dst.0.min(12);
+            enc(0xE2400000 | (rd << 12) | (rd << 16) | 1)
+        }
+        Op::SubImm { dst, imm } if *imm == 0xFFFF_FFFF => {
+            // sub -1 → add rd, rd, #1.
+            let rd = dst.0.min(12);
+            enc(0xE2800000 | (rd << 12) | (rd << 16) | 1)
         }
         Op::AddImm { dst, imm } if *imm <= 0xff => {
             let rd = dst.0.min(12);
@@ -139,6 +162,22 @@ fn encode_arm(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // str rd, [rn] — capstone-verified (0xE5810000 = str r0, [r1]).
             enc(0xE5800000 | (rn << 16) | (rd << 12))
         }
+        Op::Push { src } => {
+            // push {rX} = STMDB sp!, {rX} — llvm-mc verified (0xE92D0001 = push {r0}).
+            enc(0xE92D0000 | (1u32 << src.0.min(12)))
+        }
+        Op::Pop { dst } => {
+            // pop {rX} = LDMIA sp!, {rX} — llvm-mc verified (0xE8BD0001 = pop {r0}).
+            enc(0xE8BD0000 | (1u32 << dst.0.min(12)))
+        }
+        Op::CallRel { rel, .. } => {
+            // bl +imm24 (cond=AL, L=1) — llvm-mc verified (0xEB000000 = bl #0).
+            enc(0xEB000000 | ((*rel as u32 >> 2) & 0x00FF_FFFF))
+        }
+        Op::JmpRel { rel, .. } => {
+            // b +imm24 — llvm-mc verified (0xEA000000 = b #0).
+            enc(0xEA000000 | ((*rel as u32 >> 2) & 0x00FF_FFFF))
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Arm,
@@ -161,6 +200,21 @@ fn encode_aarch64(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::MovImm { dst, imm } if *imm <= 0xffff => {
             let wd = dst.0.min(30);
             enc(0x52800000 | ((*imm & 0xffff) << 5) | wd)
+        }
+        Op::MovImm { dst, imm } if *imm == 0xFFFF_FFFF => {
+            // movn wd, #0 → wd = -1 (MOVZ Wd,#imm16 can't hold 0xFFFFFFFF).
+            let wd = dst.0.min(30);
+            enc(0x12800000 | (wd << 5) | wd)
+        }
+        Op::AddImm { dst, imm } if *imm == 0xFFFF_FFFF => {
+            // add -1 → sub wd, wd, #1.
+            let wd = dst.0.min(30);
+            enc(0x51000400 | (wd << 5) | wd)
+        }
+        Op::SubImm { dst, imm } if *imm == 0xFFFF_FFFF => {
+            // sub -1 → add wd, wd, #1.
+            let wd = dst.0.min(30);
+            enc(0x11000400 | (wd << 5) | wd)
         }
         Op::AddImm { dst, imm } if *imm <= 0xfff => {
             let wd = dst.0.min(30);
@@ -189,6 +243,24 @@ fn encode_aarch64(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let wb = base.0.min(30);
             // str wT, [wB] — capstone-verified (0xB9000020 = str w0, [x1]).
             enc(0xB9000000 | (wb << 5) | wt)
+        }
+        Op::Push { src } => {
+            // str wX, [sp, #-4]! (pre-index) — llvm-mc verified (E0 CF 1F B8 = str w0,[sp,#-4]!).
+            let wd = src.0.min(30) as u8;
+            vec![0xE0 | (wd & 0x1F), 0xCF, 0x1F, 0xB8]
+        }
+        Op::Pop { dst } => {
+            // ldr wX, [sp], #4 (post-index) — llvm-mc verified (E0 47 40 B8 = ldr w0,[sp],#4).
+            let wd = dst.0.min(30) as u8;
+            vec![0xE0 | (wd & 0x1F), 0x47, 0x40, 0xB8]
+        }
+        Op::CallRel { rel, .. } => {
+            // bl +imm26 — llvm-mc verified (0x94000000 = bl #0).
+            enc(0x94000000 | ((*rel as u32 >> 2) & 0x03FF_FFFF))
+        }
+        Op::JmpRel { rel, .. } => {
+            // b +imm26 — llvm-mc verified (0x14000000 = b #0).
+            enc(0x14000000 | ((*rel as u32 >> 2) & 0x03FF_FFFF))
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -248,6 +320,33 @@ fn encode_mips(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // sw $rt, imm($rs) — capstone-verified (0xAD280000 = sw $t0, ($t1)).
             enc(0xAC000000 | (rs << 21) | (rt << 16) | (*offset as u16 as u32))
         }
+        Op::Push { src } => {
+            // addiu $sp,$sp,-4 ; sw $t,0($sp) — fold on decode (objdump verified).
+            let t = treg(*src);
+            let mut v = enc(0x27BDFFFC);
+            v.extend(enc(0xAC000000 | (29 << 21) | (t << 16)));
+            v
+        }
+        Op::Pop { dst } => {
+            // lw $t,0($sp) ; addiu $sp,$sp,4 — fold on decode (objdump verified).
+            let t = treg(*dst);
+            let mut v = enc(0x8C000000 | (29 << 21) | (t << 16));
+            v.extend(enc(0x27BD0004));
+            v
+        }
+        Op::CallRel { rel, .. } => {
+            // jal — 26-bit field = target>>2; PC upper bits untracked (pseudo-relative).
+            // objdump verified: 0x0C000000 = jal 0. Delay-slot nop appended.
+            let mut v = enc(0x0C000000 | ((*rel as u32 >> 2) & 0x03FF_FFFF));
+            v.extend(enc(0));
+            v
+        }
+        Op::JmpRel { rel, .. } => {
+            // beq $zero,$zero,rel — the PC-relative unconditional jump (objdump: 0x10000000 = b).
+            let mut v = enc(0x10000000 | ((*rel as u32 >> 2) & 0xFFFF));
+            v.extend(enc(0));
+            v
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Mips,
@@ -302,6 +401,26 @@ fn encode_ppc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // stw rS, d(rA) — capstone-verified (0x90640000 = stw r3, 0(r4)).
             enc(0x90000000 | (rs << 21) | (ra << 16) | (*offset as u16 as u32))
         }
+        Op::Push { src } => {
+            // stwu rS, -4(r1) — pre-decrement store is PPC's push (objdump verified
+            // 0x9461FFFC = stwu r3,-4(r1)).
+            let rs = r(*src);
+            enc(0x94000000 | (rs << 21) | (1 << 16) | 0xFFFC)
+        }
+        Op::Pop { dst } => {
+            // lwzu rS, 4(r1) — post-increment load is PPC's pop (objdump verified
+            // 0x84610004 = lwzu r3,4(r1)).
+            let rs = r(*dst);
+            enc(0x84000000 | (rs << 21) | (1 << 16) | 4)
+        }
+        Op::CallRel { rel, .. } => {
+            // bl — LI = rel>>2 (24-bit), AA=0, LK=1 (objdump: 0x48000001 = bl 0).
+            enc(0x48000000 | ((*rel as u32) & 0x03FF_FFFC) | 1)
+        }
+        Op::JmpRel { rel, .. } => {
+            // b — LI = rel>>2, AA=0, LK=0 (objdump: 0x48000000 = b 0).
+            enc(0x48000000 | ((*rel as u32) & 0x03FF_FFFC))
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Ppc,
@@ -344,6 +463,50 @@ fn encode_sparc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // st %rd, [%rs] — op=3, op3=0x04, i=1, imm13=0 (capstone-verified).
             enc(0xC0000000 | (rd << 25) | (4 << 19) | (rs << 14) | 0x2000)
         }
+        Op::AddImm { dst, imm } if (*imm as i32) >= -4096 && (*imm as i32) <= 4095 => {
+            let r = 16 + dst.0.min(7);
+            // add %rd, imm13, %rd — op=2, op3=0, i=1 (llvm-mc verified 0xA0042005).
+            enc(0x80000000 | (r << 25) | (r << 14) | 0x2000 | (*imm as u32 & 0x1FFF))
+        }
+        Op::SubImm { dst, imm } if (*imm as i32) >= -4096 && (*imm as i32) <= 4095 => {
+            let r = 16 + dst.0.min(7);
+            // sub %rd, imm13, %rd — op=2, op3=0x04 (llvm-mc verified 0xA0242005).
+            enc(0x80000000 | (4 << 19) | (r << 25) | (r << 14) | 0x2000 | (*imm as u32 & 0x1FFF))
+        }
+        Op::Inc { dst } => {
+            let r = 16 + dst.0.min(7);
+            enc(0x80000000 | (r << 25) | (r << 14) | 0x2000 | 1) // add %rd, 1, %rd
+        }
+        Op::Dec { dst } => {
+            let r = 16 + dst.0.min(7);
+            enc(0x80000000 | (4 << 19) | (r << 25) | (r << 14) | 0x2000 | 1) // sub %rd, 1, %rd
+        }
+        Op::Push { src } => {
+            let r = 16 + src.0.min(7);
+            // add %sp,-4,%sp ; st %rd,[%sp] — fold on decode (llvm-mc verified).
+            let mut v = enc(0x80000000 | (14 << 25) | (14 << 14) | 0x2000 | 0x1FFC);
+            v.extend(enc(0xC0000000 | (r << 25) | (4 << 19) | (14 << 14) | 0x2000));
+            v
+        }
+        Op::Pop { dst } => {
+            let r = 16 + dst.0.min(7);
+            // ld [%sp],%rd ; add %sp,4,%sp — fold on decode (llvm-mc verified).
+            let mut v = enc(0xC0000000 | (r << 25) | (14 << 14) | 0x2000);
+            v.extend(enc(0x80000000 | (14 << 25) | (14 << 14) | 0x2000 | 4));
+            v
+        }
+        Op::CallRel { rel, .. } => {
+            // call disp30 — delay-slot nop appended (llvm-mc verified 0x40000000 = call 0).
+            let mut v = enc(0x40000000 | ((*rel as u32 >> 2) & 0x3FFF_FFFF));
+            v.extend(enc(0x01000000));
+            v
+        }
+        Op::JmpRel { rel, .. } => {
+            // ba disp22 — delay-slot nop appended (llvm-mc verified 0x10800000 = ba 0).
+            let mut v = enc(0x10800000 | ((*rel as u32 >> 2) & 0x3F_FFFF));
+            v.extend(enc(0x01000000));
+            v
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Sparc,
@@ -362,15 +525,16 @@ fn encode_superh(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend(h(0x0009)); // delay nop
             v
         }
-        Op::MovImm { dst, imm } if *imm <= 0x7f => {
+        // mov/add #imm8 sign-extend (SH has no sub-immediate — Sub/Dec fold through add).
+        Op::MovImm { dst, imm } if (*imm as i8 as u32) == *imm => {
             let n = dst.0.min(15) as u16;
-            h(0xE000 | (n << 8) | (*imm as u16 & 0xff))
+            h(0xE000 | (n << 8) | (*imm as u8 as u16))
         }
-        Op::AddImm { dst, imm } if *imm <= 0x7f => {
+        Op::AddImm { dst, imm } if (*imm as i8 as u32) == *imm => {
             let n = dst.0.min(15) as u16;
-            h(0x7000 | (n << 8) | (*imm as u16 & 0xff))
+            h(0x7000 | (n << 8) | (*imm as u8 as u16))
         }
-        Op::SubImm { dst, imm } if *imm <= 0x7f => {
+        Op::SubImm { dst, imm } if (*imm as i8 as u32) == *imm => {
             let n = dst.0.min(15) as u16;
             let neg = (-(*imm as i8)) as u8 as u16;
             h(0x7000 | (n << 8) | neg)
@@ -386,6 +550,41 @@ fn encode_superh(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Dec { dst } => {
             let n = dst.0.min(15) as u16;
             h(0x7000 | (n << 8) | 0xff)
+        }
+        Op::LdMem { dst, base, offset, width } if *offset == 0 && *width == 4 => {
+            // mov.l @Rm, Rn — 0101nnnnmmmm0000. objdump: 0x5010 = mov.l @r1,r0.
+            let n = dst.0.min(15) as u16;
+            let m = base.0.min(15) as u16;
+            h(0x5000 | (n << 8) | (m << 4))
+        }
+        Op::StMem { src, base, offset, width } if *offset == 0 && *width == 4 => {
+            // mov.l Rn, @Rm — 0010nnnnmmmm0010. objdump: 0x2102 = mov.l r0,@r1.
+            let n = src.0.min(15) as u16;
+            let m = base.0.min(15) as u16;
+            h(0x2000 | (m << 8) | (n << 4) | 0x2)
+        }
+        Op::Push { src } => {
+            // mov.l Rn, @-r15 — 0010nnnnmmmm0110 with base r15. objdump: 0x2F06.
+            let n = src.0.min(15) as u16;
+            h(0x2000 | (15 << 8) | (n << 4) | 0x6)
+        }
+        Op::Pop { dst } => {
+            // mov.l @r15+, Rn — 0101nnnnmmmm0110 with src r15 (SH-4 manual; binutils SH
+            // labels the 0110 post-increment form as a displacement — documented quirk).
+            let n = dst.0.min(15) as u16;
+            h(0x5000 | (n << 8) | (15 << 4) | 0x6)
+        }
+        Op::CallRel { rel, .. } => {
+            // bsr disp12 — delay-slot nop appended (objdump: 0xB000 = bsr 0x4).
+            let mut v = h(0xB000 | ((*rel as u16 >> 1) & 0xFFF));
+            v.extend(h(0x0009));
+            v
+        }
+        Op::JmpRel { rel, .. } => {
+            // bra disp12 — delay-slot nop appended (objdump: 0xA000 = bra 0x4).
+            let mut v = h(0xA000 | ((*rel as u16 >> 1) & 0xFFF));
+            v.extend(h(0x0009));
+            v
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -442,6 +641,29 @@ fn encode_alpha(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let rb = r(*base);
             // stq ra, disp(rb) — Alpha memory format (opcode 0x2D << 26).
             enc((0x2D << 26) | (ra << 21) | (rb << 16) | (*offset as u16 as u32))
+        }
+        Op::Push { src } => {
+            let ra = r(*src);
+            // lda r30,-8(r30) ; stq ra,0(r30) — 8-byte stack slot (objdump verified:
+            // F8 FF DE 23 = lda sp,-8(sp); 00 00 1E B4 = stq r0,0(sp)). Fold on decode.
+            let mut v = enc(0x20000000 | (30 << 21) | (30 << 16) | 0xFFF8);
+            v.extend(enc((0x2D << 26) | (ra << 21) | (30 << 16)));
+            v
+        }
+        Op::Pop { dst } => {
+            let ra = r(*dst);
+            // ldq ra,0(r30) ; lda r30,8(r30) — fold on decode (objdump verified).
+            let mut v = enc((0x29 << 26) | (ra << 21) | (30 << 16));
+            v.extend(enc(0x20000000 | (30 << 21) | (30 << 16) | 8));
+            v
+        }
+        Op::CallRel { rel, .. } => {
+            // bsr $26, disp — opcode 0x34, disp21 scaled by 4 (objdump: 0xD3400000 = bsr ra,0).
+            enc((0x34 << 26) | (26 << 21) | ((*rel as u32 >> 2) & 0x1F_FFFF))
+        }
+        Op::JmpRel { rel, .. } => {
+            // br $31, disp — opcode 0x30 (objdump: 0xC3E00000 = br zero,0).
+            enc((0x30 << 26) | (31 << 21) | ((*rel as u32 >> 2) & 0x1F_FFFF))
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -542,6 +764,18 @@ fn encode_coldfire(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let an = base.0.min(7) as u16;
             let dn = d(*src);
             be(0x2080 | (an << 9) | dn)
+        }
+        Op::CallRel { rel, .. } => {
+            // bsr.w disp16 — 0x61 0x00 + word16 (objdump: 0x61000000 = bsrw 0x6).
+            let mut v = be(0x6100);
+            v.extend_from_slice(&(*rel as i16 as u16).to_be_bytes());
+            v
+        }
+        Op::JmpRel { rel, .. } => {
+            // bra.w disp16 — 0x60 0x00 + word16 (objdump: 0x60000000 = braw 0x2).
+            let mut v = be(0x6000);
+            v.extend_from_slice(&(*rel as i16 as u16).to_be_bytes());
+            v
         }
         other => {
             return Err(EncodeError::Unsupported(

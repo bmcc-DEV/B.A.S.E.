@@ -122,7 +122,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "branch via CTR/LR; no branch delay slot",
             "exceptions/MMU via MSR + BAT/SLB",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
+        EncodeStatus::Full,
     ),
     s(
         "mips",
@@ -148,7 +148,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "$zero reads 0; hi/lo for multiply/divide",
             "CP0 for MMU/exceptions; bi-endian (big default)",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
+        EncodeStatus::Full,
     ),
     s(
         "alpha",
@@ -174,7 +174,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "r31 reads as 0; writes to r31 ignored",
             "PALcode (call_pal) for privileged/arch-specific ops",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
+        EncodeStatus::Full,
     ),
     s(
         "parisc",
@@ -225,7 +225,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "bi-endian; newer cores BE8",
             "v4–v8 spanned: M-profile, A-profile, R-profile",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
+        EncodeStatus::Full,
     ),
     s(
         "m88k",
@@ -303,7 +303,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "traps are the exception mechanism (ta/tret)",
             "V8 32-bit; V9 64-bit with %asi address spaces",
         ],
-        EncodeStatus::Partial("Nop, Ret, Clear, MovImm, LdMem, StMem"),
+        EncodeStatus::Full,
     ),
     s(
         "i860",
@@ -356,7 +356,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "return address on stack — no link register",
             "D0–D7 data + A0–A7 address registers",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem"),
+        EncodeStatus::Full,
     ),
     s(
         "superh",
@@ -382,7 +382,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "pr register for return (rts)",
             "SH-1/2/3/4 flavors; Saturn SH-2 · Dreamcast SH-4",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec"),
+        EncodeStatus::Full,
     ),
 ];
 

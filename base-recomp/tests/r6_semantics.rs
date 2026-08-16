@@ -72,9 +72,24 @@ fn new_isa_encode_partial_or_pending() {
 
 #[test]
 fn encode_status_matches_reality() {
-    // Alpha/PA-RISC/ColdFire encode a subset; M88k/IA-64/i860 are text-only.
-    let alpha = base_recomp::semantics::for_isa(TargetIsa::Alpha).unwrap();
-    assert!(matches!(alpha.encode_status, EncodeStatus::Partial(_)));
+    // 10 of 11 preserved ISAs now encode the full lifted SIR op subset (Full);
+    // PA-RISC is Partial (Nop/Ret only); M88k/IA-64/i860 are text-only.
+    for t in [
+        TargetIsa::Alpha,
+        TargetIsa::ColdFire,
+        TargetIsa::Ppc,
+        TargetIsa::Mips,
+        TargetIsa::Arm,
+        TargetIsa::AArch64,
+        TargetIsa::Sparc,
+        TargetIsa::SuperH(SuperHFlavor::Sh4),
+        TargetIsa::X86_64,
+    ] {
+        let s = base_recomp::semantics::for_isa(t).unwrap();
+        assert!(matches!(s.encode_status, EncodeStatus::Full), "{t} should be Full");
+    }
+    let parisc = base_recomp::semantics::for_isa(TargetIsa::PaRisc).unwrap();
+    assert!(matches!(parisc.encode_status, EncodeStatus::Partial(_)));
 
     let m88k = base_recomp::semantics::for_isa(TargetIsa::M88k).unwrap();
     assert!(matches!(m88k.encode_status, EncodeStatus::None(_)));

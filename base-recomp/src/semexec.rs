@@ -201,16 +201,19 @@ pub fn execute(
                 st.gpr[i] = st.gpr[i].wrapping_sub(1) & m;
             }
             Op::Push { src } => {
-                let addr = st.gpr(SP).wrapping_sub(4);
+                // Stack slot = the ISA's word width (Alpha pushes 8-byte slots).
+                let slot = stack_slot(width);
+                let addr = st.gpr(SP).wrapping_sub(slot);
                 let value = st.gpr(src.0);
-                st.store(addr, 4, endian, value).map_err(ExecError::Memory)?;
+                st.store(addr, slot as u8, endian, value).map_err(ExecError::Memory)?;
                 st.gpr[SP as usize] = addr;
             }
             Op::Pop { dst } => {
+                let slot = stack_slot(width);
                 let addr = st.gpr(SP);
-                let value = st.load(addr, 4, endian).map_err(ExecError::Memory)?;
+                let value = st.load(addr, slot as u8, endian).map_err(ExecError::Memory)?;
                 st.gpr[dst.0 as usize % 32] = value;
-                st.gpr[SP as usize] = addr.wrapping_add(4);
+                st.gpr[SP as usize] = addr.wrapping_add(slot);
             }
             Op::LdMem { dst, base, offset, width } => {
                 let addr = st.gpr(base.0).wrapping_add_signed(*offset as i64);
@@ -222,10 +225,29 @@ pub fn execute(
                 let value = st.gpr(src.0);
                 st.store(addr, *width, endian, value).map_err(ExecError::Memory)?;
             }
+            // Unified stack-call model: push the return address, jump to target.
+            // Per-ISA link-register behavior is ABI modeling (separate axis) — both
+            // sides of a differential run the *same* decoded op, so the model is
+            // internally consistent. `target` wins over `rel` when both are present.
+            Op::CallRel { rel, target, .. } => {
+                let slot = stack_slot(width);
+                let addr = st.gpr(SP).wrapping_sub(slot);
+                st.store(addr, slot as u8, endian, st.pc).map_err(ExecError::Memory)?;
+                st.gpr[SP as usize] = addr;
+                st.pc = target.unwrap_or(st.pc.wrapping_add(*rel as i64 as u64));
+            }
+            Op::JmpRel { rel, target, .. } => {
+                st.pc = target.unwrap_or(st.pc.wrapping_add(*rel as i64 as u64));
+            }
             other => return Err(ExecError::Unsupported(op_kind(other))),
         }
     }
     Ok(())
+}
+
+/// Stack slot size in bytes: the ISA's word width (Alpha 8, the rest 4).
+fn stack_slot(width: u8) -> u64 {
+    if width == 64 { 8 } else { 4 }
 }
 
 /// Execute with the *target ISA's* semantics: reference semantics at the ISA's word
@@ -576,11 +598,19 @@ mod tests {
 
     #[test]
     fn unsupported_ops_are_gaps_not_passes() {
-        let ops = vec![Op::CallRel { rel: 0, target: Some(0), symbol: Some("f".into()) }];
+        // Unknown is the only op the executor does not model — a gap, never a pass.
+        let ops = vec![Op::Unknown { offset: 0, bytes: vec![0x0F], note: "x".into() }];
         let state = MachineState::new();
         let r = differential_ops(ops, TargetIsa::Mips, &state);
         assert!(!r.matched());
-        assert_eq!(r.exec_error, Some(ExecError::Unsupported("call")));
+        assert_eq!(r.exec_error, Some(ExecError::Unsupported("gap")));
+        // The unified stack-call model now executes call/jmp (pc jumps to target).
+        // Only `rel` round-trips through the encoding — target is link metadata.
+        let call = vec![Op::CallRel { rel: 0, target: Some(0), symbol: Some("f".into()) }];
+        let state = MachineState::new().with_gpr(SP, 0x8000);
+        let r = differential_ops(call, TargetIsa::Mips, &state);
+        assert!(r.matched(), "call now executes: {r:?}");
+        assert_eq!(r.isa.pc, 0);
     }
 
     #[test]

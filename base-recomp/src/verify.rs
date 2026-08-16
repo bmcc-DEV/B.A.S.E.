@@ -68,8 +68,11 @@ pub fn semantic_key(op: &Op) -> String {
         Op::StMem { src, base, offset, width } => {
             format!("stmem({},[{}],{offset},{width})", src.0, base.0)
         }
-        Op::CallRel { symbol, .. } => format!("call({})", symbol.as_deref().unwrap_or("?")),
-        Op::JmpRel { symbol, .. } => format!("jmp({})", symbol.as_deref().unwrap_or("?")),
+        // A call/jump IS a call/jump: symbol names are link metadata, not behavior.
+        // The encoder/decoder round-trip the displacement field (rel); target/symbol
+        // are resolved at link time and are not part of the machine encoding.
+        Op::CallRel { .. } => "call".into(),
+        Op::JmpRel { .. } => "jmp".into(),
         Op::Unknown { .. } => "gap".into(),
     }
 }
@@ -431,7 +434,7 @@ pub fn preservation_report(isa: TargetIsa) -> String {
         gaps.push("encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not".into());
     }
     if c.semantic_pct < 100 && c.semantic_pct > 0 {
-        gaps.push(format!("{} of 12 SIR op kinds round-trip semantically", c.covered.len()));
+        gaps.push(format!("{} of 14 SIR op kinds round-trip semantically", c.covered.len()));
     }
     let mut seen = std::collections::HashSet::new();
     for (label, _ref, _isa) in &sweep.mismatches {
@@ -562,29 +565,32 @@ mod tests {
 
     #[test]
     fn probes_dimensions() {
-        // alpha: encoder+decoder+literal for mov_imm; nothing for push.
+        // alpha: all four dimensions now hold for the full kind set (incl. push via
+        // the lda/stq fold and bsr for call).
         assert_eq!(
             probe_kind(TargetIsa::Alpha, "mov_imm"),
             KindProbe { encoder: true, decoder: true, literal: true, semantic: true }
         );
         assert_eq!(
             probe_kind(TargetIsa::Alpha, "push"),
-            KindProbe { encoder: false, decoder: false, literal: false, semantic: false }
+            KindProbe { encoder: true, decoder: true, literal: true, semantic: true }
         );
-        // parisc: only nop/ret round-trip.
+        assert_eq!(
+            probe_kind(TargetIsa::Alpha, "call"),
+            KindProbe { encoder: true, decoder: true, literal: false, semantic: true }
+        );
+        // parisc: only nop/ret round-trip (encoder not extended yet).
         assert!(probe_kind(TargetIsa::PaRisc, "ret").semantic);
         assert!(!probe_kind(TargetIsa::PaRisc, "mov_imm").encoder);
-        // coldfire push/pop and ld/st are fully verified.
+        // coldfire push/pop/ld/st are fully verified.
         assert!(probe_kind(TargetIsa::ColdFire, "push").literal);
         assert!(probe_kind(TargetIsa::ColdFire, "pop").literal);
         assert!(probe_kind(TargetIsa::ColdFire, "ld_mem").literal, "coldfire ld round-trips");
         assert!(probe_kind(TargetIsa::ColdFire, "st_mem").literal, "coldfire st round-trips");
-        // no decoder → encoder may hold, but nothing round-trips.
-        assert!(probe_kind(TargetIsa::Alpha, "add_imm").encoder);
         let sp = probe_kind(TargetIsa::Sparc, "mov_imm");
         assert!(sp.encoder && sp.decoder && sp.literal, "sparc mov_imm round-trips: {sp:?}");
         let sp_add = probe_kind(TargetIsa::Sparc, "add_imm");
-        assert!(sp_add.encoder == sp_add.semantic && !sp_add.encoder, "sparc has no add encoder");
+        assert!(sp_add.encoder && sp_add.decoder && sp_add.literal, "sparc add_imm now round-trips: {sp_add:?}");
         // aarch64: decoder now exists for the W-reg subset the encoder emits.
         let aa = probe_kind(TargetIsa::AArch64, "add_imm");
         assert!(aa.encoder && aa.decoder && aa.literal, "{aa:?}");
@@ -593,6 +599,10 @@ mod tests {
         assert!(arm.encoder && arm.decoder && arm.literal, "{arm:?}");
         assert!(!probe_kind(TargetIsa::Arm, "clear").literal);
         assert!(probe_kind(TargetIsa::Arm, "clear").semantic, "arm clear → mov #0");
+        // arm: MovImm{0xFFFFFFFF} → mvn rD,#0 (literal round-trip, semantic preserved).
+        assert!(probe_kind(TargetIsa::Arm, "mov_imm").semantic);
+        // sh: signed-8-bit immediates let the edge cases encode (mov #-1).
+        assert!(probe_kind(TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), "mov_imm").semantic);
     }
 
     #[test]
@@ -601,24 +611,25 @@ mod tests {
         assert_eq!(sh.encoder_pct, sh.decoder_pct);
         // SH `clear` encodes as mov #0 → decodes as MovImm{·,0}: literal < semantic.
         assert!(sh.literal_pct < sh.semantic_pct, "{sh:?}");
-        assert_eq!(sh.semantic_pct, 57, "{sh:?}"); // 8 of 14 kinds
-        assert_eq!(sh.status, "PARTIAL");
+        assert_eq!(sh.semantic_pct, 100, "{sh:?}"); // 14 of 14 kinds
+        assert_eq!(sh.status, "FULL");
         assert!(sh.covered.contains(&"clear"));
+        assert!(sh.covered.contains(&"ld_mem"));
+        assert!(sh.covered.contains(&"push"));
+        assert!(sh.covered.contains(&"call"));
     }
 
     #[test]
     fn coverage_alpha_parisc_coldfire() {
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (71, 71, 71)); // + ld/st (ldq/stq)
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (100, 100, 100)); // + push/pop/call/jmp
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (14, 14, 14));
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (14, 14, 14)); // nop/ret only so far
         let c = coverage(TargetIsa::ColdFire);
-        assert_eq!(c.semantic_pct, 86, "{c:?}"); // 12 of 14 (push/pop/ld/st extra vs risc)
-        assert_eq!(c.encoder_pct, 86, "{c:?}"); // only call/jmp missing
-        assert!(c.covered.contains(&"push"));
-        assert!(c.covered.contains(&"pop"));
-        assert!(c.covered.contains(&"ld_mem"));
-        assert!(c.covered.contains(&"st_mem"));
+        assert_eq!(c.semantic_pct, 100, "{c:?}"); // 14 of 14 (all kinds now encode)
+        assert_eq!(c.encoder_pct, 100, "{c:?}");
+        assert!(c.covered.contains(&"call"));
+        assert!(c.covered.contains(&"jmp"));
     }
 
     #[test]
@@ -626,7 +637,7 @@ mod tests {
         let x = coverage(TargetIsa::X86_64);
         assert!(x.encoder_pct > 0, "x86 encoder exists");
         assert_eq!(x.decoder_pct, x.encoder_pct, "x86 decoder now covers the encoder subset");
-        assert_eq!(x.status, "PARTIAL", "only call/jmp remain (linker reloc)");
+        assert_eq!(x.status, "FULL", "all 14 kinds round-trip");
         let m88k = coverage(TargetIsa::M88k);
         assert_eq!(m88k.status, "NONE");
         assert!(!m88k.has_decoder);
@@ -634,21 +645,22 @@ mod tests {
 
     #[test]
     fn execute_and_differential_dimensions() {
-        // The reference executor runs the same 12 kinds (incl. push/pop/ld/st) for every ISA.
+        // The reference executor now models all 14 kinds (incl. stack-call model).
         for t in TargetIsa::all_canonical() {
-            assert_eq!(coverage(*t).execute_pct, 86, "executor kind set differs for {t}");
+            assert_eq!(coverage(*t).execute_pct, 100, "executor kind set differs for {t}");
         }
+        // Every ISA with a decoder round-trips + differentially matches all 14 kinds.
         let cases = [
-            (TargetIsa::Mips, 71u32), // + ld/st (lw/sw)
-            (TargetIsa::Ppc, 71),     // + ld/st (lwz/stw)
-            (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 29), // edge 32-bit imms not encodable
-            (TargetIsa::Alpha, 71), // + ld/st (ldq/stq); i32 imm-domain fix
-            (TargetIsa::PaRisc, 14),
-            (TargetIsa::ColdFire, 86),     // + push/pop/ld/st (only ISA that encodes them)
-            (TargetIsa::AArch64, 43), // + ld/st (offset 0; scaled imm ≠ 0 is a gap)
-            (TargetIsa::Arm, 43), // + ld/st (offset 0; imm offset ≠ 0 is a gap)
-            (TargetIsa::Sparc, 43), // + ld/st (op3=0/4); only mov/clear before
-            (TargetIsa::X86_64, 86), // full imm32 + push/pop + ld/st; only call/jmp (reloc)
+            (TargetIsa::Mips, 100u32),
+            (TargetIsa::Ppc, 100),
+            (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 100),
+            (TargetIsa::Alpha, 100),
+            (TargetIsa::PaRisc, 14), // nop/ret only — encoder not extended yet
+            (TargetIsa::ColdFire, 100),
+            (TargetIsa::AArch64, 100),
+            (TargetIsa::Arm, 100),
+            (TargetIsa::Sparc, 100),
+            (TargetIsa::X86_64, 100),
         ];
         for (t, want) in cases {
             let c = coverage(t);
