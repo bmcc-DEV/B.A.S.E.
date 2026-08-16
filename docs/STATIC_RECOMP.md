@@ -27,7 +27,8 @@ flags, ABI e quirks (fonte: `base-recomp/src/semantics.rs`).
 
 | ISA | Encoder (`encode`) | Decoder (`verify`) |
 |-----|--------------------|--------------------|
-| x86_64, SPARC | subset (ops liftadas) | — (pendente) |
+| x86_64 | subset (ops liftadas) | — (pendente) |
+| **SPARC** | `Nop, Ret, MovImm, Clear` (%l0..%l7, BE) | ✅ round-trip |
 | **ARM** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (imm8, cond AL) | ✅ round-trip |
 | **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (W-regs, LE) | ✅ round-trip |
 | **Alpha** (DEC AXP) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` | ✅ round-trip |
@@ -70,6 +71,7 @@ coldfire: 256 aplicáveis · 256 match · 0 mismatches   (incl. push/pop)
 mips:     176 aplicáveis · 176 match · 0 mismatches
 aarch64:  136 aplicáveis · 136 match · 0 mismatches
 arm:      104 aplicáveis · 104 match · 0 mismatches
+sparc:     56 aplicáveis ·  56 match · 0 mismatches
 alpha:    176 aplicáveis · 160 match · 16 mismatches  (só add/sub_imm negativos — gap documentado)
 ```
 
@@ -86,6 +88,7 @@ ser lido como "80% do MIPS preservado":
 | coldfire | 83% | 83% | 83% | 83% | 83% | 83% | PARTIAL |
 | aarch64  | 67% | 67% | 67% | 67% | 83% | 33% | PARTIAL |
 | arm      | 67% | 67% | 58% | 67% | 83% | 33% | PARTIAL |
+| sparc    | 33% | 33% | 33% | 33% | 83% | 33% | PARTIAL |
 | x86_64   | 83% |  0% |  0% |  0% | 83% |  0% | PENDING |
 | m88k     |  0% |  0% |  0% |  0% | 83% |  0% | NONE    |
 ```
@@ -96,7 +99,8 @@ há desvio de comportamento de largura (Alpha). AArch64/ARM: `differential` 33% 
 immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit)/ADD (12-bit) nem em ARM imm8
 — mesma limitação honesta do SH; ARM `literal < semantic` porque `Clear` vira `MOV #0`;
 formas fora do subset (ARM rotate/S=1, AArch64 `lsl #12`) são gaps, nunca mis-decode.
-`exec` mede o executor de referência
+SPARC: encoder cobre só `Nop/Ret/MovImm/Clear` (%l0..%l7); imm13 sign-extend faz o edge
+`0xFFFFFFFF` (= −1) encodar — differential 33%. `exec` mede o executor de referência
 (incl. push/pop; independente do ISA). `abi`/`privileged`/`mmu`/`system` são eixos
 separados, todos `0%` (não modelados) — a tabela deixa isso explícito.
 

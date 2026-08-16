@@ -554,6 +554,7 @@ mod tests {
             TargetIsa::ColdFire,
             TargetIsa::AArch64,
             TargetIsa::Arm,
+            TargetIsa::Sparc,
         ] {
             let s = differential_sweep(t);
             assert!(s.all_match(), "unexpected sweep mismatch for {t}: {:?}", s.mismatches.first());

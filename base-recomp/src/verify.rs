@@ -417,7 +417,9 @@ mod tests {
         // no decoder → encoder may hold, but nothing round-trips.
         assert!(probe_kind(TargetIsa::Alpha, "add_imm").encoder);
         let sp = probe_kind(TargetIsa::Sparc, "mov_imm");
-        assert!(sp.encoder && !sp.semantic, "sparc has no decoder yet");
+        assert!(sp.encoder && sp.decoder && sp.literal, "sparc mov_imm round-trips: {sp:?}");
+        let sp_add = probe_kind(TargetIsa::Sparc, "add_imm");
+        assert!(sp_add.encoder == sp_add.semantic && !sp_add.encoder, "sparc has no add encoder");
         // aarch64: decoder now exists for the W-reg subset the encoder emits.
         let aa = probe_kind(TargetIsa::AArch64, "add_imm");
         assert!(aa.encoder && aa.decoder && aa.literal, "{aa:?}");
@@ -477,6 +479,7 @@ mod tests {
             (TargetIsa::ColdFire, 83),     // + push/pop (only ISA that encodes them)
             (TargetIsa::AArch64, 33), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
             (TargetIsa::Arm, 33), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
+            (TargetIsa::Sparc, 33), // only mov/clear round-trip; imm13 sign-extends (-1 edge fits)
         ];
         for (t, want) in cases {
             let c = coverage(t);

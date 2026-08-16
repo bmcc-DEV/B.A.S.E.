@@ -56,9 +56,14 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
   `ADD`/`SUB Rd,Rd,#imm8` com `rn==rd`. Formas fora do subset (rotate≠0, `ADDS` S=1)
   → gap, nunca mis-decode. ARM: enc/dec/semantic = 67%, literal 58% (Clear→`MOV #0`),
   differential 33% (imm8), sweep 104/104. Sai de `PENDING` → `PARTIAL`
+- **Decoder SPARC** (`decode.rs`) — subset (BE, 32-bit) que inverte o encoder:
+  `sethi %hi(0),%g0` (Nop)/`retl`+delay nop (Ret, fold como MIPS/PPC)/`or %g0,%g0,rd`
+  (Clear)/`or %g0,imm13,rd` (MovImm, sign-extend; `0xFFFFFFFF` = −1 encoda) — registradores
+  %l0..%l7; rd fora da janela → gap. SPARC: enc/dec/literal/semantic/differential = 33%,
+  sweep 56/56. Sai de `PENDING` → `PARTIAL`
 - Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
 - Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
-- Tests: decode ARM + AArch64 (round-trip, clear/inc/dec, shiftado/S/rotate = gap); verify cobertura ARM/AArch64; sweep inclui ARM + AArch64
+- Tests: decode ARM/AArch64/SPARC (round-trip, clear/inc/dec, shiftado/S/rotate/rd-fora = gap); verify cobertura ARM/AArch64/SPARC; sweep inclui ARM/AArch64/SPARC
 
 ### Changed
 - `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9

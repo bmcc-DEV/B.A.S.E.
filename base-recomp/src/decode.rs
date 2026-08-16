@@ -29,6 +29,7 @@ pub fn decode_ops(bytes: &[u8], isa: TargetIsa) -> Result<Vec<Op>, DecodeError> 
         TargetIsa::ColdFire => decode_coldfire(bytes),
         TargetIsa::Arm => decode_arm(bytes),
         TargetIsa::AArch64 => decode_aarch64(bytes),
+        TargetIsa::Sparc => decode_sparc(bytes),
         other => Err(DecodeError::NoDecoder(other.to_string())),
     }
 }
@@ -45,6 +46,7 @@ pub fn has_decoder(isa: TargetIsa) -> bool {
             | TargetIsa::ColdFire
             | TargetIsa::Arm
             | TargetIsa::AArch64
+            | TargetIsa::Sparc
     )
 }
 
@@ -493,6 +495,71 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     Ok(ops)
 }
 
+fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 4 <= bytes.len() {
+        let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0x01000000 {
+            ops.push(Op::Nop); // sethi %hi(0), %g0
+            i += 4;
+            continue;
+        }
+        if w == 0x81C3E008 {
+            // retl = jmpl %o7+8, %g0 — encoder appends the delay-slot nop.
+            ops.push(Op::Ret);
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0x01000000 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "retl delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
+            continue;
+        }
+        // or %g0, %g0, rd → Clear (i=0, asi=0, rs2=0). rd in bits 29-25 → %l0..%l7 (16..23).
+        if (w & 0xC1F7_FFFF) == 0x8010_0000 {
+            let rd = (w >> 25) & 0x1f;
+            if (16..24).contains(&rd) {
+                ops.push(Op::Clear { dst: VReg(rd - 16) });
+            } else {
+                ops.push(gap(i, w, "sparc clr rd outside %l0..%l7".into()));
+            }
+            i += 4;
+            continue;
+        }
+        // or %g0, imm13, rd → MovImm (i=1, imm13 sign-extended).
+        if (w & 0xC1F7_E000) == 0x8010_2000 {
+            let rd = (w >> 25) & 0x1f;
+            if !(16..24).contains(&rd) {
+                ops.push(gap(i, w, "sparc mov rd outside %l0..%l7".into()));
+                i += 4;
+                continue;
+            }
+            let imm13 = w & 0x1fff;
+            let imm = if imm13 & 0x1000 != 0 {
+                (imm13 as i32 - 0x2000) as u32
+            } else {
+                imm13
+            };
+            ops.push(Op::MovImm { dst: VReg(rd - 16), imm });
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, format!("sparc word {w:#010x} outside encoder subset")));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("sparc", i as u64));
+    }
+    Ok(ops)
+}
+
 fn gap(offset: usize, word: u32, note: String) -> Op {
     Op::Unknown {
         offset: offset as u64,
@@ -636,6 +703,46 @@ mod tests {
         let w = 0xE290_0001u32;
         let ops = decode_ops(&w.to_le_bytes(), TargetIsa::Arm).unwrap();
         assert!(matches!(ops[0], Op::Unknown { .. }), "S=1 form must be a gap: {ops:?}");
+    }
+
+    #[test]
+    fn sparc_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::Sparc).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        // mov eax,1 ; xor eax,eax (Clear) — only mov/clear are encodable on sparc.
+        let ops = roundtrip(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x31, 0xC0, 0xC3], TargetIsa::Sparc).unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::Clear { dst: VReg(0) }, Op::Ret]
+        );
+        // add eax,2 is an encode gap, not a pass.
+        assert!(encode_module(&lift_x86_32(&[0x83, 0xC0, 0x02], "g").unwrap(), TargetIsa::Sparc).is_err());
+    }
+
+    #[test]
+    fn sparc_mov_clear_roundtrip() {
+        // mov eax,1 ; xor eax,eax (Clear) — both encodable on sparc.
+        let ops = roundtrip(&[0xB8, 0x01, 0x00, 0x00, 0x00, 0x31, 0xC0, 0xC3], TargetIsa::Sparc).unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::Clear { dst: VReg(0) }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn sparc_imm13_sign_extends() {
+        // or %g0, -1, %l0 → mov eax,-1 (i32 0xFFFFFFFF round-trips).
+        let w = 0xA010_3FFFu32; // rd=16 (%l0), imm13 = 0x1FFF = -1
+        let ops = decode_ops(&w.to_be_bytes(), TargetIsa::Sparc).unwrap();
+        assert_eq!(ops[0], Op::MovImm { dst: VReg(0), imm: 0xFFFF_FFFF });
+    }
+
+    #[test]
+    fn sparc_non_l_register_rd_is_a_gap() {
+        // or %g0, %g0, %g0 (rd=0) — outside encoder's %l0..%l7 window.
+        let w = 0x8010_0000u32;
+        let ops = decode_ops(&w.to_be_bytes(), TargetIsa::Sparc).unwrap();
+        assert!(matches!(ops[0], Op::Unknown { .. }), "{ops:?}");
     }
 
     #[test]
