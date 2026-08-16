@@ -89,10 +89,14 @@ semantic     "a forma recuperada tem o mesmo significado?"     (domínio 32-bit 
 differential "ela produz o mesmo estado arquitetural?"         (largura real do ISA)
 ```
 
-O verifier **já pegou bugs reais de encoding** que o round-trip representacional não via:
-PPC `r0` (lê como 0 no RA de `addi`) e ColdFire `Dn` (bits 5-3 sem shift). Eixos
-`abi`/`privileged`/`mmu`/`system` = **0% (não modelados)** — explícito, nunca um score
-único que pareça "80% do MIPS". Fonte: [docs/STATIC_RECOMP.md](docs/STATIC_RECOMP.md) ·
+O verifier **já pegou bugs reais** que o round-trip representacional não via: PPC `r0`
+(lê como 0 no RA de `addi`) e ColdFire `Dn` (bits 5-3 sem shift). E o diferencial
+**revelou e corrigiu** uma inconsistência de modelo: o executor de referência tratava
+immediates SIR como `u32` quando o domínio é `i32` — o "gap de sign-extension" do Alpha
+era isso (encoder LDA já sign-extendia); fix no `semexec` alinhou referência e ISA
+(Alpha differential 50% → 67%, P5). Eixos `abi`/`privileged`/`mmu`/`system` = **0%
+(não modelados)** — explícito, nunca um score único que pareça "80% do MIPS".
+Fonte: [docs/STATIC_RECOMP.md](docs/STATIC_RECOMP.md) ·
 vault [`29 - Path to v1.9`](base-vault/29%20-%20Path%20to%20v1.9/29.00%20-%20Index.md)
 
 ---

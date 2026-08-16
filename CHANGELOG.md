@@ -41,6 +41,11 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
   - **Pegou bug real ColdFire**: `Dn` em bits 5-3 sem `<< 3` no grupo
     addi/subi/clr/addq/subq/push (`clr.l d3` virava `0x4283` = `clr.l (a3)+`) — só D0
     passava no roundtrip antigo (VReg 0); corrigido + teste de reg não-zero
+  - **Fix domínio de immediates no executor de referência**: imeds SIR são `i32`
+    (`semantic_key` documenta), mas `execute()` os tratava como `u32` — o "gap Alpha"
+    (LDA sign-extend vs `+0xFFFFFFFF`) era essa inconsistência. `semexec::execute` agora
+    sign-extende i32 → largura (`0xFFFFFFFF` = −1 a 64 bits); differential Alpha 50% → 67%,
+    sweep 176/176. Provado pelo diferencial: representacional sozinho não vê
   - `semantic_key` normaliza imms para i32 (domínio 32-bit do SIR) — o desvio de largura
     (Alpha 64-bit) fica na dimensão `differential`, não na semântica
 - CLI `base recomp verify --hex … --target <isa>` · `--all` (tabela com enc/dec/literal/semantic/exec/differential) · `--sweep --target <isa>`

@@ -57,9 +57,13 @@ próximo rung). A dimensão `differential` roda cada op kind com imediato de bor
 (`0xFFFFFFFF`) e estado de borda, e só passa se os dois lados deixam o **mesmo estado
 arquitetural**. Isso já pegou um bug real: encoder ColdFire escrevia `Dn` em bits 5-3 sem
 shift (`clr.l d3` viraria `0x4283` = `clr.l (a3)+`) — só `D0` passava; roundtrip antigo
-usava VReg 0 e não via. E documenta o gap do Alpha: LDA com disp negativo faz sign-extend
-a 64 bits — `add -1` real ≠ `add 0xFFFFFFFF` na spec 64-bit; `semantic` (domínio 32-bit)
-passa, `differential` falha.
+usava VReg 0 e não via. E o diferencial **revelou uma inconsistência de modelo** que virou
+fix: o executor de referência tratava imeds SIR como `u32` quando o domínio do SIR é `i32`
+(`AddImm{0xFFFFFFFF}` ≡ `Dec`, diz `semantic_key`). O encoder Alpha (LDA) já sign-extendia
+o disp; o executor somava `+4294967295` — o "gap Alpha" era isso. `semexec::execute` agora
+sign-extende i32 → largura (`0xFFFFFFFF` = −1 a 64 bits); differential Alpha 50% → 67%,
+sweep limpo. O round-trip literal+semântico **combinado ao diferencial** é a única forma
+de provar isso — o representacional sozinho não teria visto nem o ColdFire nem o Alpha.
 
 **Sweep gerado** (`base recomp verify --sweep --target <isa>`) — matriz de programas
 (kinds × imms `{0,1,0x7f,0x80,0x7fff,0x8000,0x7fffffff,0x80000000,0xfffffffe,0xffffffff}` ×
@@ -70,10 +74,10 @@ estados é onde bugs de encoding se escondem:
 coldfire: 256 aplicáveis · 256 match · 0 mismatches   (incl. push/pop)
 x86_64:   256 aplicáveis · 256 match · 0 mismatches   (imm32 total + push/pop)
 mips:     176 aplicáveis · 176 match · 0 mismatches
+alpha:    176 aplicáveis · 176 match · 0 mismatches   (após fix i32 do executor de referência)
 aarch64:  136 aplicáveis · 136 match · 0 mismatches
 arm:      104 aplicáveis · 104 match · 0 mismatches
 sparc:     56 aplicáveis ·  56 match · 0 mismatches
-alpha:    176 aplicáveis · 160 match · 16 mismatches  (só add/sub_imm negativos — gap documentado)
 ```
 
 **Cobertura por dimensão** (`base recomp verify --all`) — nunca um score único que possa
@@ -84,7 +88,7 @@ ser lido como "80% do MIPS preservado":
 | mips     | 67% | 67% | 67% | 67% | 83% | 67% | PARTIAL |
 | ppc      | 67% | 67% | 58% | 67% | 83% | 67% | PARTIAL |
 | sh4      | 67% | 67% | 58% | 67% | 83% | 33% | PARTIAL |
-| alpha    | 67% | 67% | 58% | 67% | 83% | 50% | PARTIAL |
+| alpha    | 67% | 67% | 58% | 67% | 83% | 67% | PARTIAL |
 | parisc   | 17% | 17% | 17% | 17% | 83% | 17% | PARTIAL |
 | coldfire | 83% | 83% | 83% | 83% | 83% | 83% | PARTIAL |
 | aarch64  | 67% | 67% | 67% | 67% | 83% | 33% | PARTIAL |
@@ -95,22 +99,24 @@ ser lido como "80% do MIPS preservado":
 ```
 
 `literal < semantic` acontece quando o encoder normaliza (`Clear`→`mov #0` decodifica como
-`MovImm{·,0}`): o significado preserva-se, a forma não. `semantic > differential` quando
-há desvio de comportamento de largura (Alpha). AArch64/ARM: `differential` 33% porque os
-immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit)/ADD (12-bit) nem em ARM imm8
-— mesma limitação honesta do SH; ARM `literal < semantic` porque `Clear` vira `MOV #0`;
-formas fora do subset (ARM rotate/S=1, AArch64 `lsl #12`) são gaps, nunca mis-decode.
-SPARC: encoder cobre só `Nop/Ret/MovImm/Clear` (%l0..%l7); imm13 sign-extend faz o edge
-`0xFFFFFFFF` (= −1) encodar — differential 33%. x86_64: imm32 total + push/pop dedicados
-→ 83% em todas as dimensões; só `call`/`jmp` faltam (reloc precisa de linker — gap honesto,
-não mis-decode; prefixos/ModRM fora do subset → `Op::Unknown`). `exec` mede o executor de
-referência (incl. push/pop; independente do ISA). `abi`/`privileged`/`mmu`/`system` são
-eixos separados, todos `0%` (não modelados) — a tabela deixa isso explícito.
+`MovImm{·,0}`): o significado preserva-se, a forma não. AArch64/ARM: `differential` 33%
+porque os immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit)/ADD (12-bit) nem em
+ARM imm8 — mesma limitação honesta do SH; ARM `literal < semantic` porque `Clear` vira
+`MOV #0`; formas fora do subset (ARM rotate/S=1, AArch64 `lsl #12`) são gaps, nunca
+mis-decode. SPARC: encoder cobre só `Nop/Ret/MovImm/Clear` (%l0..%l7); imm13 sign-extend
+faz o edge `0xFFFFFFFF` (= −1) encodar — differential 33%. x86_64: imm32 total + push/pop
+dedicados → 83% em todas as dimensões; só `call`/`jmp` faltam (reloc precisa de linker —
+gap honesto, não mis-decode; prefixos/ModRM fora do subset → `Op::Unknown`). Alpha alcança
+67% de differential após o fix do domínio de immediates no executor de referência (ver
+acima). `exec` mede o executor de referência (incl. push/pop; independente do ISA).
+`abi`/`privileged`/`mmu`/`system` são eixos separados, todos `0%` (não modelados) — a
+tabela deixa isso explícito.
 
 Honestidade: `static_recomp_complete: false` — o catálogo é o contrato semântico;
 encode/decoder/executor por ISA são parciais até validados contra cross-as/QEMU. Fixes:
 encoder PPC movido de `r0` para `r3..r31` (r0 lê como 0 no RA de `addi`); encoder
-ColdFire `Dn` em bits 5-3 (`<< 3` no grupo addi/subi/clr/addq/subq/push).
+ColdFire `Dn` em bits 5-3 (`<< 3` no grupo addi/subi/clr/addq/subq/push); executor de
+referência sign-extende imeds SIR (domínio i32) para a largura do ISA.
 
 ## Path v1.9
 

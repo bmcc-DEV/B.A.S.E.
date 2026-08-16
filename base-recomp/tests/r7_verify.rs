@@ -120,9 +120,10 @@ fn add3_differential_matches_behavior() {
 
 #[test]
 fn differential_coverage_separates_width_behavior() {
-    // Alpha 64-bit sign-extension is caught; 32-bit wrapping ISAs agree.
+    // Alpha 64-bit width now agrees (i32 imm domain, sign-extended by LDA and the
+    // reference executor); 32-bit wrapping ISAs agree trivially.
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 50, "{a:?}");
+    assert_eq!(a.differential_pct, 67, "{a:?}");
     let c = coverage(TargetIsa::ColdFire);
     assert_eq!(c.differential_pct, 83, "{c:?}"); // + push/pop, the only ISA that encodes them
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));

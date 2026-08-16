@@ -618,7 +618,7 @@ mod tests {
             (TargetIsa::Mips, 67u32),
             (TargetIsa::Ppc, 67),
             (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 33), // edge 32-bit imms not encodable
-            (TargetIsa::Alpha, 50), // LDA sign-extension on negative adds detected
+            (TargetIsa::Alpha, 67), // imm-domain fix: i32 sign-extend → 64-bit matches
             (TargetIsa::PaRisc, 17),
             (TargetIsa::ColdFire, 83),     // + push/pop (only ISA that encodes them)
             (TargetIsa::AArch64, 33), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
@@ -635,7 +635,7 @@ mod tests {
     }
 
     #[test]
-    fn differential_detects_alpha_sign_extension() {
+    fn differential_alpha_agrees_after_imm_domain_fix() {
         use crate::semexec::differential_ops;
         use crate::semexec::MachineState;
         let state = MachineState::new().with_gpr(26, 0x8000);
@@ -644,7 +644,8 @@ mod tests {
             Op::AddImm { dst: VReg(0), imm: 0xFFFF_FFFF },
             Op::Ret,
         ];
-        assert!(!differential_ops(ops.clone(), TargetIsa::Alpha, &state).matched());
+        // SIR imms are i32; LDA sign-extends; both now mean −1 at 64-bit.
+        assert!(differential_ops(ops.clone(), TargetIsa::Alpha, &state).matched());
         assert!(differential_ops(ops, TargetIsa::Mips, &state).matched());
     }
 
@@ -683,10 +684,9 @@ mod tests {
     #[test]
     fn preservation_report_is_generated_not_prose() {
         let r = preservation_report(TargetIsa::Alpha);
-        assert!(r.contains("Preservation level: P4"));
+        assert!(r.contains("Preservation level: P5"));
         assert!(r.contains("hardware_validated: false"));
         assert!(r.contains("complete: false"));
-        assert!(r.contains("sweep mismatch: add_imm"));
         let m = preservation_matrix();
         assert!(m.contains("| mips |"));
         assert!(m.contains("| coldfire |"));

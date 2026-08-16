@@ -1,5 +1,3 @@
-> **Gerado por `base recomp report` — nunca editar à mão.** Regenerar com `base recomp report` (no repo root) após mudanças de encoder/decoder/semexec.
-
 | ISA | level | codec | semantic | differential |
 |---|---|---|---|---|
 | x86_64 | P5 — Evidence-sealed | enc 83% · dec 83% | 83% | 83% |
@@ -10,7 +8,7 @@
 | sparc | P4 — Behavior-preserved | enc 33% · dec 33% | 33% | 33% |
 | sh2 | P4 — Behavior-preserved | enc 67% · dec 67% | 67% | 33% |
 | sh4 | P4 — Behavior-preserved | enc 67% · dec 67% | 67% | 33% |
-| alpha | P4 — Behavior-preserved | enc 67% · dec 67% | 67% | 50% |
+| alpha | P5 — Evidence-sealed | enc 67% · dec 67% | 67% | 67% |
 | parisc | P3 — Semantic-preserved | enc 17% · dec 17% | 17% | 17% |
 | m88k | P1 — Documented | enc 0% · dec — | 0% | 0% |
 | ia64 | P1 — Documented | enc 0% · dec — | 0% | 0% |
@@ -219,7 +217,7 @@ Architecture Preservation Report
 ================================
 Target: alpha
   family: DEC Alpha (AXP) · word: 64 bit · endian: Little · GPRs: 32 · flags:  · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec")
-Preservation level: P4 — Behavior-preserved
+Preservation level: P5 — Evidence-sealed
 
 Codec:
   encoder+decoder subset: round-trip literal 58% · semantic 67%
@@ -228,13 +226,11 @@ Semantic:
   integer ops: pass (67%)
 
 Differential:
-  sweep 160/176 match · 16 mismatch(es) · differential 50%
+  sweep 176/176 match · 0 mismatch(es) · differential 67%
 
 Known gaps:
   - encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not
   - 8 of 12 SIR op kinds round-trip semantically
-  - sweep mismatch: add_imm:0xfffffffe
-  - sweep mismatch: sub_imm:0xfffffffe
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:

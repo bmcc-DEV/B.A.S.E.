@@ -172,20 +172,24 @@ pub fn execute(
     endian: Endianness,
 ) -> Result<(), ExecError> {
     let m = mask(width);
+    // SIR immediates live in the i32 domain (semantic_key); sign-extend to the ISA's
+    // width so 0xFFFFFFFF means −1 even at 64 bits — the Alpha LDA encoder already does
+    // this. At 32-bit widths the mask makes both interpretations identical.
+    let sx = |imm: u32| (imm as i32) as i64 as u64;
     for op in ops {
         match op {
             Op::Nop => {}
             Op::Ret => st.pc = st.gpr(LINK),
             Op::MovImm { dst, imm } => {
-                st.gpr[dst.0 as usize % 32] = (*imm as u64) & m;
+                st.gpr[dst.0 as usize % 32] = sx(*imm) & m;
             }
             Op::AddImm { dst, imm } => {
                 let i = dst.0 as usize % 32;
-                st.gpr[i] = (st.gpr[i] + (*imm as u64)) & m;
+                st.gpr[i] = st.gpr[i].wrapping_add(sx(*imm)) & m;
             }
             Op::SubImm { dst, imm } => {
                 let i = dst.0 as usize % 32;
-                st.gpr[i] = st.gpr[i].wrapping_sub(*imm as u64) & m;
+                st.gpr[i] = st.gpr[i].wrapping_sub(sx(*imm)) & m;
             }
             Op::Clear { dst } => st.gpr[dst.0 as usize % 32] = 0,
             Op::Inc { dst } => {
@@ -446,6 +450,8 @@ mod tests {
 
     #[test]
     fn width_changes_wrap_behavior() {
+        // SIR imms are i32: MovImm{0xFFFFFFFF} = −1. At 32-bit the mask keeps it as
+        // 0xFFFFFFFF; at 64-bit it is sign-extended to −1 (all ones). Both wrap on Inc.
         let ops = vec![
             Op::MovImm { dst: VReg(0), imm: 0xFFFF_FFFF },
             Op::Inc { dst: VReg(0) },
@@ -455,7 +461,7 @@ mod tests {
         assert_eq!(s32.gpr(0), 0); // 32-bit wrap
         let mut s64 = MachineState::new();
         execute(&ops, &mut s64, 64, Endianness::Little).unwrap();
-        assert_eq!(s64.gpr(0), 0x1_0000_0000); // 64-bit keeps the carry
+        assert_eq!(s64.gpr(0), 0); // −1 all-ones wraps to 0 at 64-bit too
     }
 
     #[test]
@@ -510,9 +516,11 @@ mod tests {
     }
 
     #[test]
-    fn alpha_negative_add_reveals_sign_extension() {
-        // Alpha encodes AddImm{·,0xFFFFFFFF} as LDA (sign-extended −1 → −1); the
-        // 64-bit spec adds +4294967295. The differential must DETECT the mismatch.
+    fn alpha_negative_add_agrees_after_imm_domain_fix() {
+        // SIR imms are i32 (semantic_key). Alpha's LDA sign-extends its disp, so
+        // AddImm{0xFFFFFFFF} means −1 on both sides at 64-bit. The reference executor
+        // now sign-extends too — the historical "gap" was an executor/encoder
+        // inconsistency, not a behavioral deviation.
         let ops = vec![
             Op::MovImm { dst: VReg(0), imm: 0 },
             Op::AddImm { dst: VReg(0), imm: 0xFFFF_FFFF },
@@ -520,10 +528,10 @@ mod tests {
         ];
         let state = MachineState::new().with_gpr(LINK, 0x8000);
         let r = differential_ops(ops.clone(), TargetIsa::Alpha, &state);
-        assert!(!r.matched(), "alpha sign-extension gap must be detected");
-        // At 32-bit width the same ops round-trip exactly (wrap makes them agree).
+        assert!(r.matched(), "alpha 64-bit add -1 must match: {r:?}");
+        assert_eq!(r.reference.gpr(0), 0xFFFF_FFFF_FFFF_FFFF); // −1 at 64-bit
         let m32 = differential_ops(ops, TargetIsa::Mips, &state);
-        assert!(m32.matched(), "mips 32-bit wrap should agree: {m32:?}");
+        assert!(m32.matched(), "mips 32-bit agrees: {m32:?}");
     }
 
     #[test]
@@ -545,8 +553,10 @@ mod tests {
     }
 
     #[test]
-    fn sweep_is_clean_except_documented_alpha_gap() {
-        // Generated matrix must find no unexpected behavioral mismatches.
+    fn sweep_is_clean_for_all_decoders() {
+        // Generated matrix must find no unexpected behavioral mismatches. Alpha was
+        // the last holdout — its 16 add/sub_imm negatives were the reference executor
+        // treating i32 imms as u32; fixed, the whole matrix is clean.
         for t in [
             TargetIsa::Mips,
             TargetIsa::Ppc,
@@ -556,24 +566,10 @@ mod tests {
             TargetIsa::Arm,
             TargetIsa::Sparc,
             TargetIsa::X86_64,
+            TargetIsa::Alpha,
         ] {
             let s = differential_sweep(t);
             assert!(s.all_match(), "unexpected sweep mismatch for {t}: {:?}", s.mismatches.first());
         }
-        let a = differential_sweep(TargetIsa::Alpha);
-        assert!(!a.all_match());
-        let bad_kinds: Vec<&str> = a
-            .mismatches
-            .iter()
-            .map(|(p, _, _)| p.split(':').next().unwrap())
-            .collect();
-        assert!(!bad_kinds.is_empty());
-        assert!(
-            bad_kinds.iter().all(|k| *k == "add_imm" || *k == "sub_imm"),
-            "alpha sweep must fail only on the sign-extension kinds: {bad_kinds:?}"
-        );
-        // Sanity: sweep covers the encodable programs of the ISA.
-        assert!(a.applicable > 0, "alpha sweep should have applicable programs");
-        assert!(a.matched > 0, "alpha sweep should pass most programs");
     }
 }
