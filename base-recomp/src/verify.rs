@@ -418,6 +418,9 @@ mod tests {
         assert!(probe_kind(TargetIsa::Alpha, "add_imm").encoder);
         let sp = probe_kind(TargetIsa::Sparc, "mov_imm");
         assert!(sp.encoder && !sp.semantic, "sparc has no decoder yet");
+        // aarch64: decoder now exists for the W-reg subset the encoder emits.
+        let aa = probe_kind(TargetIsa::AArch64, "add_imm");
+        assert!(aa.encoder && aa.decoder && aa.literal, "{aa:?}");
     }
 
     #[test]
@@ -466,7 +469,8 @@ mod tests {
             (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 33), // edge 32-bit imms not encodable
             (TargetIsa::Alpha, 50), // LDA sign-extension on negative adds detected
             (TargetIsa::PaRisc, 17),
-            (TargetIsa::ColdFire, 83), // + push/pop (only ISA that encodes them)
+            (TargetIsa::ColdFire, 83),     // + push/pop (only ISA that encodes them)
+            (TargetIsa::AArch64, 33), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
         ];
         for (t, want) in cases {
             let c = coverage(t);

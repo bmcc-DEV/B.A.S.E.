@@ -27,7 +27,8 @@ flags, ABI e quirks (fonte: `base-recomp/src/semantics.rs`).
 
 | ISA | Encoder (`encode`) | Decoder (`verify`) |
 |-----|--------------------|--------------------|
-| x86_64, ARM, AArch64, SPARC | subset (ops liftadas) | — (pendente) |
+| x86_64, ARM, SPARC | subset (ops liftadas) | — (pendente) |
+| **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (W-regs, LE) | ✅ round-trip |
 | **Alpha** (DEC AXP) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` | ✅ round-trip |
 | **PA-RISC** (HPPA) | `Nop, Ret` | ✅ round-trip |
 | **ColdFire** (68k) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop` | ✅ round-trip |
@@ -66,6 +67,7 @@ estados é onde bugs de encoding se escondem:
 ```text
 coldfire: 256 aplicáveis · 256 match · 0 mismatches   (incl. push/pop)
 mips:     176 aplicáveis · 176 match · 0 mismatches
+aarch64:  136 aplicáveis · 136 match · 0 mismatches
 alpha:    176 aplicáveis · 160 match · 16 mismatches  (só add/sub_imm negativos — gap documentado)
 ```
 
@@ -80,13 +82,16 @@ ser lido como "80% do MIPS preservado":
 | alpha    | 67% | 67% | 58% | 67% | 83% | 50% | PARTIAL |
 | parisc   | 17% | 17% | 17% | 17% | 83% | 17% | PARTIAL |
 | coldfire | 83% | 83% | 83% | 83% | 83% | 83% | PARTIAL |
+| aarch64  | 67% | 67% | 67% | 67% | 83% | 33% | PARTIAL |
 | x86_64   | 83% |  0% |  0% |  0% | 83% |  0% | PENDING |
 | m88k     |  0% |  0% |  0% |  0% | 83% |  0% | NONE    |
 ```
 
 `literal < semantic` acontece quando o encoder normaliza (`Clear`→`mov #0` decodifica como
 `MovImm{·,0}`): o significado preserva-se, a forma não. `semantic > differential` quando
-há desvio de comportamento de largura (Alpha). `exec` mede o executor de referência
+há desvio de comportamento de largura (Alpha). AArch64: `differential` 33% porque os
+immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit) nem ADD/SUB (12-bit) — mesma
+limitação honesta do SH; `semantic` cobre os 8 kinds. `exec` mede o executor de referência
 (incl. push/pop; independente do ISA). `abi`/`privileged`/`mmu`/`system` são eixos
 separados, todos `0%` (não modelados) — a tabela deixa isso explícito.
 

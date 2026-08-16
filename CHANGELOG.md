@@ -46,8 +46,14 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 - CLI `base recomp verify --hex … --target <isa>` · `--all` (tabela com enc/dec/literal/semantic/exec/differential) · `--sweep --target <isa>`
 - **Fix encoder PPC**: VReg → `r3..r31` (r0 lê como 0 no RA de `addi`; colisão
   `MovImm`/`AddImm` que quebrava o round-trip) — golden `ppc_add3.s` atualizado
+- **Decoder AArch64** (`decode.rs`) — subset W-reg (LE 32-bit) que inverte o encoder:
+  `Nop`/`Ret`/`MOV Wd,WZR` (Clear)/`MOVZ` (MovImm 16-bit)/`ADD`/`SUB` #imm12 com `rn==rd`;
+  formas shiftadas (`lsl #12`) → gap, nunca mis-decode. AArch64: enc/dec/literal/semantic
+  = 67%, differential 33% (edge `0xFFFFFFFF` não cabe em MOVZ/ADD 12-bit — limitação
+  honesta, mesma do SH), sweep 136/136. Sai de `PENDING` → `PARTIAL`
 - Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
 - Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
+- Tests: decode AArch64 (round-trip, clear/inc/dec, shiftado = gap); verify cobertura AArch64; sweep inclui AArch64
 
 ### Changed
 - `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9

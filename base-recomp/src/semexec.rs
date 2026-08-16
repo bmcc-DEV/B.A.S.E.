@@ -552,6 +552,7 @@ mod tests {
             TargetIsa::Ppc,
             TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4),
             TargetIsa::ColdFire,
+            TargetIsa::AArch64,
         ] {
             let s = differential_sweep(t);
             assert!(s.all_match(), "unexpected sweep mismatch for {t}: {:?}", s.mismatches.first());

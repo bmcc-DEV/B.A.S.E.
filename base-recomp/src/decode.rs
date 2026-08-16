@@ -27,6 +27,7 @@ pub fn decode_ops(bytes: &[u8], isa: TargetIsa) -> Result<Vec<Op>, DecodeError> 
         TargetIsa::Alpha => decode_alpha(bytes),
         TargetIsa::PaRisc => decode_parisc(bytes),
         TargetIsa::ColdFire => decode_coldfire(bytes),
+        TargetIsa::AArch64 => decode_aarch64(bytes),
         other => Err(DecodeError::NoDecoder(other.to_string())),
     }
 }
@@ -41,6 +42,7 @@ pub fn has_decoder(isa: TargetIsa) -> bool {
             | TargetIsa::Alpha
             | TargetIsa::PaRisc
             | TargetIsa::ColdFire
+            | TargetIsa::AArch64
     )
 }
 
@@ -387,6 +389,60 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     Ok(ops)
 }
 
+fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 4 <= bytes.len() {
+        let w = u32::from_le_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0xD503201F {
+            ops.push(Op::Nop); // NOP
+            i += 4;
+            continue;
+        }
+        if w == 0xD65F03C0 {
+            ops.push(Op::Ret); // RET
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFFF_FFE0) == 0x2A1F_03E0 {
+            // ORR Wd, WZR, WZR (MOV Wd, WZR) — encoder Clear.
+            ops.push(Op::Clear { dst: VReg(w & 0x1f) });
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFE0_001F) == 0x5280_0000 {
+            // MOVZ Wd, #imm16 — encoder MovImm.
+            let imm = (w >> 5) & 0xffff;
+            ops.push(Op::MovImm { dst: VReg(w & 0x1f), imm });
+            i += 4;
+            continue;
+        }
+        let is_sub = (w & 0xFFC0_0000) == 0x5100_0000;
+        if (w & 0xFFC0_0000) == 0x1100_0000 || is_sub {
+            // ADD/SUB Wd, Wd, #imm12 — bits 31-22 fixed (sf=0 op=0/1 S=0 10001 shift=00),
+            // imm12 in 21-10, rn in 9-5, rd in 4-0. Encoder emits rn == rd.
+            let wd = w & 0x1f;
+            let wn = (w >> 5) & 0x1f;
+            let imm = (w >> 10) & 0xfff;
+            if wd != wn {
+                ops.push(gap(i, w, "aarch64 add/sub with rn != rd".into()));
+            } else if is_sub {
+                ops.push(arith(VReg(wd), -(imm as i32)));
+            } else {
+                ops.push(arith(VReg(wd), imm as i32));
+            }
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, format!("aarch64 word {w:#010x} outside encoder subset")));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("aarch64", i as u64));
+    }
+    Ok(ops)
+}
+
 fn gap(offset: usize, word: u32, note: String) -> Op {
     Op::Unknown {
         offset: offset as u64,
@@ -490,6 +546,39 @@ mod tests {
         // push eax ; pop eax (x86 push/pop lift)
         let ops = roundtrip(&[0x50, 0x58, 0xC3], TargetIsa::ColdFire).unwrap();
         assert_eq!(ops, vec![Op::Push { src: VReg(0) }, Op::Pop { dst: VReg(0) }, Op::Ret]);
+    }
+
+    #[test]
+    fn aarch64_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::AArch64).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        let ops = roundtrip(
+            &[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3],
+            TargetIsa::AArch64,
+        )
+        .unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn aarch64_clear_inc_dec_roundtrip() {
+        // xor eax,eax (Clear) ; inc eax ; dec eax
+        let ops = roundtrip(&[0x31, 0xC0, 0x40, 0x48, 0xC3], TargetIsa::AArch64).unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::Clear { dst: VReg(0) }, Op::Inc { dst: VReg(0) }, Op::Dec { dst: VReg(0) }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn aarch64_shifted_add_is_a_gap_not_misdecode() {
+        // ADD W0, W0, #0x1234, lsl #12 — outside the encoder's shift=00 subset.
+        let w = 0x1100_0000 | (0x1234 << 10) | (1u32 << 23) | 0;
+        let ops = decode_ops(&w.to_le_bytes(), TargetIsa::AArch64).unwrap();
+        assert!(matches!(ops[0], Op::Unknown { .. }), "shifted form must be a gap: {ops:?}");
     }
 
     #[test]
