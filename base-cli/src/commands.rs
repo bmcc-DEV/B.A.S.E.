@@ -2955,8 +2955,26 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
             print!("{}", base_recomp::runtime::markdown_runtime());
             print!("{}", base_recomp::honesty::markdown_section());
         }
+        RecompCommand::Report { isa, matrix } => {
+            use base_recomp::verify::{preservation_matrix, preservation_report};
+            if let Some(isa_str) = isa {
+                let t: base_recomp::target::TargetIsa = isa_str.parse()?;
+                println!("{}", preservation_report(t));
+            } else if *matrix {
+                println!("{}", preservation_matrix());
+            } else {
+                println!("{}", preservation_matrix());
+                println!();
+                println!("{}", preservation_reports_banner());
+                println!("{}", base_recomp::verify::preservation_reports());
+            }
+        }
     }
     Ok(())
+}
+
+fn preservation_reports_banner() -> &'static str {
+    "## Per-ISA evidence (generated — never hand-written)"
 }
 
 fn write_recomp_artifacts(

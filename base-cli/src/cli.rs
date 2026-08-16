@@ -455,6 +455,17 @@ pub enum RecompCommand {
 
     /// Print Saturn/Dreamcast runtime stub status (always runs=false)
     Runtime,
+
+    /// Generated architecture preservation report (evidence from tests, not prose)
+    Report {
+        /// One ISA (mips|ppc|sparc|…|coldfire); omit for the full matrix + all reports
+        #[arg(long)]
+        isa: Option<String>,
+
+        /// Only the preservation matrix (one line per ISA), no per-ISA reports
+        #[arg(long)]
+        matrix: bool,
+    },
 }
 
 /// `base reason` — Software reasoning over Hardware-facing evidence

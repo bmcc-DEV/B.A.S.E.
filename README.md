@@ -40,8 +40,9 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | `study` (Specter VM Forth + Lua) | **REAL\*** — loop autónomo; `auto_fix_complete=false` |
 | `reconstruct` | **REAL\*** — `stop_reason`; ≠ auto-fix |
 | `reason` | **REAL\*** — QRM/belief/triad sobre atlas/sinais; ≠ Transformer |
-| `recomp` | **EXPERIMENTAL** — lift x86 → SIR → encode/decode **11 ISAs** + verifier round-trip (literal/semantic/differential) + catálogo semântico; ≠ Wine / ≠ PE |
+| `recomp` | **EXPERIMENTAL** — lift x86 → SIR → encode/decode **11 ISAs** + verifier round-trip (literal/semantic/differential) + catálogo semântico + **preservation reports** (níveis P0–P5); ≠ Wine / ≠ PE |
 | `recomp verify` / `semantics` | Round-trip por dimensão (`enc`/`dec`/`literal`/`semantic`/`exec`/`differential`) + sweep gerado |
+| `recomp report` | **Preservation Layer** — matriz + relatório por ISA (nível P0–P5, evidência medida, gaps) → snapshot em [`base-vault/isa/`](base-vault/isa/README.md) |
 | `port` (package / usb-probe / wedge / clocks-pinctrl) | **EXPERIMENTAL** — mapa/fósseis/atlas; ≠ OS rewrite |
 | `virt` (Specter Live / QMP / twin) | **EXPERIMENTAL** — ≠ OS turnkey |
 | `evolve` / `fw` / `pcb` | **REAL\*** drafts; PCB `NOT FABRICABLE` → pacote [hardware/](hardware/README.md) (Claim B) |
@@ -76,6 +77,8 @@ base recomp semantics                        # catálogo semântico (regs, endia
 base recomp verify --hex 90C3 --target mips  # SIR → encode → bytes → decode → SIR′ (literal + semântico)
 base recomp verify --all                     # cobertura por dimensão por ISA
 base recomp verify --sweep --target coldfire # matriz gerada imms × estados × kinds (comportamento)
+base recomp report --isa mips                # preservation report (nível P0–P5, evidência medida, gaps)
+base recomp report --matrix                  # matriz de preservação por ISA
 ```
 
 Três níveis de confiança:

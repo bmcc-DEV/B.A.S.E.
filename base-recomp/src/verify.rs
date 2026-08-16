@@ -334,6 +334,150 @@ pub fn all_coverages() -> Vec<Coverage> {
 pub const UNMODELED_AXES: &str =
     "abi=0% · privileged=0% · mmu=0% · system=0% (not modeled — separate axes)";
 
+/// Preservation level P0–P5 (see vault `base-vault/isa/README.md`).
+///
+/// Derived from *measured* evidence only — a level is a claim about test results,
+/// never about intent. Objective bands (see README for rationale):
+/// - P1: semantic-catalog entry exists (identity + documented gaps)
+/// - P2: format round-trip (has decoder, literal > 0)
+/// - P3: semantic subset (semantic_pct > 0)
+/// - P4: behavior on a real subset (differential > 0, semantic >= 33%)
+/// - P5: behavior over most kinds (differential >= 67%) + sweep sealed
+pub fn preservation_level(c: &Coverage, sweep: &crate::semexec::SweepReport) -> &'static str {
+    let p1 = crate::semantics::for_isa(c.target).is_some();
+    let p2 = c.has_decoder && c.literal_pct > 0;
+    let p3 = c.semantic_pct > 0;
+    let p4 = c.differential_pct > 0 && c.semantic_pct >= 33;
+    let p5 = c.differential_pct >= 67
+        && c.semantic_pct >= 67
+        && (sweep.all_match() || sweep.mismatches.iter().all(|(l, _, _)| {
+            // Sealed: any remaining mismatch has a documented, named cause.
+            l.starts_with("add_imm") || l.starts_with("sub_imm")
+        }));
+    if p5 {
+        "P5 — Evidence-sealed"
+    } else if p4 {
+        "P4 — Behavior-preserved"
+    } else if p3 {
+        "P3 — Semantic-preserved"
+    } else if p2 {
+        "P2 — Format-preserved"
+    } else if p1 {
+        "P1 — Documented"
+    } else {
+        "P0 — Identified"
+    }
+}
+
+/// Identity block for the report: from the semantic catalog, else from the target itself.
+fn identity_line(isa: TargetIsa) -> String {
+    match crate::semantics::for_isa(isa) {
+        Some(s) => format!(
+            "  family: {} · word: {} bit · endian: {:?} · GPRs: {} · flags: {} · encode: {:?}",
+            s.family,
+            s.word_bits,
+            s.endianness,
+            s.gpr_count,
+            s.flags.join("/"),
+            s.encode_status,
+        ),
+        None => format!("  (no semantic catalog entry — encode-only target {isa})"),
+    }
+}
+
+/// One-ISA preservation report: evidence from tests, not prose. Gaps are the unmodeled
+/// axes + whatever kinds fail to round-trip.
+pub fn preservation_report(isa: TargetIsa) -> String {
+    let c = coverage(isa);
+    let sweep = crate::semexec::differential_sweep(isa);
+    let level = preservation_level(&c, &sweep);
+    let roundtrip = if c.has_decoder {
+        format!("encoder+decoder subset: round-trip literal {}% · semantic {}%", c.literal_pct, c.semantic_pct)
+    } else {
+        "encoder only — decoder pending".into()
+    };
+    let differential = if c.differential_pct > 0 {
+        format!(
+            "sweep {}/{} match · {} mismatch(es) · differential {}%",
+            sweep.matched,
+            sweep.applicable,
+            sweep.mismatches.len(),
+            c.differential_pct
+        )
+    } else {
+        "not applicable — no decoder/encoder round-trip".into()
+    };
+    let mut gaps: Vec<String> = Vec::new();
+    if c.has_decoder && c.literal_pct < c.semantic_pct {
+        gaps.push("encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not".into());
+    }
+    if c.semantic_pct < 100 && c.semantic_pct > 0 {
+        gaps.push(format!("{} of 12 SIR op kinds round-trip semantically", c.covered.len()));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for (label, _ref, _isa) in &sweep.mismatches {
+        let kind = label.split(':').next().unwrap_or(label);
+        if seen.insert(kind.to_string()) {
+            gaps.push(format!("sweep mismatch: {label}"));
+        }
+    }
+    if !c.has_decoder {
+        gaps.push("decoder pending".into());
+    }
+    gaps.push("abi/privileged/mmu/system not modeled (0%)".into());
+    let gaps = if gaps.is_empty() {
+        "  none known".to_string()
+    } else {
+        gaps.iter().map(|g| format!("  - {g}")).collect::<Vec<_>>().join("\n")
+    };
+    format!(
+        "Architecture Preservation Report\n================================\n\
+         Target: {isa}\n{identity}\n\
+         Preservation level: {level}\n\n\
+         Codec:\n  {roundtrip}\n\n\
+         Semantic:\n  {}\n\n\
+         Differential:\n  {differential}\n\n\
+         Known gaps:\n{gaps}\n\n\
+         Claims:\n  hardware_validated: false\n  complete: false\n  {UNMODELED_AXES}\n",
+        if c.semantic_pct > 0 {
+            format!("integer ops: pass ({}%)", c.semantic_pct)
+        } else {
+            "integer ops: not verified".into()
+        },
+        identity = identity_line(isa),
+    )
+}
+
+/// All canonical ISAs, one report each.
+pub fn preservation_reports() -> String {
+    let mut out = String::new();
+    for isa in TargetIsa::all_canonical() {
+        out.push_str(&preservation_report(*isa));
+        out.push('\n');
+    }
+    out
+}
+
+/// Rendered preservation matrix: one line per ISA with level.
+pub fn preservation_matrix() -> String {
+    let mut out = String::from("| ISA | level | codec | semantic | differential |\n|---|---|---|---|---|\n");
+    for isa in TargetIsa::all_canonical() {
+        let c = coverage(*isa);
+        let sweep = crate::semexec::differential_sweep(*isa);
+        let level = preservation_level(&c, &sweep);
+        let codec = if c.has_decoder {
+            format!("enc {}% · dec {}%", c.encoder_pct, c.decoder_pct)
+        } else {
+            format!("enc {}% · dec —", c.encoder_pct)
+        };
+        out.push_str(&format!(
+            "| {} | {} | {} | {}% | {}% |\n",
+            isa, level, codec, c.semantic_pct, c.differential_pct
+        ));
+    }
+    out
+}
+
 pub fn coverage_table() -> String {
     let mut out = String::from(
         "| ISA | enc | dec | literal | semantic | exec | differential | status |\n|---|---|---|---|---|---|---|---|\n",
@@ -511,5 +655,41 @@ mod tests {
         assert!(t.contains("alpha"));
         assert!(t.contains("UNMODELED_AXES") || t.contains("not modeled"));
         assert!(t.lines().count() >= 16);
+    }
+
+    #[test]
+    fn preservation_levels_follow_measured_bands() {
+        use crate::semexec::differential_sweep;
+        for t in TargetIsa::all_canonical() {
+            let c = coverage(*t);
+            let s = differential_sweep(*t);
+            let level = preservation_level(&c, &s);
+            assert!(
+                level.starts_with("P"),
+                "{t} has a preservation level"
+            );
+        }
+        let cf = coverage(TargetIsa::ColdFire);
+        let cf_sweep = differential_sweep(TargetIsa::ColdFire);
+        assert!(preservation_level(&cf, &cf_sweep).starts_with("P5"));
+        let m88k = coverage(TargetIsa::M88k);
+        let m88k_sweep = differential_sweep(TargetIsa::M88k);
+        assert!(preservation_level(&m88k, &m88k_sweep).starts_with("P1"));
+        let parisc = coverage(TargetIsa::PaRisc);
+        let parisc_sweep = differential_sweep(TargetIsa::PaRisc);
+        assert!(preservation_level(&parisc, &parisc_sweep).starts_with("P3"));
+    }
+
+    #[test]
+    fn preservation_report_is_generated_not_prose() {
+        let r = preservation_report(TargetIsa::Alpha);
+        assert!(r.contains("Preservation level: P4"));
+        assert!(r.contains("hardware_validated: false"));
+        assert!(r.contains("complete: false"));
+        assert!(r.contains("sweep mismatch: add_imm"));
+        let m = preservation_matrix();
+        assert!(m.contains("| mips |"));
+        assert!(m.contains("| coldfire |"));
+        assert!(m.contains("P5 — Evidence-sealed"));
     }
 }

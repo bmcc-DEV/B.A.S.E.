@@ -70,6 +70,13 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 - Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
 - Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
 - Tests: decode x86_64 (round-trip full subset, imm32 form, prefix = gap); verify cobertura x86_64; sweep inclui x86_64
+- **ISA Preservation Layer** — formalização da preservação por evidência (não prosa)
+  - `verify.rs`: `preservation_level` (P0–P5, bandas objetivas de cobertura medida) ·
+    `preservation_report(isa)` (identidade + codec + semântica + diferencial + gaps +
+    claims `hardware_validated:false` / `complete:false`) · `preservation_matrix`
+  - CLI `base recomp report [--isa <x> | --matrix]` — relatório **gerado**, nunca manuscrito
+  - Vault `base-vault/isa/` — `README.md` (princípios, 3 camadas, níveis, regras de ouro)
+    + `report.md` (snapshot gerado das 14 ISAs; matriz + relatórios)
 
 ### Changed
 - `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9
