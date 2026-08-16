@@ -51,9 +51,14 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
   formas shiftadas (`lsl #12`) → gap, nunca mis-decode. AArch64: enc/dec/literal/semantic
   = 67%, differential 33% (edge `0xFFFFFFFF` não cabe em MOVZ/ADD 12-bit — limitação
   honesta, mesma do SH), sweep 136/136. Sai de `PENDING` → `PARTIAL`
+- **Decoder ARM** (`decode.rs`) — subset (LE 32-bit, cond AL) que inverte o encoder:
+  `Nop`/`BX LR` (Ret)/`MOV Rd,#imm8` (MovImm; Clear → `MOV #0` normaliza semanticamente)/
+  `ADD`/`SUB Rd,Rd,#imm8` com `rn==rd`. Formas fora do subset (rotate≠0, `ADDS` S=1)
+  → gap, nunca mis-decode. ARM: enc/dec/semantic = 67%, literal 58% (Clear→`MOV #0`),
+  differential 33% (imm8), sweep 104/104. Sai de `PENDING` → `PARTIAL`
 - Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
 - Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
-- Tests: decode AArch64 (round-trip, clear/inc/dec, shiftado = gap); verify cobertura AArch64; sweep inclui AArch64
+- Tests: decode ARM + AArch64 (round-trip, clear/inc/dec, shiftado/S/rotate = gap); verify cobertura ARM/AArch64; sweep inclui ARM + AArch64
 
 ### Changed
 - `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9

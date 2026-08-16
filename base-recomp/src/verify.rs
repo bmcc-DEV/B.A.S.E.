@@ -421,6 +421,11 @@ mod tests {
         // aarch64: decoder now exists for the W-reg subset the encoder emits.
         let aa = probe_kind(TargetIsa::AArch64, "add_imm");
         assert!(aa.encoder && aa.decoder && aa.literal, "{aa:?}");
+        // arm: decoder exists; Clear→MOV #0 normalizes (literal differs, meaning holds).
+        let arm = probe_kind(TargetIsa::Arm, "add_imm");
+        assert!(arm.encoder && arm.decoder && arm.literal, "{arm:?}");
+        assert!(!probe_kind(TargetIsa::Arm, "clear").literal);
+        assert!(probe_kind(TargetIsa::Arm, "clear").semantic, "arm clear → mov #0");
     }
 
     #[test]
@@ -471,6 +476,7 @@ mod tests {
             (TargetIsa::PaRisc, 17),
             (TargetIsa::ColdFire, 83),     // + push/pop (only ISA that encodes them)
             (TargetIsa::AArch64, 33), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
+            (TargetIsa::Arm, 33), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
         ];
         for (t, want) in cases {
             let c = coverage(t);

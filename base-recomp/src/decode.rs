@@ -27,6 +27,7 @@ pub fn decode_ops(bytes: &[u8], isa: TargetIsa) -> Result<Vec<Op>, DecodeError> 
         TargetIsa::Alpha => decode_alpha(bytes),
         TargetIsa::PaRisc => decode_parisc(bytes),
         TargetIsa::ColdFire => decode_coldfire(bytes),
+        TargetIsa::Arm => decode_arm(bytes),
         TargetIsa::AArch64 => decode_aarch64(bytes),
         other => Err(DecodeError::NoDecoder(other.to_string())),
     }
@@ -42,6 +43,7 @@ pub fn has_decoder(isa: TargetIsa) -> bool {
             | TargetIsa::Alpha
             | TargetIsa::PaRisc
             | TargetIsa::ColdFire
+            | TargetIsa::Arm
             | TargetIsa::AArch64
     )
 }
@@ -389,6 +391,54 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     Ok(ops)
 }
 
+fn decode_arm(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    while i + 4 <= bytes.len() {
+        let w = u32::from_le_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0xE320F000 {
+            ops.push(Op::Nop); // MOV r0, r0 (alias NOP)
+            i += 4;
+            continue;
+        }
+        if w == 0xE12FFF1E {
+            ops.push(Op::Ret); // BX LR
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFFF_0F00) == 0xE3A0_0000 {
+            // MOV Rd, #imm8 (cond=AL, opcode 1101, Rn=0000, rotate=0000) — encoder MovImm/Clear.
+            let rd = (w >> 12) & 0xf;
+            let imm = w & 0xff;
+            ops.push(Op::MovImm { dst: VReg(rd), imm });
+            i += 4;
+            continue;
+        }
+        let is_sub = (w & 0xFFF0_0F00) == 0xE240_0000;
+        if (w & 0xFFF0_0F00) == 0xE280_0000 || is_sub {
+            // ADD/SUB Rd, Rd, #imm8 (cond=AL, opcode 0100/0010, S=0, Rn==Rd).
+            let rd = (w >> 12) & 0xf;
+            let rn = (w >> 16) & 0xf;
+            let imm = w & 0xff;
+            if rd != rn {
+                ops.push(gap(i, w, "arm add/sub with rn != rd".into()));
+            } else if is_sub {
+                ops.push(arith(VReg(rd), -(imm as i32)));
+            } else {
+                ops.push(arith(VReg(rd), imm as i32));
+            }
+            i += 4;
+            continue;
+        }
+        ops.push(gap(i, w, format!("arm word {w:#010x} outside encoder subset")));
+        i += 4;
+    }
+    if i != bytes.len() {
+        return Err(DecodeError::Truncated("arm", i as u64));
+    }
+    Ok(ops)
+}
+
 fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     let mut ops = Vec::new();
     let mut i = 0usize;
@@ -546,6 +596,46 @@ mod tests {
         // push eax ; pop eax (x86 push/pop lift)
         let ops = roundtrip(&[0x50, 0x58, 0xC3], TargetIsa::ColdFire).unwrap();
         assert_eq!(ops, vec![Op::Push { src: VReg(0) }, Op::Pop { dst: VReg(0) }, Op::Ret]);
+    }
+
+    #[test]
+    fn arm_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::Arm).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        let ops = roundtrip(
+            &[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3],
+            TargetIsa::Arm,
+        )
+        .unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn arm_clear_normalizes_via_semantics() {
+        // xor eax,eax (Clear) → mov r0, #0 → decodes as MovImm{·,0}.
+        let m = crate::lift::lift_x86_32(&[0x31, 0xC0, 0xC3], "z").unwrap();
+        let enc = crate::encode::encode_module(&m, TargetIsa::Arm).unwrap();
+        let ops = decode_ops(&enc, TargetIsa::Arm).unwrap();
+        assert_eq!(ops[0], Op::MovImm { dst: VReg(0), imm: 0 });
+    }
+
+    #[test]
+    fn arm_rotated_imm_is_a_gap_not_misdecode() {
+        // MOV r0, #0x100 = 0xE3A00101 (rotate field 0x10) — outside encoder's imm8 subset.
+        let w = 0xE3A0_0101u32;
+        let ops = decode_ops(&w.to_le_bytes(), TargetIsa::Arm).unwrap();
+        assert!(matches!(ops[0], Op::Unknown { .. }), "rotated form must be a gap: {ops:?}");
+    }
+
+    #[test]
+    fn arm_adds_sets_flag_is_a_gap_not_misdecode() {
+        // ADDS r0, r0, #1 (S=1) — encoder emits ADD with S=0; must not decode as AddImm.
+        let w = 0xE290_0001u32;
+        let ops = decode_ops(&w.to_le_bytes(), TargetIsa::Arm).unwrap();
+        assert!(matches!(ops[0], Op::Unknown { .. }), "S=1 form must be a gap: {ops:?}");
     }
 
     #[test]
