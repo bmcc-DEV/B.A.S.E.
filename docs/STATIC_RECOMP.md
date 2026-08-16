@@ -27,7 +27,7 @@ flags, ABI e quirks (fonte: `base-recomp/src/semantics.rs`).
 
 | ISA | Encoder (`encode`) | Decoder (`verify`) |
 |-----|--------------------|--------------------|
-| x86_64 | subset (ops liftadas) | — (pendente) |
+| **x86_64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop` (imm32/imm8, ModRM subset) | ✅ round-trip |
 | **SPARC** | `Nop, Ret, MovImm, Clear` (%l0..%l7, BE) | ✅ round-trip |
 | **ARM** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (imm8, cond AL) | ✅ round-trip |
 | **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (W-regs, LE) | ✅ round-trip |
@@ -68,6 +68,7 @@ estados é onde bugs de encoding se escondem:
 
 ```text
 coldfire: 256 aplicáveis · 256 match · 0 mismatches   (incl. push/pop)
+x86_64:   256 aplicáveis · 256 match · 0 mismatches   (imm32 total + push/pop)
 mips:     176 aplicáveis · 176 match · 0 mismatches
 aarch64:  136 aplicáveis · 136 match · 0 mismatches
 arm:      104 aplicáveis · 104 match · 0 mismatches
@@ -89,7 +90,7 @@ ser lido como "80% do MIPS preservado":
 | aarch64  | 67% | 67% | 67% | 67% | 83% | 33% | PARTIAL |
 | arm      | 67% | 67% | 58% | 67% | 83% | 33% | PARTIAL |
 | sparc    | 33% | 33% | 33% | 33% | 83% | 33% | PARTIAL |
-| x86_64   | 83% |  0% |  0% |  0% | 83% |  0% | PENDING |
+| x86_64   | 83% | 83% | 83% | 83% | 83% | 83% | PARTIAL |
 | m88k     |  0% |  0% |  0% |  0% | 83% |  0% | NONE    |
 ```
 
@@ -100,9 +101,11 @@ immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit)/ADD (12-bit) nem em
 — mesma limitação honesta do SH; ARM `literal < semantic` porque `Clear` vira `MOV #0`;
 formas fora do subset (ARM rotate/S=1, AArch64 `lsl #12`) são gaps, nunca mis-decode.
 SPARC: encoder cobre só `Nop/Ret/MovImm/Clear` (%l0..%l7); imm13 sign-extend faz o edge
-`0xFFFFFFFF` (= −1) encodar — differential 33%. `exec` mede o executor de referência
-(incl. push/pop; independente do ISA). `abi`/`privileged`/`mmu`/`system` são eixos
-separados, todos `0%` (não modelados) — a tabela deixa isso explícito.
+`0xFFFFFFFF` (= −1) encodar — differential 33%. x86_64: imm32 total + push/pop dedicados
+→ 83% em todas as dimensões; só `call`/`jmp` faltam (reloc precisa de linker — gap honesto,
+não mis-decode; prefixos/ModRM fora do subset → `Op::Unknown`). `exec` mede o executor de
+referência (incl. push/pop; independente do ISA). `abi`/`privileged`/`mmu`/`system` são
+eixos separados, todos `0%` (não modelados) — a tabela deixa isso explícito.
 
 Honestidade: `static_recomp_complete: false` — o catálogo é o contrato semântico;
 encode/decoder/executor por ISA são parciais até validados contra cross-as/QEMU. Fixes:

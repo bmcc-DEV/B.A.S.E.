@@ -61,9 +61,15 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
   (Clear)/`or %g0,imm13,rd` (MovImm, sign-extend; `0xFFFFFFFF` = −1 encoda) — registradores
   %l0..%l7; rd fora da janela → gap. SPARC: enc/dec/literal/semantic/differential = 33%,
   sweep 56/56. Sai de `PENDING` → `PARTIAL`
+- **Decoder x86_64** (`decode.rs`) — subset (comp. variável, LE) que inverte o encoder:
+  `0x90`/`0xC3`, `B8+imm32` (MovImm), `05`/`2D`+imm32 (add/sub eax), `83 /0 /5` imm8
+  (add/sub), `31 C0-reg-reg` (Clear), `40+/48+` (Inc/Dec), `50+/58+` (Push/Pop). ModRM
+  fora do subset / prefixos (`0x66`…) → `Op::Unknown` gap, nunca mis-decode. imm32 total
+  + push/pop → 83% em todas as dimensões; só `call`/`jmp` faltam (reloc). sweep 256/256.
+  Sai de `PENDING` → `PARTIAL`
 - Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
 - Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
-- Tests: decode ARM/AArch64/SPARC (round-trip, clear/inc/dec, shiftado/S/rotate/rd-fora = gap); verify cobertura ARM/AArch64/SPARC; sweep inclui ARM/AArch64/SPARC
+- Tests: decode x86_64 (round-trip full subset, imm32 form, prefix = gap); verify cobertura x86_64; sweep inclui x86_64
 
 ### Changed
 - `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9

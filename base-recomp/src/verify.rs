@@ -457,8 +457,8 @@ mod tests {
     fn coverage_no_decoder_means_pending_not_full() {
         let x = coverage(TargetIsa::X86_64);
         assert!(x.encoder_pct > 0, "x86 encoder exists");
-        assert_eq!(x.decoder_pct, 0);
-        assert_eq!(x.status, "PENDING");
+        assert_eq!(x.decoder_pct, x.encoder_pct, "x86 decoder now covers the encoder subset");
+        assert_eq!(x.status, "PARTIAL", "only call/jmp remain (linker reloc)");
         let m88k = coverage(TargetIsa::M88k);
         assert_eq!(m88k.status, "NONE");
         assert!(!m88k.has_decoder);
@@ -480,13 +480,13 @@ mod tests {
             (TargetIsa::AArch64, 33), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
             (TargetIsa::Arm, 33), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
             (TargetIsa::Sparc, 33), // only mov/clear round-trip; imm13 sign-extends (-1 edge fits)
+            (TargetIsa::X86_64, 83), // full imm32 + push/pop; only call/jmp missing (reloc)
         ];
         for (t, want) in cases {
             let c = coverage(t);
             assert_eq!(c.differential_pct, want, "differential for {t}");
         }
         // No decoder → no differential (behavior never claimed).
-        assert_eq!(coverage(TargetIsa::X86_64).differential_pct, 0);
         assert_eq!(coverage(TargetIsa::M88k).differential_pct, 0);
     }
 

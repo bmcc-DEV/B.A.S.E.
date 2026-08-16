@@ -30,6 +30,7 @@ pub fn decode_ops(bytes: &[u8], isa: TargetIsa) -> Result<Vec<Op>, DecodeError> 
         TargetIsa::Arm => decode_arm(bytes),
         TargetIsa::AArch64 => decode_aarch64(bytes),
         TargetIsa::Sparc => decode_sparc(bytes),
+        TargetIsa::X86_64 => decode_x86(bytes),
         other => Err(DecodeError::NoDecoder(other.to_string())),
     }
 }
@@ -47,6 +48,7 @@ pub fn has_decoder(isa: TargetIsa) -> bool {
             | TargetIsa::Arm
             | TargetIsa::AArch64
             | TargetIsa::Sparc
+            | TargetIsa::X86_64
     )
 }
 
@@ -495,6 +497,112 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     Ok(ops)
 }
 
+fn decode_x86(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
+    let mut ops = Vec::new();
+    let mut i = 0usize;
+    let need = |i: usize, n: usize, label: &'static str| -> Result<(), DecodeError> {
+        if i + n > bytes.len() {
+            Err(DecodeError::Truncated(label, i as u64))
+        } else {
+            Ok(())
+        }
+    };
+    while i < bytes.len() {
+        let b = bytes[i];
+        match b {
+            0x90 => {
+                ops.push(Op::Nop);
+                i += 1;
+            }
+            0xC3 => {
+                ops.push(Op::Ret);
+                i += 1;
+            }
+            0xB8..=0xBF => {
+                need(i, 5, "x86 mov")?;
+                let imm = u32::from_le_bytes(bytes[i + 1..i + 5].try_into().unwrap());
+                ops.push(Op::MovImm { dst: VReg((b & 7) as u32), imm });
+                i += 5;
+            }
+            0x05 => {
+                need(i, 5, "x86 add eax")?;
+                let imm = u32::from_le_bytes(bytes[i + 1..i + 5].try_into().unwrap());
+                ops.push(Op::AddImm { dst: VReg(0), imm });
+                i += 5;
+            }
+            0x2D => {
+                need(i, 5, "x86 sub eax")?;
+                let imm = u32::from_le_bytes(bytes[i + 1..i + 5].try_into().unwrap());
+                ops.push(Op::SubImm { dst: VReg(0), imm });
+                i += 5;
+            }
+            0x83 => {
+                // add/sub r/m32, imm8 — encoder emits mod=11 (reg) with reg field 0=add/5=sub.
+                need(i, 3, "x86 83")?;
+                let modrm = bytes[i + 1];
+                let reg = (modrm >> 3) & 7;
+                let rm = modrm & 7;
+                if modrm >> 6 != 3 {
+                    ops.push(gap(i, w32(bytes, i), "x86 83 with mod != 11".into()));
+                } else {
+                    let imm = bytes[i + 2] as i8 as i32;
+                    match reg {
+                        0 => ops.push(arith(VReg(rm as u32), imm)),
+                        5 => ops.push(arith(VReg(rm as u32), -imm)),
+                        _ => ops.push(gap(i, w32(bytes, i), format!("x86 83 reg={reg}"))),
+                    }
+                }
+                i += 3;
+            }
+            0x31 => {
+                // xor r/m32, reg — encoder emits reg==rm (Clear).
+                need(i, 2, "x86 xor")?;
+                let modrm = bytes[i + 1];
+                let reg = (modrm >> 3) & 7;
+                let rm = modrm & 7;
+                if modrm >> 6 == 3 && reg == rm {
+                    ops.push(Op::Clear { dst: VReg(rm as u32) });
+                } else {
+                    ops.push(gap(i, w32(bytes, i), "x86 xor not reg==reg".into()));
+                }
+                i += 2;
+            }
+            0x40..=0x47 => {
+                ops.push(Op::Inc { dst: VReg((b & 7) as u32) });
+                i += 1;
+            }
+            0x48..=0x4F => {
+                ops.push(Op::Dec { dst: VReg((b & 7) as u32) });
+                i += 1;
+            }
+            0x50..=0x57 => {
+                ops.push(Op::Push { src: VReg((b & 7) as u32) });
+                i += 1;
+            }
+            0x58..=0x5F => {
+                ops.push(Op::Pop { dst: VReg((b & 7) as u32) });
+                i += 1;
+            }
+            other => {
+                ops.push(Op::Unknown {
+                    offset: i as u64,
+                    bytes: vec![other],
+                    note: format!("x86 byte {other:#04x} outside encoder subset"),
+                });
+                i += 1;
+            }
+        }
+    }
+    Ok(ops)
+}
+
+fn w32(bytes: &[u8], i: usize) -> u32 {
+    let mut w = [0u8; 4];
+    let n = bytes.len().min(i + 4);
+    w[..n - i].copy_from_slice(&bytes[i..n]);
+    u32::from_le_bytes(w)
+}
+
 fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     let mut ops = Vec::new();
     let mut i = 0usize;
@@ -743,6 +851,54 @@ mod tests {
         let w = 0x8010_0000u32;
         let ops = decode_ops(&w.to_be_bytes(), TargetIsa::Sparc).unwrap();
         assert!(matches!(ops[0], Op::Unknown { .. }), "{ops:?}");
+    }
+
+    #[test]
+    fn x86_decodes_what_it_encodes() {
+        let ops = roundtrip(&[0x90, 0xC3], TargetIsa::X86_64).unwrap();
+        assert_eq!(ops, vec![Op::Nop, Op::Ret]);
+        let ops = roundtrip(
+            &[0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3],
+            TargetIsa::X86_64,
+        )
+        .unwrap();
+        assert_eq!(
+            ops,
+            vec![Op::MovImm { dst: VReg(0), imm: 1 }, Op::AddImm { dst: VReg(0), imm: 2 }, Op::Ret]
+        );
+    }
+
+    #[test]
+    fn x86_full_op_subset_roundtrips() {
+        // xor eax,eax ; inc eax ; dec eax ; push eax ; pop eax ; sub eax,5
+        let ops = roundtrip(&[0x31, 0xC0, 0x40, 0x48, 0x50, 0x58, 0x2D, 0x05, 0x00, 0x00, 0x00, 0xC3], TargetIsa::X86_64).unwrap();
+        assert_eq!(
+            ops,
+            vec![
+                Op::Clear { dst: VReg(0) },
+                Op::Inc { dst: VReg(0) },
+                Op::Dec { dst: VReg(0) },
+                Op::Push { src: VReg(0) },
+                Op::Pop { dst: VReg(0) },
+                Op::SubImm { dst: VReg(0), imm: 5 },
+                Op::Ret,
+            ]
+        );
+    }
+
+    #[test]
+    fn x86_add_imm32_form_decodes() {
+        // add eax, 0x7FFFFFFF → 0x05 form (dst==0, imm>0x7f).
+        let ops = decode_ops(&[0x05, 0xFF, 0xFF, 0xFF, 0x7F], TargetIsa::X86_64).unwrap();
+        assert_eq!(ops[0], Op::AddImm { dst: VReg(0), imm: 0x7FFF_FFFF });
+    }
+
+    #[test]
+    fn x86_unknown_byte_is_a_gap() {
+        // 0x66 is a prefix outside the encoder subset — gap, not misdecode.
+        let ops = decode_ops(&[0x66, 0xC3], TargetIsa::X86_64).unwrap();
+        assert!(matches!(ops[0], Op::Unknown { .. }));
+        assert_eq!(ops[1], Op::Ret);
     }
 
     #[test]

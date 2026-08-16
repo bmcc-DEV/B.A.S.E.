@@ -68,8 +68,7 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 
 | ISA | Encode | Decode | Differential |
 |-----|--------|--------|--------------|
-| MIPS · PPC · SuperH · **Alpha** · **PA-RISC** · **ColdFire** · **AArch64** · **ARM** · **SPARC** | ✅ subset | ✅ | ✅ verificado |
-| x86_64 | ✅ subset | — pendente | — |
+| MIPS · PPC · SuperH · **Alpha** · **PA-RISC** · **ColdFire** · **AArch64** · **ARM** · **SPARC** · **x86_64** | ✅ subset | ✅ | ✅ verificado |
 | M88k · IA-64 · i860 | emit texto | — pendente | — |
 
 ```bash
