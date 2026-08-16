@@ -22,6 +22,20 @@ pub enum Op {
     Dec { dst: VReg },
     Push { src: VReg },
     Pop { dst: VReg },
+    /// `dst := mem[base + offset]` — `width` bytes, ISA endianness.
+    LdMem {
+        dst: VReg,
+        base: VReg,
+        offset: i32,
+        width: u8,
+    },
+    /// `mem[base + offset] := src` — `width` bytes, ISA endianness.
+    StMem {
+        src: VReg,
+        base: VReg,
+        offset: i32,
+        width: u8,
+    },
     /// Relative call; optional resolved symbol name for emit.
     CallRel {
         rel: i32,

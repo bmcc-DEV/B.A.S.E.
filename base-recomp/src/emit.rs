@@ -120,6 +120,8 @@ fn emit_x86_64(op: &Op) -> String {
         Op::Dec { dst } => format!("  dec %{}\n", x64_reg(*dst)),
         Op::Push { src } => format!("  push %{}\n", x64_reg(*src)),
         Op::Pop { dst } => format!("  pop %{}\n", x64_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", x64_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", x64_reg(*src)),
         Op::CallRel {
             rel,
             target,
@@ -190,6 +192,12 @@ fn emit_arm(op: &Op) -> String {
         }
         Op::Push { src } => format!("  push {{{}}}\n", arm_reg(*src)),
         Op::Pop { dst } => format!("  pop {{{}}}\n", arm_reg(*dst)),
+        Op::LdMem { dst, .. } => {
+            format!("  # ld {} (LdMem emit TODO)\n  nop\n", arm_reg(*dst))
+        }
+        Op::StMem { src, .. } => {
+            format!("  # st {} (StMem emit TODO)\n  nop\n", arm_reg(*src))
+        },
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bl {name}\n")
@@ -236,6 +244,8 @@ fn emit_aarch64(op: &Op) -> String {
         }
         Op::Push { src } => format!("  str {}, [sp, #-16]!\n", a64_x(*src)),
         Op::Pop { dst } => format!("  ldr {}, [sp], #16\n", a64_x(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", a64_x(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", a64_x(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bl {name}\n")
@@ -294,6 +304,8 @@ fn emit_mips(op: &Op) -> String {
             "  lw {}, 0($sp)\n  addiu $sp, $sp, 4\n",
             mips_reg(*dst)
         ),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", mips_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", mips_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jal {name}\n")
@@ -342,6 +354,8 @@ fn emit_ppc(op: &Op) -> String {
         }
         Op::Push { src } => format!("  stwu {}, -16(1)\n", ppc_reg(*src)),
         Op::Pop { dst } => format!("  lwz {}, 0(1)\n  addi 1, 1, 16\n", ppc_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", ppc_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", ppc_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jal {name}\n")
@@ -391,6 +405,8 @@ fn emit_sparc(op: &Op) -> String {
         }
         Op::Push { src } => format!("  save %sp, -96, %sp\n  mov {}, %l0\n", sparc_reg(*src)),
         Op::Pop { dst } => format!("  mov %l0, {}\n  restore\n", sparc_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", sparc_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", sparc_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  ! call {name}\n  nop\n")
@@ -454,6 +470,8 @@ fn emit_superh(op: &Op) -> String {
         Op::Dec { dst } => format!("  add #-1, {}\n", sh_reg(*dst)),
         Op::Push { src } => format!("  mov.l {}, @-r15\n", sh_reg(*src)),
         Op::Pop { dst } => format!("  mov.l @r15+, {}\n", sh_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", sh_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", sh_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  ! call {name}\n  nop\n")
@@ -520,6 +538,8 @@ fn emit_alpha(op: &Op) -> String {
         Op::Dec { dst } => format!("  lda r{}, -1(r{})\n", alpha_reg(*dst), alpha_reg(*dst)),
         Op::Push { src } => format!("  lda sp, -8(sp)\n  stq {}, 0(sp)\n", alpha_reg(*src)),
         Op::Pop { dst } => format!("  ldq {}, 0(sp)\n  lda sp, 8(sp)\n", alpha_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", alpha_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", alpha_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jsr r26, {name}\n")
@@ -594,6 +614,8 @@ fn emit_parisc(op: &Op) -> String {
         Op::Pop { dst } => {
             format!("  # pop {} (stwm/ldwm TODO)\n  nop\n", parisc_reg(*dst))
         }
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", parisc_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", parisc_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bl {name}, %rp\n")
@@ -654,6 +676,8 @@ fn emit_m88k(op: &Op) -> String {
         Op::Dec { dst } => format!("  subu {}, {}, 1\n", m88k_reg(*dst), m88k_reg(*dst)),
         Op::Push { src } => format!("  subu r31, r31, 4\n  st {}, r31, r0\n", m88k_reg(*src)),
         Op::Pop { dst } => format!("  ld {}, r31, r0\n  addu r31, r31, 4\n", m88k_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", m88k_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", m88k_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bsr {name}\n  nop\n")
@@ -724,6 +748,8 @@ fn emit_ia64(op: &Op) -> String {
         Op::Pop { dst } => {
             format!("  ld8 r{} = [r12]\n  adds r12 = 16, r12\n", ia64_reg(*dst))
         }
+        Op::LdMem { dst, .. } => format!("  // ld r{} (LdMem emit TODO)\n  nop.m 0\n", ia64_reg(*dst)),
+        Op::StMem { src, .. } => format!("  // st r{} (StMem emit TODO)\n  nop.m 0\n", ia64_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  br.call.sptk.many b0 = {name}\n")
@@ -770,6 +796,8 @@ fn emit_i860(op: &Op) -> String {
         Op::Dec { dst } => format!("  # dec r{} (sub 1 TODO)\n  nop\n", i860_reg(*dst)),
         Op::Push { src } => format!("  # push r{} (st TODO)\n  nop\n", i860_reg(*src)),
         Op::Pop { dst } => format!("  # pop r{} (ld TODO)\n  nop\n", i860_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", i860_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", i860_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  # call {name}\n  nop\n")
@@ -812,6 +840,8 @@ fn emit_coldfire(op: &Op) -> String {
         Op::Dec { dst } => format!("  subq.l #1, {}\n", coldfire_reg(*dst)),
         Op::Push { src } => format!("  move.l {}, -(A7)\n", coldfire_reg(*src)),
         Op::Pop { dst } => format!("  move.l (A7)+, {}\n", coldfire_reg(*dst)),
+        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", coldfire_reg(*dst)),
+        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", coldfire_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jsr {name}\n")

@@ -33,7 +33,7 @@ flags, ABI e quirks (fonte: `base-recomp/src/semantics.rs`).
 | **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (W-regs, LE) | ✅ round-trip |
 | **Alpha** (DEC AXP) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` | ✅ round-trip |
 | **PA-RISC** (HPPA) | `Nop, Ret` | ✅ round-trip |
-| **ColdFire** (68k) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop` | ✅ round-trip |
+| **ColdFire** (68k) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem` | ✅ round-trip |
 | **M88k** · **IA-64** · **i860** | encode pendente — emit texto + catálogo semântico | — (pendente) |
 | **MIPS** · **PPC** · **SuperH** | subset | ✅ round-trip literal + semântico |
 
@@ -71,7 +71,7 @@ estados iniciais `{0,1,0x7fffffff,0xffffffff}`) executada referência-vs-ISA. O 
 estados é onde bugs de encoding se escondem:
 
 ```text
-coldfire: 256 aplicáveis · 256 match · 0 mismatches   (incl. push/pop)
+coldfire: 268 aplicáveis · 268 match · 0 mismatches   (incl. push/pop/ld/st)
 x86_64:   256 aplicáveis · 256 match · 0 mismatches   (imm32 total + push/pop)
 mips:     176 aplicáveis · 176 match · 0 mismatches
 alpha:    176 aplicáveis · 176 match · 0 mismatches   (após fix i32 do executor de referência)
@@ -85,32 +85,34 @@ ser lido como "80% do MIPS preservado":
 
 ```text
 | ISA | enc | dec | literal | semantic | exec | differential | status |
-| mips     | 67% | 67% | 67% | 67% | 83% | 67% | PARTIAL |
-| ppc      | 67% | 67% | 58% | 67% | 83% | 67% | PARTIAL |
-| sh4      | 67% | 67% | 58% | 67% | 83% | 33% | PARTIAL |
-| alpha    | 67% | 67% | 58% | 67% | 83% | 67% | PARTIAL |
-| parisc   | 17% | 17% | 17% | 17% | 83% | 17% | PARTIAL |
-| coldfire | 83% | 83% | 83% | 83% | 83% | 83% | PARTIAL |
-| aarch64  | 67% | 67% | 67% | 67% | 83% | 33% | PARTIAL |
-| arm      | 67% | 67% | 58% | 67% | 83% | 33% | PARTIAL |
-| sparc    | 33% | 33% | 33% | 33% | 83% | 33% | PARTIAL |
-| x86_64   | 83% | 83% | 83% | 83% | 83% | 83% | PARTIAL |
-| m88k     |  0% |  0% |  0% |  0% | 83% |  0% | NONE    |
+| mips     | 57% | 57% | 57% | 57% | 86% | 57% | PARTIAL |
+| ppc      | 57% | 57% | 50% | 57% | 86% | 57% | PARTIAL |
+| sh4      | 57% | 57% | 50% | 57% | 86% | 29% | PARTIAL |
+| alpha    | 57% | 57% | 50% | 57% | 86% | 57% | PARTIAL |
+| parisc   | 14% | 14% | 14% | 14% | 86% | 14% | PARTIAL |
+| coldfire | 86% | 86% | 86% | 86% | 86% | 86% | PARTIAL |
+| aarch64  | 57% | 57% | 57% | 57% | 86% | 29% | PARTIAL |
+| arm      | 57% | 57% | 50% | 57% | 86% | 29% | PARTIAL |
+| sparc    | 29% | 29% | 29% | 29% | 86% | 29% | PARTIAL |
+| x86_64   | 71% | 71% | 71% | 71% | 86% | 71% | PARTIAL |
+| m88k     |  0% |  0% |  0% |  0% | 86% |  0% | NONE    |
 ```
 
 `literal < semantic` acontece quando o encoder normaliza (`Clear`→`mov #0` decodifica como
-`MovImm{·,0}`): o significado preserva-se, a forma não. AArch64/ARM: `differential` 33%
+`MovImm{·,0}`): o significado preserva-se, a forma não. AArch64/ARM: `differential` 29%
 porque os immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit)/ADD (12-bit) nem em
 ARM imm8 — mesma limitação honesta do SH; ARM `literal < semantic` porque `Clear` vira
 `MOV #0`; formas fora do subset (ARM rotate/S=1, AArch64 `lsl #12`) são gaps, nunca
 mis-decode. SPARC: encoder cobre só `Nop/Ret/MovImm/Clear` (%l0..%l7); imm13 sign-extend
-faz o edge `0xFFFFFFFF` (= −1) encodar — differential 33%. x86_64: imm32 total + push/pop
-dedicados → 83% em todas as dimensões; só `call`/`jmp` faltam (reloc precisa de linker —
-gap honesto, não mis-decode; prefixos/ModRM fora do subset → `Op::Unknown`). Alpha alcança
-67% de differential após o fix do domínio de immediates no executor de referência (ver
-acima). `exec` mede o executor de referência (incl. push/pop; independente do ISA).
-`abi`/`privileged`/`mmu`/`system` são eixos separados, todos `0%` (não modelados) — a
-tabela deixa isso explícito.
+faz o edge `0xFFFFFFFF` (= −1) encodar — differential 29%. x86_64: imm32 total + push/pop
+dedicados → 71%; faltam `call`/`jmp` (reloc precisa de linker — gap honesto) e ld/st
+(encodings de memória ModRM). ColdFire: **única ISA com load/store no SIR** — `move.l
+(An),Dn`/`move.l Dn,(An)` (capstone-verificados) + push/pop = 86% em todas as dimensões;
+os encodings antigos de push/pop estavam errados (`0x29C0` = `move.l d0,(a4)+`) e só D0
+passava — fix com capstone. Alpha alcança 57% de differential (14 kinds, incl. os 2 novos
+ld/st que não encoda). `exec` mede o executor de referência (incl. push/pop/ld/st;
+independente do ISA). `abi`/`privileged`/`mmu`/`system` são eixos separados, todos `0%`
+(não modelados) — a tabela deixa isso explícito.
 
 Honestidade: `static_recomp_complete: false` — o catálogo é o contrato semântico;
 encode/decoder/executor por ISA são parciais até validados contra cross-as/QEMU. Fixes:

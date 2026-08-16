@@ -339,8 +339,30 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         }
         if (w & 0xF83F) == 0x201F {
             // move.l (A7)+, Dn
-            let dn = ((w >> 6) & 7) as u32;
+            let dn = ((w >> 9) & 7) as u32;
             ops.push(Op::Pop { dst: VReg(dn) });
+            i += 2;
+            continue;
+        }
+        if (w & 0xF1F8) == 0x2010 {
+            // move.l (An), Dn — An bits 2-0, Dn bits 11-9 (encoder subset, offset 0).
+            ops.push(Op::LdMem {
+                dst: VReg(((w >> 9) & 7) as u32),
+                base: VReg((w & 7) as u32),
+                offset: 0,
+                width: 4,
+            });
+            i += 2;
+            continue;
+        }
+        if (w & 0xF1F8) == 0x2080 {
+            // move.l Dn, (An) — An bits 11-9, Dn bits 2-0 (MOVE Dn→mem form).
+            ops.push(Op::StMem {
+                src: VReg((w & 7) as u32),
+                base: VReg(((w >> 9) & 7) as u32),
+                offset: 0,
+                width: 4,
+            });
             i += 2;
             continue;
         }
@@ -375,8 +397,8 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 ops.push(Op::Dec { dst: d(w) }); // subq.l #1, Dn
                 i += 2;
             }
-            0x29C0 => {
-                ops.push(Op::Push { src: d(w) }); // move.l Dn, -(A7)
+            0x2F00 => {
+                ops.push(Op::Push { src: VReg((w & 7) as u32) }); // move.l Dn, -(A7)
                 i += 2;
             }
             _ => {

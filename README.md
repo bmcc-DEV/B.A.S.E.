@@ -70,6 +70,7 @@ Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.
 | ISA | Encode | Decode | Differential |
 |-----|--------|--------|--------------|
 | MIPS · PPC · SuperH · **Alpha** · **PA-RISC** · **ColdFire** · **AArch64** · **ARM** · **SPARC** · **x86_64** | ✅ subset | ✅ | ✅ verificado |
+| **ColdFire** | ✅ **load/store + push/pop** (12/14 kinds, 86%) | ✅ | ✅ **memória real** (BE, sweep 268/268) |
 | M88k · IA-64 · i860 | emit texto | — pendente | — |
 
 ```bash
@@ -90,11 +91,16 @@ differential "ela produz o mesmo estado arquitetural?"         (largura real do 
 ```
 
 O verifier **já pegou bugs reais** que o round-trip representacional não via: PPC `r0`
-(lê como 0 no RA de `addi`) e ColdFire `Dn` (bits 5-3 sem shift). E o diferencial
-**revelou e corrigiu** uma inconsistência de modelo: o executor de referência tratava
-immediates SIR como `u32` quando o domínio é `i32` — o "gap de sign-extension" do Alpha
-era isso (encoder LDA já sign-extendia); fix no `semexec` alinhou referência e ISA
-(Alpha differential 50% → 67%, P5). Eixos `abi`/`privileged`/`mmu`/`system` = **0%
+(lê como 0 no RA de `addi`) e ColdFire `Dn` (bits 5-3 sem shift). Ao adicionar
+`load/store` ao SIR, o **encoder ColdFire push/pop foi validado contra capstone m68k** e
+revelou bug duplo: `0x29C0` era `move.l d0,(a4)+` (não push) e `Dn` estava em bits
+errados — o sweep só usava VReg 0 (D0), então o roundtrip antigo era
+consistente-mas-errado. Fix: `0x2F00|dn` (push, Dn em bits 2-0) e `0x201F|dn<<9` (pop).
+E o diferencial **revelou e corrigiu** uma inconsistência de modelo: o executor de
+referência tratava immediates SIR como `u32` quando o domínio é `i32` — o "gap de
+sign-extension" do Alpha era isso (encoder LDA já sign-extendia); fix no `semexec`
+alinhou referência e ISA (Alpha differential 50% → 57% com 14 kinds, P4). Eixos
+`abi`/`privileged`/`mmu`/`system` = **0%
 (não modelados)** — explícito, nunca um score único que pareça "80% do MIPS".
 Fonte: [docs/STATIC_RECOMP.md](docs/STATIC_RECOMP.md) ·
 vault [`29 - Path to v1.9`](base-vault/29%20-%20Path%20to%20v1.9/29.00%20-%20Index.md)

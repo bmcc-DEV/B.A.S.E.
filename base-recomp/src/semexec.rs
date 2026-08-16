@@ -212,6 +212,16 @@ pub fn execute(
                 st.gpr[dst.0 as usize % 32] = value;
                 st.gpr[SP as usize] = addr.wrapping_add(4);
             }
+            Op::LdMem { dst, base, offset, width } => {
+                let addr = st.gpr(base.0).wrapping_add_signed(*offset as i64);
+                let value = st.load(addr, *width, endian).map_err(ExecError::Memory)?;
+                st.gpr[dst.0 as usize % 32] = value;
+            }
+            Op::StMem { src, base, offset, width } => {
+                let addr = st.gpr(base.0).wrapping_add_signed(*offset as i64);
+                let value = st.gpr(src.0);
+                st.store(addr, *width, endian, value).map_err(ExecError::Memory)?;
+            }
             other => return Err(ExecError::Unsupported(op_kind(other))),
         }
     }
@@ -228,6 +238,8 @@ fn op_kind(op: &Op) -> &'static str {
     match op {
         Op::Push { .. } => "push",
         Op::Pop { .. } => "pop",
+        Op::LdMem { .. } => "ld_mem",
+        Op::StMem { .. } => "st_mem",
         Op::CallRel { .. } => "call",
         Op::JmpRel { .. } => "jmp",
         Op::Unknown { .. } => "gap",
@@ -365,6 +377,18 @@ pub fn sweep_programs() -> Vec<(String, Vec<Op>)> {
     }
     out.push(("push".into(), vec![Op::Push { src: v0() }, Op::Ret]));
     out.push(("pop".into(), vec![Op::Pop { dst: v0() }, Op::Ret]));
+    // Load/store on a scratch region (0x4000), width 4, endianness from the ISA.
+    out.push(("ld".into(), vec![Op::MovImm { dst: v0(), imm: 0 }, Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width: 4 }, Op::Ret]));
+    out.push(("st".into(), vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width: 4 }, Op::Ret]));
+    out.push((
+        "st_ld".into(),
+        vec![
+            Op::MovImm { dst: v0(), imm: 0xDEAD_BEEF },
+            Op::StMem { src: v0(), base: VReg(1), offset: 0, width: 4 },
+            Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width: 4 },
+            Op::Ret,
+        ],
+    ));
     out
 }
 
@@ -373,7 +397,12 @@ pub fn sweep_states() -> Vec<MachineState> {
     STATE_CASES
         .iter()
         .map(|v| {
-            MachineState::new().with_gpr(0, *v).with_gpr(SP, 0x8000).with_gpr(LINK, 0x8000)
+            // VReg 1 = memory base for ld/st programs (0x4000, within the 64 KiB scratch).
+            MachineState::new()
+                .with_gpr(0, *v)
+                .with_gpr(1, 0x4000)
+                .with_gpr(SP, 0x8000)
+                .with_gpr(LINK, 0x8000)
         })
         .collect()
 }
@@ -550,6 +579,30 @@ mod tests {
         let r = differential_ops(ops.clone(), TargetIsa::ColdFire, &state);
         assert!(r.matched(), "{r:?}");
         assert!(r.exec_error.is_none());
+    }
+
+    #[test]
+    fn ld_st_execute_and_differential_on_coldfire() {
+        // store → load → value round-trips through memory (endianness from the ISA).
+        let ops = vec![
+            Op::MovImm { dst: VReg(0), imm: 0xDEAD_BEEF },
+            Op::StMem { src: VReg(0), base: VReg(1), offset: 0, width: 4 },
+            Op::Clear { dst: VReg(0) },
+            Op::LdMem { dst: VReg(0), base: VReg(1), offset: 0, width: 4 },
+            Op::Ret,
+        ];
+        let state = MachineState::new().with_gpr(1, 0x4000).with_gpr(LINK, 0x8000);
+        let mut st = state.clone();
+        execute(&ops, &mut st, 32, Endianness::Big).unwrap();
+        assert_eq!(st.gpr(0), 0xDEAD_BEEF);
+        assert_eq!(&st.mem[0x4000..0x4004], &[0xDE, 0xAD, 0xBE, 0xEF]); // big-endian
+        // The full differential (encode → decode → execute) must agree on ColdFire.
+        let r = differential_ops(ops.clone(), TargetIsa::ColdFire, &state);
+        assert!(r.matched(), "{r:?}");
+        // Little-endian ISA stores bytes reversed.
+        let mut le = state.clone();
+        execute(&ops, &mut le, 32, Endianness::Little).unwrap();
+        assert_eq!(&le.mem[0x4000..0x4004], &[0xEF, 0xBE, 0xAD, 0xDE]);
     }
 
     #[test]

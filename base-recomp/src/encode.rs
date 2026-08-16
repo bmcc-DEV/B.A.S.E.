@@ -74,6 +74,12 @@ fn encode_x86(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Dec { dst } => vec![0x48 + (dst.0 as u8 & 7)],
         Op::Push { src } => vec![0x50 + (src.0 as u8 & 7)],
         Op::Pop { dst } => vec![0x58 + (dst.0 as u8 & 7)],
+        Op::LdMem { .. } | Op::StMem { .. } => {
+            return Err(EncodeError::Unsupported(
+                TargetIsa::X86_64,
+                "LdMem/StMem encoder pending (x86 addressing)".into(),
+            ))
+        }
         Op::CallRel { symbol: Some(_), .. } | Op::JmpRel { symbol: Some(_), .. } => {
             return Err(EncodeError::UnresolvedBranch); // need linker for reloc
         }
@@ -442,8 +448,21 @@ fn encode_coldfire(op: &Op) -> Result<Vec<u8>, EncodeError> {
         }
         Op::Inc { dst } => be(0x5280 | (d(*dst) << 3)),  // addq.l #1, Dn
         Op::Dec { dst } => be(0x5380 | (d(*dst) << 3)),  // subq.l #1, Dn
-        Op::Push { src } => be(0x29C0 | (d(*src) << 3)), // move.l Dn, -(A7)
-        Op::Pop { dst } => be(0x201F | (d(*dst) << 6)),  // move.l (A7)+, Dn
+        Op::Push { src } => be(0x2F00 | d(*src)), // move.l Dn, -(A7) — Dn in bits 2-0
+        Op::Pop { dst } => be(0x201F | (d(*dst) << 9)), // move.l (A7)+, Dn — Dn in bits 11-9
+        Op::LdMem { dst, base, offset, width } if *offset == 0 && *width == 4 => {
+            // move.l (An), Dn — An in bits 2-0, Dn in bits 11-9 (capstone-verified).
+            let an = base.0.min(7) as u16;
+            let dn = d(*dst);
+            be(0x2010 | (dn << 9) | an)
+        }
+        Op::StMem { src, base, offset, width } if *offset == 0 && *width == 4 => {
+            // move.l Dn, (An) — An in bits 11-9, Dn in bits 2-0 (MOVE Dn→mem form,
+            // capstone-verified: 0x2280 = move.l d0,(a1)).
+            let an = base.0.min(7) as u16;
+            let dn = d(*src);
+            be(0x2080 | (an << 9) | dn)
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::ColdFire,
@@ -558,12 +577,30 @@ mod tests {
             (&ops[1], vec![0x06, 0x98, 0x00, 0x00, 0x00, 0x05]),
             (&ops[2], vec![0x52, 0x98]),
             (&ops[3], vec![0x53, 0x98]),
-            (&ops[4], vec![0x29, 0xD8]),
-            (&ops[5], vec![0x20, 0xDF]),
+            (&ops[4], vec![0x2F, 0x03]), // move.l d3, -(a7)
+            (&ops[5], vec![0x26, 0x1F]), // move.l (a7)+, d3
         ] {
             let m = module_from_ops(vec![op.clone()]);
             assert_eq!(encode_module(&m, TargetIsa::ColdFire).unwrap(), *want, "{op:?}");
         }
+    }
+
+    #[test]
+    fn encode_coldfire_push_pop_reg_field_capstone_verified() {
+        // Regression: the old push/pop placed Dn wrong (0x29C0 = move.l d0,(a4)+ —
+        // only D0/VReg0 ever passed, so roundtrip was consistent-but-wrong).
+        // Capstone-verified: 0x2F01 = move.l d1,-(a7); 0x221F = move.l (a7)+,d1.
+        let ops = vec![Op::Push { src: VReg(1) }, Op::Pop { dst: VReg(1) }];
+        let m = module_from_ops(ops.clone());
+        let bytes = encode_module(&m, TargetIsa::ColdFire).unwrap();
+        assert_eq!(bytes, vec![0x2F, 0x01, 0x22, 0x1F]);
+        let ops2 = vec![
+            Op::LdMem { dst: VReg(3), base: VReg(3), offset: 0, width: 4 },
+            Op::StMem { src: VReg(3), base: VReg(3), offset: 0, width: 4 },
+        ];
+        let m2 = module_from_ops(ops2.clone());
+        let b2 = encode_module(&m2, TargetIsa::ColdFire).unwrap();
+        assert_eq!(b2, vec![0x26, 0x13, 0x26, 0x83]); // move.l (a3),d3 / move.l d3,(a3)
     }
 
     #[test]

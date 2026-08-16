@@ -82,6 +82,20 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
   - CLI `base recomp report [--isa <x> | --matrix]` — relatório **gerado**, nunca manuscrito
   - Vault `base-vault/isa/` — `README.md` (princípios, 3 camadas, níveis, regras de ouro)
     + `report.md` (snapshot gerado das 14 ISAs; matriz + relatórios)
+- **Load/store no SIR** (`LdMem`/`StMem`) — memória é camada 3 de preservação
+  - SIR ops novos: `dst := mem[base+offset]` / `mem[base+offset] := src` (width, endianness da ISA)
+  - Executor de referência: `load`/`store` com endianness do catálogo; `op_kind`/sweep/verify
+    estendidos (14 kinds; `execute_pct` 83% → 86%)
+  - **ColdFire** única ISA com encoder/decoder de ld/st: `move.l (An),Dn` / `move.l Dn,(An)`
+    (capstone-verificados); ColdFire = 86% em todas as dimensões, sweep 268/268
+  - **Fix bug real push/pop ColdFire**: encoder antigo `0x29C0` era `move.l d0,(a4)+`
+    (não push) e campo `Dn` em bits errados — sweep só usava VReg 0, roundtrip
+    consistente-mas-errado; capstone m68k corrigiu (push `0x2F00|dn`, pop `0x201F|dn<<9`)
+  - Os 2 kinds novos expõem cobertura honesta: mips/ppc/alpha 67%→57% (não encodam ld/st),
+    sparc 33%→29%, x86 83%→71%
+- Tests: `ld_st_execute_and_differential_on_coldfire` (memória BE/LE + differential),
+  encode/decoder ColdFire capstone-goldens (push/pop/ld/st), cobertura 14 kinds
+  atualizada em r7/verify
 
 ### Changed
 - `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9

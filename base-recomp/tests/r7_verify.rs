@@ -53,7 +53,7 @@ fn coverage_table_all_targets_honest() {
     for t in [TargetIsa::Mips, TargetIsa::Ppc, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        assert_eq!(c.semantic_pct, 67, "{t}");
+        assert_eq!(c.semantic_pct, 57, "{t}"); // 8 of 14 kinds
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
@@ -64,17 +64,19 @@ fn coverage_table_all_targets_honest() {
 #[test]
 fn coverage_new_decoders() {
     let alpha = coverage(TargetIsa::Alpha);
-    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (67, 67, 67));
+    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (57, 57, 57));
 
     let parisc = coverage(TargetIsa::PaRisc);
-    assert_eq!(parisc.semantic_pct, 17, "{parisc:?}");
+    assert_eq!(parisc.semantic_pct, 14, "{parisc:?}");
     assert!(parisc.covered.contains(&"nop"));
     assert!(parisc.covered.contains(&"ret"));
 
     let cf = coverage(TargetIsa::ColdFire);
-    assert_eq!(cf.semantic_pct, 83, "{cf:?}");
+    assert_eq!(cf.semantic_pct, 86, "{cf:?}"); // 12 of 14 (incl. push/pop/ld/st)
     assert!(cf.covered.contains(&"push"));
     assert!(cf.covered.contains(&"pop"));
+    assert!(cf.covered.contains(&"ld_mem"));
+    assert!(cf.covered.contains(&"st_mem"));
 }
 
 #[test]
@@ -86,9 +88,9 @@ fn parisc_bv_n_accepts_return() {
 #[test]
 fn pending_status_not_full() {
     let x = coverage(TargetIsa::X86_64);
-    // x86 decoder landed: 10/12 kinds round-trip (only call/jmp = linker reloc gap).
+    // x86 decoder landed: 10/14 kinds round-trip (call/jmp + ld/st = gaps).
     assert_eq!(x.status, "PARTIAL");
-    assert_eq!(x.semantic_pct, 83, "{x:?}");
+    assert_eq!(x.semantic_pct, 71, "{x:?}");
     let m88k = coverage(TargetIsa::M88k);
     assert_eq!(m88k.status, "NONE");
 }
@@ -123,9 +125,9 @@ fn differential_coverage_separates_width_behavior() {
     // Alpha 64-bit width now agrees (i32 imm domain, sign-extended by LDA and the
     // reference executor); 32-bit wrapping ISAs agree trivially.
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 67, "{a:?}");
+    assert_eq!(a.differential_pct, 57, "{a:?}");
     let c = coverage(TargetIsa::ColdFire);
-    assert_eq!(c.differential_pct, 83, "{c:?}"); // + push/pop, the only ISA that encodes them
+    assert_eq!(c.differential_pct, 86, "{c:?}"); // + push/pop/ld/st, the only ISA that encodes them
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));
-    assert_eq!(s.differential_pct, 33, "{s:?}"); // edge 32-bit imms not encodable
+    assert_eq!(s.differential_pct, 29, "{s:?}"); // edge 32-bit imms not encodable
 }

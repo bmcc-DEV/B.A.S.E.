@@ -62,6 +62,12 @@ pub fn semantic_key(op: &Op) -> String {
         Op::Dec { dst } => format!("addimm({},-1)", dst.0),
         Op::Push { src } => format!("push({})", src.0),
         Op::Pop { dst } => format!("pop({})", dst.0),
+        Op::LdMem { dst, base, offset, width } => {
+            format!("ldmem({},[{}],{offset},{width})", dst.0, base.0)
+        }
+        Op::StMem { src, base, offset, width } => {
+            format!("stmem({},[{}],{offset},{width})", src.0, base.0)
+        }
         Op::CallRel { symbol, .. } => format!("call({})", symbol.as_deref().unwrap_or("?")),
         Op::JmpRel { symbol, .. } => format!("jmp({})", symbol.as_deref().unwrap_or("?")),
         Op::Unknown { .. } => "gap".into(),
@@ -145,7 +151,7 @@ pub fn verify_ops(ops: Vec<Op>, target: TargetIsa) -> RoundtripReport {
 }
 
 /// The SIR op kinds scored (everything except `Unknown`, which is a gap by design).
-pub const SIR_OP_KINDS: [&str; 12] = [
+pub const SIR_OP_KINDS: [&str; 14] = [
     "nop",
     "ret",
     "mov_imm",
@@ -156,6 +162,8 @@ pub const SIR_OP_KINDS: [&str; 12] = [
     "dec",
     "push",
     "pop",
+    "ld_mem",
+    "st_mem",
     "call",
     "jmp",
 ];
@@ -173,6 +181,8 @@ fn probe_ops(kind: &str) -> Vec<Op> {
         "dec" => vec![Op::Dec { dst: v0() }],
         "push" => vec![Op::Push { src: v0() }],
         "pop" => vec![Op::Pop { dst: v0() }],
+        "ld_mem" => vec![Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width: 4 }],
+        "st_mem" => vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width: 4 }],
         "call" => vec![Op::CallRel { rel: 0, target: Some(0), symbol: Some("f".into()) }],
         "jmp" => vec![Op::JmpRel { rel: 0, target: Some(0), symbol: Some("f".into()) }],
         other => unreachable!("unknown probe kind {other}"),
@@ -555,9 +565,11 @@ mod tests {
         // parisc: only nop/ret round-trip.
         assert!(probe_kind(TargetIsa::PaRisc, "ret").semantic);
         assert!(!probe_kind(TargetIsa::PaRisc, "mov_imm").encoder);
-        // coldfire push/pop are fully verified.
+        // coldfire push/pop and ld/st are fully verified.
         assert!(probe_kind(TargetIsa::ColdFire, "push").literal);
         assert!(probe_kind(TargetIsa::ColdFire, "pop").literal);
+        assert!(probe_kind(TargetIsa::ColdFire, "ld_mem").literal, "coldfire ld round-trips");
+        assert!(probe_kind(TargetIsa::ColdFire, "st_mem").literal, "coldfire st round-trips");
         // no decoder → encoder may hold, but nothing round-trips.
         assert!(probe_kind(TargetIsa::Alpha, "add_imm").encoder);
         let sp = probe_kind(TargetIsa::Sparc, "mov_imm");
@@ -580,7 +592,7 @@ mod tests {
         assert_eq!(sh.encoder_pct, sh.decoder_pct);
         // SH `clear` encodes as mov #0 → decodes as MovImm{·,0}: literal < semantic.
         assert!(sh.literal_pct < sh.semantic_pct, "{sh:?}");
-        assert_eq!(sh.semantic_pct, 67, "{sh:?}");
+        assert_eq!(sh.semantic_pct, 57, "{sh:?}"); // 8 of 14 kinds
         assert_eq!(sh.status, "PARTIAL");
         assert!(sh.covered.contains(&"clear"));
     }
@@ -588,13 +600,16 @@ mod tests {
     #[test]
     fn coverage_alpha_parisc_coldfire() {
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (67, 67, 67));
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (57, 57, 57));
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (17, 17, 17));
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (14, 14, 14));
         let c = coverage(TargetIsa::ColdFire);
-        assert_eq!(c.semantic_pct, 83, "{c:?}"); // push/pop extra vs risc subset
+        assert_eq!(c.semantic_pct, 86, "{c:?}"); // 12 of 14 (push/pop/ld/st extra vs risc)
+        assert_eq!(c.encoder_pct, 86, "{c:?}"); // only call/jmp missing
         assert!(c.covered.contains(&"push"));
         assert!(c.covered.contains(&"pop"));
+        assert!(c.covered.contains(&"ld_mem"));
+        assert!(c.covered.contains(&"st_mem"));
     }
 
     #[test]
@@ -610,21 +625,21 @@ mod tests {
 
     #[test]
     fn execute_and_differential_dimensions() {
-        // The reference executor runs the same 10 kinds (incl. push/pop) for every ISA.
+        // The reference executor runs the same 12 kinds (incl. push/pop/ld/st) for every ISA.
         for t in TargetIsa::all_canonical() {
-            assert_eq!(coverage(*t).execute_pct, 83, "executor kind set differs for {t}");
+            assert_eq!(coverage(*t).execute_pct, 86, "executor kind set differs for {t}");
         }
         let cases = [
-            (TargetIsa::Mips, 67u32),
-            (TargetIsa::Ppc, 67),
-            (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 33), // edge 32-bit imms not encodable
-            (TargetIsa::Alpha, 67), // imm-domain fix: i32 sign-extend → 64-bit matches
-            (TargetIsa::PaRisc, 17),
-            (TargetIsa::ColdFire, 83),     // + push/pop (only ISA that encodes them)
-            (TargetIsa::AArch64, 33), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
-            (TargetIsa::Arm, 33), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
-            (TargetIsa::Sparc, 33), // only mov/clear round-trip; imm13 sign-extends (-1 edge fits)
-            (TargetIsa::X86_64, 83), // full imm32 + push/pop; only call/jmp missing (reloc)
+            (TargetIsa::Mips, 57u32),
+            (TargetIsa::Ppc, 57),
+            (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 29), // edge 32-bit imms not encodable
+            (TargetIsa::Alpha, 57), // imm-domain fix: i32 sign-extend → 64-bit matches
+            (TargetIsa::PaRisc, 14),
+            (TargetIsa::ColdFire, 86),     // + push/pop/ld/st (only ISA that encodes them)
+            (TargetIsa::AArch64, 29), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
+            (TargetIsa::Arm, 29), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
+            (TargetIsa::Sparc, 29), // only mov/clear round-trip; imm13 sign-extends (-1 edge fits)
+            (TargetIsa::X86_64, 71), // full imm32 + push/pop; only call/jmp + ld/st missing
         ];
         for (t, want) in cases {
             let c = coverage(t);
@@ -683,7 +698,7 @@ mod tests {
 
     #[test]
     fn preservation_report_is_generated_not_prose() {
-        let r = preservation_report(TargetIsa::Alpha);
+        let r = preservation_report(TargetIsa::ColdFire);
         assert!(r.contains("Preservation level: P5"));
         assert!(r.contains("hardware_validated: false"));
         assert!(r.contains("complete: false"));
