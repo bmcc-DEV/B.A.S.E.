@@ -2,13 +2,13 @@
 |---|---|---|---|---|
 | x86_64 | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
 | arm | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
-| aarch64 | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
-| mips | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 57% |
-| ppc | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 57% |
+| aarch64 | P4 — Behavior-preserved | enc 71% · dec 71% | 71% | 43% |
+| mips | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
+| ppc | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
 | sparc | P3 — Semantic-preserved | enc 29% · dec 29% | 29% | 29% |
 | sh2 | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
 | sh4 | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 29% |
-| alpha | P4 — Behavior-preserved | enc 57% · dec 57% | 57% | 57% |
+| alpha | P5 — Evidence-sealed | enc 71% · dec 71% | 71% | 71% |
 | parisc | P3 — Semantic-preserved | enc 14% · dec 14% | 14% | 14% |
 | m88k | P1 — Documented | enc 0% · dec — | 0% | 0% |
 | ia64 | P1 — Documented | enc 0% · dec — | 0% | 0% |
@@ -73,16 +73,16 @@ Target: aarch64
 Preservation level: P4 — Behavior-preserved
 
 Codec:
-  encoder+decoder subset: round-trip literal 57% · semantic 57%
+  encoder+decoder subset: round-trip literal 71% · semantic 71%
 
 Semantic:
-  integer ops: pass (57%)
+  integer ops: pass (71%)
 
 Differential:
-  sweep 136/136 match · 0 mismatch(es) · differential 29%
+  sweep 144/144 match · 0 mismatch(es) · differential 43%
 
 Known gaps:
-  - 8 of 12 SIR op kinds round-trip semantically
+  - 10 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:
@@ -93,20 +93,20 @@ Claims:
 Architecture Preservation Report
 ================================
 Target: mips
-  family: MIPS · word: 32 bit · endian: Big · GPRs: 32 · flags:  · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec")
-Preservation level: P4 — Behavior-preserved
+  family: MIPS · word: 32 bit · endian: Big · GPRs: 32 · flags:  · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem")
+Preservation level: P5 — Evidence-sealed
 
 Codec:
-  encoder+decoder subset: round-trip literal 57% · semantic 57%
+  encoder+decoder subset: round-trip literal 71% · semantic 71%
 
 Semantic:
-  integer ops: pass (57%)
+  integer ops: pass (71%)
 
 Differential:
-  sweep 176/176 match · 0 mismatch(es) · differential 57%
+  sweep 184/184 match · 0 mismatch(es) · differential 71%
 
 Known gaps:
-  - 8 of 12 SIR op kinds round-trip semantically
+  - 10 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:
@@ -117,21 +117,21 @@ Claims:
 Architecture Preservation Report
 ================================
 Target: ppc
-  family: Power / PowerPC · word: 32 bit · endian: Big · GPRs: 32 · flags: cr/xer/so/ov/ca · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec")
-Preservation level: P4 — Behavior-preserved
+  family: Power / PowerPC · word: 32 bit · endian: Big · GPRs: 32 · flags: cr/xer/so/ov/ca · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem")
+Preservation level: P5 — Evidence-sealed
 
 Codec:
-  encoder+decoder subset: round-trip literal 50% · semantic 57%
+  encoder+decoder subset: round-trip literal 64% · semantic 71%
 
 Semantic:
-  integer ops: pass (57%)
+  integer ops: pass (71%)
 
 Differential:
-  sweep 176/176 match · 0 mismatch(es) · differential 57%
+  sweep 184/184 match · 0 mismatch(es) · differential 71%
 
 Known gaps:
   - encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not
-  - 8 of 12 SIR op kinds round-trip semantically
+  - 10 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:
@@ -216,21 +216,21 @@ Claims:
 Architecture Preservation Report
 ================================
 Target: alpha
-  family: DEC Alpha (AXP) · word: 64 bit · endian: Little · GPRs: 32 · flags:  · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec")
-Preservation level: P4 — Behavior-preserved
+  family: DEC Alpha (AXP) · word: 64 bit · endian: Little · GPRs: 32 · flags:  · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem")
+Preservation level: P5 — Evidence-sealed
 
 Codec:
-  encoder+decoder subset: round-trip literal 50% · semantic 57%
+  encoder+decoder subset: round-trip literal 64% · semantic 71%
 
 Semantic:
-  integer ops: pass (57%)
+  integer ops: pass (71%)
 
 Differential:
-  sweep 176/176 match · 0 mismatch(es) · differential 57%
+  sweep 184/184 match · 0 mismatch(es) · differential 71%
 
 Known gaps:
   - encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not
-  - 8 of 12 SIR op kinds round-trip semantically
+  - 10 of 12 SIR op kinds round-trip semantically
   - abi/privileged/mmu/system not modeled (0%)
 
 Claims:
@@ -337,7 +337,7 @@ Claims:
 Architecture Preservation Report
 ================================
 Target: coldfire
-  family: Motorola/Freescale ColdFire (68k family) · word: 32 bit · endian: Big · GPRs: 16 · flags: z/n/c/v/x · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop")
+  family: Motorola/Freescale ColdFire (68k family) · word: 32 bit · endian: Big · GPRs: 16 · flags: z/n/c/v/x · encode: Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem")
 Preservation level: P5 — Evidence-sealed
 
 Codec:

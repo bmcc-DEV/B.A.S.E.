@@ -344,8 +344,13 @@ pub const IMM_CASES: [u32; 10] = [
 /// Initial GPR values swept (high bits + boundaries stress word width).
 pub const STATE_CASES: [u64; 4] = [0, 1, 0x7FFF_FFFF, 0xFFFF_FFFF];
 
-/// Generated differential programs: each op kind × each immediate.
+/// Generated differential programs at 32-bit word width.
 pub fn sweep_programs() -> Vec<(String, Vec<Op>)> {
+    sweep_programs_width(4)
+}
+
+/// Generated differential programs at the ISA's natural word width.
+pub fn sweep_programs_width(width: u8) -> Vec<(String, Vec<Op>)> {
     use crate::sir::VReg;
     let v0 = || VReg(0);
     let mut out: Vec<(String, Vec<Op>)> = vec![
@@ -377,15 +382,21 @@ pub fn sweep_programs() -> Vec<(String, Vec<Op>)> {
     }
     out.push(("push".into(), vec![Op::Push { src: v0() }, Op::Ret]));
     out.push(("pop".into(), vec![Op::Pop { dst: v0() }, Op::Ret]));
-    // Load/store on a scratch region (0x4000), width 4, endianness from the ISA.
-    out.push(("ld".into(), vec![Op::MovImm { dst: v0(), imm: 0 }, Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width: 4 }, Op::Ret]));
-    out.push(("st".into(), vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width: 4 }, Op::Ret]));
+    out.push((
+        "ld".into(),
+        vec![
+            Op::MovImm { dst: v0(), imm: 0 },
+            Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width },
+            Op::Ret,
+        ],
+    ));
+    out.push(("st".into(), vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width }, Op::Ret]));
     out.push((
         "st_ld".into(),
         vec![
             Op::MovImm { dst: v0(), imm: 0xDEAD_BEEF },
-            Op::StMem { src: v0(), base: VReg(1), offset: 0, width: 4 },
-            Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width: 4 },
+            Op::StMem { src: v0(), base: VReg(1), offset: 0, width },
+            Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width },
             Op::Ret,
         ],
     ));
@@ -435,7 +446,7 @@ pub fn differential_sweep(target: TargetIsa) -> SweepReport {
         mismatches: Vec::new(),
     };
     let states = sweep_states();
-    for (label, ops) in sweep_programs() {
+    for (label, ops) in sweep_programs_width(word_bits(target) / 8) {
         for state in &states {
             let r = differential_ops(ops.clone(), target, state);
             if r.exec_error.is_some() || !r.note.is_empty() {
@@ -603,6 +614,39 @@ mod tests {
         let mut le = state.clone();
         execute(&ops, &mut le, 32, Endianness::Little).unwrap();
         assert_eq!(&le.mem[0x4000..0x4004], &[0xEF, 0xBE, 0xAD, 0xDE]);
+    }
+
+    #[test]
+    fn ld_st_differential_across_ldst_isas() {
+        // st → ld → value round-trips on every ISA with a memory encoder.
+        let ops = vec![
+            Op::MovImm { dst: VReg(0), imm: 0x1234 },
+            Op::StMem { src: VReg(0), base: VReg(1), offset: 0, width: 4 },
+            Op::Clear { dst: VReg(0) },
+            Op::LdMem { dst: VReg(0), base: VReg(1), offset: 0, width: 4 },
+            Op::Ret,
+        ];
+        let state = MachineState::new().with_gpr(1, 0x4000).with_gpr(LINK, 0x8000);
+        for t in [
+            TargetIsa::ColdFire,
+            TargetIsa::Mips,
+            TargetIsa::Ppc,
+            TargetIsa::AArch64,
+        ] {
+            let r = differential_ops(ops.clone(), t, &state);
+            assert!(r.matched(), "ld/st differential failed for {t}: {r:?}");
+            assert_eq!(r.isa.gpr(0), 0x1234, "loaded value for {t}");
+        }
+        // Alpha is 64-bit: width 8 load/store round-trips a 64-bit value.
+        let ops64 = vec![
+            Op::MovImm { dst: VReg(0), imm: 0x1234 },
+            Op::StMem { src: VReg(0), base: VReg(1), offset: 0, width: 8 },
+            Op::Clear { dst: VReg(0) },
+            Op::LdMem { dst: VReg(0), base: VReg(1), offset: 0, width: 8 },
+            Op::Ret,
+        ];
+        let r = differential_ops(ops64, TargetIsa::Alpha, &state);
+        assert!(r.matched(), "{r:?}");
     }
 
     #[test]

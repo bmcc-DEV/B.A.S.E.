@@ -169,6 +169,12 @@ pub const SIR_OP_KINDS: [&str; 14] = [
 ];
 
 fn probe_ops(kind: &str) -> Vec<Op> {
+    probe_ops_width(kind, 4)
+}
+
+/// `width` is the word width in bytes (4 for 32-bit ISAs, 8 for Alpha): ld/st probe
+/// uses the ISA's natural access width so encoders (which gate on it) round-trip.
+fn probe_ops_width(kind: &str, width: u8) -> Vec<Op> {
     let v0 = || VReg(0);
     match kind {
         "nop" => vec![Op::Nop],
@@ -181,8 +187,8 @@ fn probe_ops(kind: &str) -> Vec<Op> {
         "dec" => vec![Op::Dec { dst: v0() }],
         "push" => vec![Op::Push { src: v0() }],
         "pop" => vec![Op::Pop { dst: v0() }],
-        "ld_mem" => vec![Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width: 4 }],
-        "st_mem" => vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width: 4 }],
+        "ld_mem" => vec![Op::LdMem { dst: v0(), base: VReg(1), offset: 0, width }],
+        "st_mem" => vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width }],
         "call" => vec![Op::CallRel { rel: 0, target: Some(0), symbol: Some("f".into()) }],
         "jmp" => vec![Op::JmpRel { rel: 0, target: Some(0), symbol: Some("f".into()) }],
         other => unreachable!("unknown probe kind {other}"),
@@ -191,7 +197,7 @@ fn probe_ops(kind: &str) -> Vec<Op> {
 
 /// Edge-case variant of a kind: full-range immediates to exercise width-dependent
 /// semantics (e.g. Alpha's LDA sign-extension vs 32-bit wrapping RISC).
-fn edge_ops(kind: &str) -> Vec<Op> {
+fn edge_ops_width(kind: &str, width: u8) -> Vec<Op> {
     let v0 = || VReg(0);
     match kind {
         "mov_imm" => vec![Op::MovImm { dst: v0(), imm: 0xFFFF_FFFF }, Op::Ret],
@@ -207,7 +213,7 @@ fn edge_ops(kind: &str) -> Vec<Op> {
         ],
         "inc" => vec![Op::MovImm { dst: v0(), imm: 0xFFFF_FFFF }, Op::Inc { dst: v0() }, Op::Ret],
         "dec" => vec![Op::MovImm { dst: v0(), imm: 0 }, Op::Dec { dst: v0() }, Op::Ret],
-        _ => probe_ops(kind),
+        _ => probe_ops_width(kind, width),
     }
 }
 
@@ -224,7 +230,8 @@ fn edge_state() -> crate::semexec::MachineState {
 pub fn execute_kind(target: TargetIsa, kind: &str) -> bool {
     use crate::semexec::execute_isa;
     let mut st = edge_state();
-    execute_isa(&probe_ops(kind), &mut st, target).is_ok()
+    execute_isa(&probe_ops_width(kind, crate::semexec::word_bits(target) / 8), &mut st, target)
+        .is_ok()
 }
 
 /// Behavioral check for one kind: reference semantics vs the ISA's, including edge
@@ -232,7 +239,8 @@ pub fn execute_kind(target: TargetIsa, kind: &str) -> bool {
 pub fn differential_kind(target: TargetIsa, kind: &str) -> bool {
     use crate::semexec::differential_ops;
     let state = edge_state();
-    [probe_ops(kind), edge_ops(kind)]
+    let w = crate::semexec::word_bits(target) / 8;
+    [probe_ops_width(kind, w), edge_ops_width(kind, w)]
         .iter()
         .all(|ops| differential_ops(ops.clone(), target, &state).matched())
 }
@@ -250,7 +258,8 @@ pub struct KindProbe {
 }
 
 pub fn probe_kind(target: TargetIsa, kind: &str) -> KindProbe {
-    let r = verify_ops(probe_ops(kind), target);
+    let w = crate::semexec::word_bits(target) / 8;
+    let r = verify_ops(probe_ops_width(kind, w), target);
     KindProbe {
         encoder: r.encode_ok,
         decoder: r.decode_ok,
@@ -600,7 +609,7 @@ mod tests {
     #[test]
     fn coverage_alpha_parisc_coldfire() {
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (57, 57, 57));
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (71, 71, 71)); // + ld/st (ldq/stq)
         let p = coverage(TargetIsa::PaRisc);
         assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (14, 14, 14));
         let c = coverage(TargetIsa::ColdFire);
@@ -630,13 +639,13 @@ mod tests {
             assert_eq!(coverage(*t).execute_pct, 86, "executor kind set differs for {t}");
         }
         let cases = [
-            (TargetIsa::Mips, 57u32),
-            (TargetIsa::Ppc, 57),
+            (TargetIsa::Mips, 71u32), // + ld/st (lw/sw)
+            (TargetIsa::Ppc, 71),     // + ld/st (lwz/stw)
             (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 29), // edge 32-bit imms not encodable
-            (TargetIsa::Alpha, 57), // imm-domain fix: i32 sign-extend → 64-bit matches
+            (TargetIsa::Alpha, 71), // + ld/st (ldq/stq); i32 imm-domain fix
             (TargetIsa::PaRisc, 14),
             (TargetIsa::ColdFire, 86),     // + push/pop/ld/st (only ISA that encodes them)
-            (TargetIsa::AArch64, 29), // edge 0xFFFFFFFF imms not encodable (MOVZ 16-bit/ADD 12-bit)
+            (TargetIsa::AArch64, 43), // + ld/st (offset 0; scaled imm ≠ 0 is a gap)
             (TargetIsa::Arm, 29), // edge 0xFFFFFFFF imms not encodable (imm8); S/rotate forms are gaps
             (TargetIsa::Sparc, 29), // only mov/clear round-trip; imm13 sign-extends (-1 edge fits)
             (TargetIsa::X86_64, 71), // full imm32 + push/pop; only call/jmp + ld/st missing

@@ -122,7 +122,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "branch via CTR/LR; no branch delay slot",
             "exceptions/MMU via MSR + BAT/SLB",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec"),
+        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
     ),
     s(
         "mips",
@@ -148,7 +148,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "$zero reads 0; hi/lo for multiply/divide",
             "CP0 for MMU/exceptions; bi-endian (big default)",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec"),
+        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
     ),
     s(
         "alpha",
@@ -174,7 +174,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "r31 reads as 0; writes to r31 ignored",
             "PALcode (call_pal) for privileged/arch-specific ops",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec"),
+        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem"),
     ),
     s(
         "parisc",
@@ -356,7 +356,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "return address on stack — no link register",
             "D0–D7 data + A0–A7 address registers",
         ],
-        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop"),
+        EncodeStatus::Partial("Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem"),
     ),
     s(
         "superh",

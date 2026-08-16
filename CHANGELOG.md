@@ -93,6 +93,17 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
     consistente-mas-errado; capstone m68k corrigiu (push `0x2F00|dn`, pop `0x201F|dn<<9`)
   - Os 2 kinds novos expõem cobertura honesta: mips/ppc/alpha 67%→57% (não encodam ld/st),
     sparc 33%→29%, x86 83%→71%
+- **ld/st nas ISAs restantes** — memória capstone-verificada
+  - MIPS `lw/sw` (`0x8C000000`/`0xAC000000`, capstone: `0x8D280000` = `lw $t0,($t1)`)
+  - PPC `lwz/stw` (`0x80000000`/`0x90000000`, capstone: `0x80640000` = `lwz r3,0(r4)`)
+  - Alpha `ldq/stq` (opcode `0x29`/`0x2D` << 26, width 8; formato de memória LLVM)
+  - AArch64 `ldr/str` (`0xB9400000`/`0xB9000000`, offset 0; imm escalado ≠ 0 = gap)
+  - Probes/sweep de ld/st usam a largura de palavra da ISA (`word_bits/8`) — Alpha
+    naturalmente width 8
+  - MIPS/PPC/Alpha/AArch64 → 71% em enc/dec/semantic/differential (P5); sweep limpo
+    em todas as ISAs com decoder (mips/ppc/alpha 184/184, aarch64 144/144)
+  - Alpha decoder ganhou `decode_alpha` ldq/stq; encoder corrigido de `0x29<<26` (era
+    `0x29000000` = opcode 0x0a — shift errado)
 - Tests: `ld_st_execute_and_differential_on_coldfire` (memória BE/LE + differential),
   encode/decoder ColdFire capstone-goldens (push/pop/ld/st), cobertura 14 kinds
   atualizada em r7/verify

@@ -30,12 +30,12 @@ flags, ABI e quirks (fonte: `base-recomp/src/semantics.rs`).
 | **x86_64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop` (imm32/imm8, ModRM subset) | ✅ round-trip |
 | **SPARC** | `Nop, Ret, MovImm, Clear` (%l0..%l7, BE) | ✅ round-trip |
 | **ARM** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (imm8, cond AL) | ✅ round-trip |
-| **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` (W-regs, LE) | ✅ round-trip |
-| **Alpha** (DEC AXP) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec` | ✅ round-trip |
+| **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem` (offset 0) | ✅ round-trip |
+| **Alpha** (DEC AXP) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem` (ldq/stq 64-bit) | ✅ round-trip |
 | **PA-RISC** (HPPA) | `Nop, Ret` | ✅ round-trip |
 | **ColdFire** (68k) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem` | ✅ round-trip |
 | **M88k** · **IA-64** · **i860** | encode pendente — emit texto + catálogo semântico | — (pendente) |
-| **MIPS** · **PPC** · **SuperH** | subset | ✅ round-trip literal + semântico |
+| **MIPS** · **PPC** · **SuperH** | subset + **ld/st** (lw/sw · lwz/stw) | ✅ round-trip literal + semântico |
 
 **Verifier** (`base-recomp/src/verify.rs`): `SIR ─encode→ bytes ─decode→ SIR′` e compara
 duas formas — literal (`SIR == SIR′`) e semântica (`semantic_key(SIR) == semantic_key(SIR′)`,
@@ -73,9 +73,10 @@ estados é onde bugs de encoding se escondem:
 ```text
 coldfire: 268 aplicáveis · 268 match · 0 mismatches   (incl. push/pop/ld/st)
 x86_64:   256 aplicáveis · 256 match · 0 mismatches   (imm32 total + push/pop)
-mips:     176 aplicáveis · 176 match · 0 mismatches
-alpha:    176 aplicáveis · 176 match · 0 mismatches   (após fix i32 do executor de referência)
-aarch64:  136 aplicáveis · 136 match · 0 mismatches
+mips:     184 aplicáveis · 184 match · 0 mismatches   (incl. ld/st)
+ppc:      184 aplicáveis · 184 match · 0 mismatches   (incl. ld/st)
+alpha:    184 aplicáveis · 184 match · 0 mismatches   (incl. ld/st 64-bit)
+aarch64:  144 aplicáveis · 144 match · 0 mismatches   (incl. ld/st)
 arm:      104 aplicáveis · 104 match · 0 mismatches
 sparc:     56 aplicáveis ·  56 match · 0 mismatches
 ```
@@ -85,13 +86,13 @@ ser lido como "80% do MIPS preservado":
 
 ```text
 | ISA | enc | dec | literal | semantic | exec | differential | status |
-| mips     | 57% | 57% | 57% | 57% | 86% | 57% | PARTIAL |
-| ppc      | 57% | 57% | 50% | 57% | 86% | 57% | PARTIAL |
+| mips     | 71% | 71% | 71% | 71% | 86% | 71% | PARTIAL |
+| ppc      | 71% | 71% | 64% | 71% | 86% | 71% | PARTIAL |
 | sh4      | 57% | 57% | 50% | 57% | 86% | 29% | PARTIAL |
-| alpha    | 57% | 57% | 50% | 57% | 86% | 57% | PARTIAL |
+| alpha    | 71% | 71% | 64% | 71% | 86% | 71% | PARTIAL |
 | parisc   | 14% | 14% | 14% | 14% | 86% | 14% | PARTIAL |
 | coldfire | 86% | 86% | 86% | 86% | 86% | 86% | PARTIAL |
-| aarch64  | 57% | 57% | 57% | 57% | 86% | 29% | PARTIAL |
+| aarch64  | 71% | 71% | 71% | 71% | 86% | 43% | PARTIAL |
 | arm      | 57% | 57% | 50% | 57% | 86% | 29% | PARTIAL |
 | sparc    | 29% | 29% | 29% | 29% | 86% | 29% | PARTIAL |
 | x86_64   | 71% | 71% | 71% | 71% | 86% | 71% | PARTIAL |
@@ -106,13 +107,15 @@ ARM imm8 — mesma limitação honesta do SH; ARM `literal < semantic` porque `C
 mis-decode. SPARC: encoder cobre só `Nop/Ret/MovImm/Clear` (%l0..%l7); imm13 sign-extend
 faz o edge `0xFFFFFFFF` (= −1) encodar — differential 29%. x86_64: imm32 total + push/pop
 dedicados → 71%; faltam `call`/`jmp` (reloc precisa de linker — gap honesto) e ld/st
-(encodings de memória ModRM). ColdFire: **única ISA com load/store no SIR** — `move.l
-(An),Dn`/`move.l Dn,(An)` (capstone-verificados) + push/pop = 86% em todas as dimensões;
-os encodings antigos de push/pop estavam errados (`0x29C0` = `move.l d0,(a4)+`) e só D0
-passava — fix com capstone. Alpha alcança 57% de differential (14 kinds, incl. os 2 novos
-ld/st que não encoda). `exec` mede o executor de referência (incl. push/pop/ld/st;
-independente do ISA). `abi`/`privileged`/`mmu`/`system` são eixos separados, todos `0%`
-(não modelados) — a tabela deixa isso explícito.
+(encodings de memória ModRM). ColdFire: **mais completo** — `move.l (An),Dn`/`move.l
+Dn,(An)` + push/pop = 86% em todas as dimensões; os encodings antigos de push/pop
+estavam errados (`0x29C0` = `move.l d0,(a4)+`) e só D0 passava — fix com capstone.
+MIPS/PPC/Alpha/AArch64: **ld/st capstone-verificados** (lw/sw · lwz/stw · ldq/stq ·
+ldr/str) → 71% (Alpha 64-bit com ldq/stq width 8; AArch64 só offset 0, imm escalado
+≠ 0 é gap). Os probes de ld/st usam a largura de palavra do ISA (`word_bits/8`).
+`exec` mede o executor de referência (incl. push/pop/ld/st; independente do ISA).
+`abi`/`privileged`/`mmu`/`system` são eixos separados, todos `0%` (não modelados) — a
+tabela deixa isso explícito.
 
 Honestidade: `static_recomp_complete: false` — o catálogo é o contrato semântico;
 encode/decoder/executor por ISA são parciais até validados contra cross-as/QEMU. Fixes:

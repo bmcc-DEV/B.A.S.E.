@@ -158,6 +158,18 @@ fn encode_aarch64(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let wd = dst.0.min(30);
             enc(0x51000400 | (wd << 5) | wd)
         }
+        Op::LdMem { dst, base, offset, width } if *offset == 0 && *width == 4 => {
+            let wt = dst.0.min(30);
+            let wb = base.0.min(30);
+            // ldr wT, [wB] — capstone-verified (0xB9400020 = ldr w0, [x1]).
+            enc(0xB9400000 | (wb << 5) | wt)
+        }
+        Op::StMem { src, base, offset, width } if *offset == 0 && *width == 4 => {
+            let wt = src.0.min(30);
+            let wb = base.0.min(30);
+            // str wT, [wB] — capstone-verified (0xB9000020 = str w0, [x1]).
+            enc(0xB9000000 | (wb << 5) | wt)
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::AArch64,
@@ -204,6 +216,18 @@ fn encode_mips(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let t = treg(*dst);
             enc(0x24000000 | (t << 21) | (t << 16) | 0xffff)
         }
+        Op::LdMem { dst, base, offset, width } if *width == 4 && *offset >= -32768 && *offset <= 32767 => {
+            let rt = treg(*dst);
+            let rs = treg(*base);
+            // lw $rt, imm($rs) — capstone-verified (0x8D280000 = lw $t0, ($t1)).
+            enc(0x8C000000 | (rs << 21) | (rt << 16) | (*offset as u16 as u32))
+        }
+        Op::StMem { src, base, offset, width } if *width == 4 && *offset >= -32768 && *offset <= 32767 => {
+            let rt = treg(*src);
+            let rs = treg(*base);
+            // sw $rt, imm($rs) — capstone-verified (0xAD280000 = sw $t0, ($t1)).
+            enc(0xAC000000 | (rs << 21) | (rt << 16) | (*offset as u16 as u32))
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Mips,
@@ -245,6 +269,18 @@ fn encode_ppc(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Dec { dst } => {
             let rr = r(*dst);
             enc(0x38000000 | (rr << 21) | (rr << 16) | 0xffff)
+        }
+        Op::LdMem { dst, base, offset, width } if *width == 4 && *offset >= -32768 && *offset <= 32767 => {
+            let rt = r(*dst);
+            let ra = r(*base);
+            // lwz rT, d(rA) — capstone-verified (0x80640000 = lwz r3, 0(r4)).
+            enc(0x80000000 | (rt << 21) | (ra << 16) | (*offset as u16 as u32))
+        }
+        Op::StMem { src, base, offset, width } if *width == 4 && *offset >= -32768 && *offset <= 32767 => {
+            let rs = r(*src);
+            let ra = r(*base);
+            // stw rS, d(rA) — capstone-verified (0x90640000 = stw r3, 0(r4)).
+            enc(0x90000000 | (rs << 21) | (ra << 16) | (*offset as u16 as u32))
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -362,6 +398,18 @@ fn encode_alpha(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Dec { dst } => {
             let rd = r(*dst);
             enc(lda(rd, 0xFFFF, rd))
+        }
+        Op::LdMem { dst, base, offset, width } if *width == 8 && *offset >= -32768 && *offset <= 32767 => {
+            let ra = r(*dst);
+            let rb = r(*base);
+            // ldq ra, disp(rb) — Alpha memory format (opcode 0x29 << 26, 64-bit).
+            enc((0x29 << 26) | (ra << 21) | (rb << 16) | (*offset as u16 as u32))
+        }
+        Op::StMem { src, base, offset, width } if *width == 8 && *offset >= -32768 && *offset <= 32767 => {
+            let ra = r(*src);
+            let rb = r(*base);
+            // stq ra, disp(rb) — Alpha memory format (opcode 0x2D << 26).
+            enc((0x2D << 26) | (ra << 21) | (rb << 16) | (*offset as u16 as u32))
         }
         other => {
             return Err(EncodeError::Unsupported(
@@ -612,5 +660,53 @@ mod tests {
                 "expected Unsupported for {t}"
             );
         }
+    }
+
+    #[test]
+    fn encode_ld_st_capstone_verified() {
+        // Bytes verified against capstone (mips/ppc/arm64); Alpha against its memory
+        // format (opcode 0x29/0x2D — LDA pattern already checked vs LLVM).
+        let ld = |dst: VReg, base: VReg, width: u8| {
+            module_from_ops(vec![Op::LdMem { dst, base, offset: 0, width }])
+        };
+        let st = |src: VReg, base: VReg, width: u8| {
+            module_from_ops(vec![Op::StMem { src, base, offset: 0, width }])
+        };
+        // MIPS: lw $t0,($t1) / sw $t0,($t1) — 0x8D280000 / 0xAD280000.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 4), TargetIsa::Mips).unwrap(),
+            vec![0x8D, 0x28, 0x00, 0x00]
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 4), TargetIsa::Mips).unwrap(),
+            vec![0xAD, 0x28, 0x00, 0x00]
+        );
+        // PPC: lwz r3,0(r4) / stw r3,0(r4) — 0x80640000 / 0x90640000.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 4), TargetIsa::Ppc).unwrap(),
+            vec![0x80, 0x64, 0x00, 0x00]
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 4), TargetIsa::Ppc).unwrap(),
+            vec![0x90, 0x64, 0x00, 0x00]
+        );
+        // AArch64: ldr w0,[x1] / str w0,[x1] — 0xB9400020 / 0xB9000020.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 4), TargetIsa::AArch64).unwrap(),
+            vec![0x20, 0x00, 0x40, 0xB9]
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 4), TargetIsa::AArch64).unwrap(),
+            vec![0x20, 0x00, 0x00, 0xB9]
+        );
+        // Alpha: ldq r0,0(r1) / stq r0,0(r1) — opcode 0x29/0x2D << 26.
+        assert_eq!(
+            encode_module(&ld(VReg(0), VReg(1), 8), TargetIsa::Alpha).unwrap(),
+            vec![0x00, 0x00, 0x01, 0xA4] // 0xA4000000 LE
+        );
+        assert_eq!(
+            encode_module(&st(VReg(0), VReg(1), 8), TargetIsa::Alpha).unwrap(),
+            vec![0x00, 0x00, 0x01, 0xB4] // 0xB4000000 LE
+        );
     }
 }

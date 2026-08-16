@@ -110,6 +110,28 @@ fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if opc == 0x23 {
+            // lw $rt, imm($rs) — LdMem (width 4, encoder subset).
+            ops.push(Op::LdMem {
+                dst: v(rt),
+                base: v(rs),
+                offset: imm,
+                width: 4,
+            });
+            i += 4;
+            continue;
+        }
+        if opc == 0x2B {
+            // sw $rt, imm($rs) — StMem (width 4).
+            ops.push(Op::StMem {
+                src: v(rt),
+                base: v(rs),
+                offset: imm,
+                width: 4,
+            });
+            i += 4;
+            continue;
+        }
         ops.push(gap(i, w, format!("mips opcode {opc:#x} outside encoder subset")));
         i += 4;
     }
@@ -147,6 +169,26 @@ fn decode_ppc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             } else {
                 ops.push(gap(i, w, "ppc addi ra!=0, ra!=rt".into()));
             }
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 32 {
+            // lwz rT, d(rA) — LdMem (width 4).
+            let rt = (w >> 21) & 0x1f;
+            let ra = (w >> 16) & 0x1f;
+            let d = VReg(rt.saturating_sub(3));
+            let base = VReg(ra.saturating_sub(3));
+            ops.push(Op::LdMem { dst: d, base, offset: sext16(w & 0xffff), width: 4 });
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 36 {
+            // stw rS, d(rA) — StMem (width 4).
+            let rs = (w >> 21) & 0x1f;
+            let ra = (w >> 16) & 0x1f;
+            let src = VReg(rs.saturating_sub(3));
+            let base = VReg(ra.saturating_sub(3));
+            ops.push(Op::StMem { src, base, offset: sext16(w & 0xffff), width: 4 });
             i += 4;
             continue;
         }
@@ -255,6 +297,32 @@ fn decode_alpha(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             } else {
                 ops.push(gap(i, w, "alpha lda with rb outside {r31, ra}".into()));
             }
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 0x29 {
+            // ldq ra, disp(rb) — LdMem (width 8, 64-bit Alpha).
+            let ra = (w >> 21) & 0x1f;
+            let rb = (w >> 16) & 0x1f;
+            ops.push(Op::LdMem {
+                dst: VReg(ra),
+                base: VReg(rb),
+                offset: sext16(w & 0xffff),
+                width: 8,
+            });
+            i += 4;
+            continue;
+        }
+        if w >> 26 == 0x2D {
+            // stq ra, disp(rb) — StMem (width 8).
+            let ra = (w >> 21) & 0x1f;
+            let rb = (w >> 16) & 0x1f;
+            ops.push(Op::StMem {
+                src: VReg(ra),
+                base: VReg(rb),
+                offset: sext16(w & 0xffff),
+                width: 8,
+            });
             i += 4;
             continue;
         }
@@ -506,6 +574,36 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 ops.push(arith(VReg(wd), -(imm as i32)));
             } else {
                 ops.push(arith(VReg(wd), imm as i32));
+            }
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFC0_0000) == 0xB940_0000 {
+            // ldr wT, [wB] (offset=0, unsigned imm field must be 0 — encoder subset).
+            if (w >> 10) & 0xfff != 0 {
+                ops.push(gap(i, w, "aarch64 ldr with scaled imm != 0".into()));
+            } else {
+                ops.push(Op::LdMem {
+                    dst: VReg(w & 0x1f),
+                    base: VReg((w >> 5) & 0x1f),
+                    offset: 0,
+                    width: 4,
+                });
+            }
+            i += 4;
+            continue;
+        }
+        if (w & 0xFFC0_0000) == 0xB900_0000 {
+            // str wT, [wB] (offset=0).
+            if (w >> 10) & 0xfff != 0 {
+                ops.push(gap(i, w, "aarch64 str with scaled imm != 0".into()));
+            } else {
+                ops.push(Op::StMem {
+                    src: VReg(w & 0x1f),
+                    base: VReg((w >> 5) & 0x1f),
+                    offset: 0,
+                    width: 4,
+                });
             }
             i += 4;
             continue;

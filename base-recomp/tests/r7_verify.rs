@@ -53,7 +53,8 @@ fn coverage_table_all_targets_honest() {
     for t in [TargetIsa::Mips, TargetIsa::Ppc, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        assert_eq!(c.semantic_pct, 57, "{t}"); // 8 of 14 kinds
+        let want = if t == TargetIsa::SuperH(SuperHFlavor::Sh4) { 57 } else { 71 }; // + ld/st
+        assert_eq!(c.semantic_pct, want, "{t}");
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
@@ -64,7 +65,7 @@ fn coverage_table_all_targets_honest() {
 #[test]
 fn coverage_new_decoders() {
     let alpha = coverage(TargetIsa::Alpha);
-    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (57, 57, 57));
+    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (71, 71, 71)); // + ld/st
 
     let parisc = coverage(TargetIsa::PaRisc);
     assert_eq!(parisc.semantic_pct, 14, "{parisc:?}");
@@ -125,7 +126,7 @@ fn differential_coverage_separates_width_behavior() {
     // Alpha 64-bit width now agrees (i32 imm domain, sign-extended by LDA and the
     // reference executor); 32-bit wrapping ISAs agree trivially.
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 57, "{a:?}");
+    assert_eq!(a.differential_pct, 71, "{a:?}"); // + ld/st (ldq/stq)
     let c = coverage(TargetIsa::ColdFire);
     assert_eq!(c.differential_pct, 86, "{c:?}"); // + push/pop/ld/st, the only ISA that encodes them
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));
