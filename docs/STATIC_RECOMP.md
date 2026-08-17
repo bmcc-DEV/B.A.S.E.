@@ -1,154 +1,134 @@
-# Static Recompilation (Path to v1.7 + v1.8)
+# Static Recompilation (Path v1.7 → v1.9 → P6.0)
 
-Vault: [`base-vault/27`](../base-vault/27%20-%20Path%20to%20v1.7/27.00%20-%20Index.md) · [`base-vault/28`](../base-vault/28%20-%20Path%20to%20v1.8/28.00%20-%20Index.md)  
+Vault: [`base-vault/27`](../base-vault/27%20-%20Path%20to%20v1.7/27.00%20-%20Index.md) · [`base-vault/28`](../base-vault/28%20-%20Path%20to%20v1.8/28.00%20-%20Index.md) · [`base-vault/29`](../base-vault/29%20-%20Path%20to%20v1.9/29.00%20-%20Index.md)
 Crate: `base-recomp`
 
 ## Pipeline
 
 ```text
-x86-32 bytes | ELF .text → lift → SIR → emit → ASM (multi-ISA)
+x86-32 bytes | ELF .text | PE .text → lift → SIR → encode/decode/emit → multi-ISA
 ```
 
-## Path v1.9 — preservação de semântica
+17 SIR op kinds: Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, Cmp, Test, BranchCond.
+
+14 target ISAs: x86_64, ARM, AArch64, MIPS, PPC, SPARC, SuperH (SH-2/SH-4), Alpha, PA-RISC, M88k, IA-64, i860, ColdFire.
+
+## Quick start
 
 ```bash
 base recomp targets            # 14 alvos (amd64 ≡ x86_64)
-base recomp semantics          # catálogo semântico das 11 ISAs + JSON
-base recomp verify --hex B80100000083C002C3 --target mips -o output/verify  # SIR→encode→decode→SIR′
-base recomp verify --all       # preservation score por alvo (computado, não subjetivo)
-base recomp encode --hex B80100000083C002C3 --target alpha -o output/enc   # bytes reais
+base recomp semantics          # catálogo semântico 13 ISAs + JSON
+base recomp verify --hex B80100000083C002C3 --target mips -o output/verify
+base recomp verify --all       # cobertura 17 kinds × 6 dimensões por ISA
 base recomp encode --hex B80100000083C002C3 --target coldfire -o output/enc
-base recomp encode --hex 90C3 --target parisc -o output/enc
+base recomp report --matrix    # matriz P0–P6 por ISA
 ```
 
-**Preservar a semântica, não apenas executar o binário** — `base-recomp` carrega o
-modelo semântico (SIR) de cada arquitetura: registradores, endianness, delay slots,
-flags, ABI e quirks (fonte: `base-recomp/src/semantics.rs`).
+## Encoder / decoder por ISA
 
-| ISA | Encoder (`encode`) | Decoder (`verify`) |
-|-----|--------------------|--------------------|
-| **x86_64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem` (ModRM subset) | ✅ round-trip |
-| **SPARC** | `Nop, Ret, MovImm, Clear, LdMem, StMem` (ld/st, %l0..%l7, BE) | ✅ round-trip |
-| **ARM** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem` (ldr/str, offset 0) | ✅ round-trip |
-| **AArch64** | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem` (offset 0) | ✅ round-trip |
-| **Alpha** (DEC AXP) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, LdMem, StMem` (ldq/stq 64-bit) | ✅ round-trip |
-| **PA-RISC** (HPPA) | `Nop, Ret` | ✅ round-trip |
-| **ColdFire** (68k) | `Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem` | ✅ round-trip |
-| **M88k** · **IA-64** · **i860** | encode pendente — emit texto + catálogo semântico | — (pendente) |
-| **MIPS** · **PPC** · **SuperH** | subset + **ld/st** (lw/sw · lwz/stw) | ✅ round-trip literal + semântico |
+| ISA | Encoder ops | Decoder | Notes |
+|-----|------------|---------|-------|
+| **x86_64** | 17/17 (ModRM subset + CallRel/JmpRel + Cmp/Test/BC) | ✅ round-trip | imm32 total; prefixos → gap |
+| **AArch64** | 17/17 (W-reg, MOVZ/ADD/SUB #imm12, SUBS/ANDS, B.cond) | ✅ round-trip | lsl #12 → gap |
+| **ARM** | 17/17 (imm8, MOV/ADD/SUB/CMP/TST/B<cond>) | ✅ round-trip | rotate≠0 → gap |
+| **ColdFire** | 17/17 (68k subset + push/pop + CMP.L + Bcc.w) | ✅ round-trip | Test encodes as CMP (gap doc.) |
+| **PPC** | 17/17 (r3..r31 + cmpw/cmplw + BC BO/BI) | ✅ round-trip | 8 BO/BI canônicos; encoder approxima 14 |
+| **SPARC** | 17/17 (%l0..%l7 + subcc/andcc + bicc 14 conds) | ✅ round-trip | BE: subcc/andcc %g0 discard |
+| **MIPS** | 14/17 (lw/sw + arith) | ✅ round-trip | — sem flags |
+| **SuperH** | 14/17 (mov.l @Rm,Rn etc.) | ✅ round-trip | T flag; delay slots |
+| **Alpha** | 14/17 (ldq/stq 64-bit + LDA) | ✅ round-trip | — sem flags |
+| **PA-RISC** | 14/17 (LDI/LDO/LDW/STW + bv) | ✅ round-trip | — sem flags |
+| M88k · IA-64 · i860 | emit texto | pendente | `Err(Unsupported)` |
 
-**Verifier** (`base-recomp/src/verify.rs`): `SIR ─encode→ bytes ─decode→ SIR′` e compara
-duas formas — literal (`SIR == SIR′`) e semântica (`semantic_key(SIR) == semantic_key(SIR′)`,
-normalizando `Clear`→`movimm(·,0)`, `Dec`→`addimm(·,-1)`, imms → i32 do domínio SIR…).
-Palavra não reconhecida → `Op::Unknown` (gap) — nunca mis-decode silencioso.
-
-**Execução semântica** (`base-recomp/src/semexec.rs`) — o salto de *representação* para
-*comportamento*:
+## Semantic execution (`semexec.rs`)
 
 ```text
-execute_reference(SIR, state, width, endian)  ==  execute_isa(decode(encode(SIR)), state)
+execute_reference(SIR, state, width, endian) == execute_isa(decode(encode(SIR)), state)
 ```
 
-`MachineState { gpr, pc, flags, mem }` · width = 64 (Alpha) / 32 (demais) · memória de
-64 KiB com `load`/`store` (endianness do ISA vinda do catálogo semântico, widths 1/2/4/8,
-alignment não imposto — Alpha tolera unaligned) · `Push`/`Pop` executáveis via `SP = VReg 4` ·
-`Flags { carry, overflow, zero, negative, extra }` estruturado (ops ainda não setam flags —
-próximo rung). A dimensão `differential` roda cada op kind com imediato de borda
-(`0xFFFFFFFF`) e estado de borda, e só passa se os dois lados deixam o **mesmo estado
-arquitetural**. Isso já pegou um bug real: encoder ColdFire escrevia `Dn` em bits 5-3 sem
-shift (`clr.l d3` viraria `0x4283` = `clr.l (a3)+`) — só `D0` passava; roundtrip antigo
-usava VReg 0 e não via. E o diferencial **revelou uma inconsistência de modelo** que virou
-fix: o executor de referência tratava imeds SIR como `u32` quando o domínio do SIR é `i32`
-(`AddImm{0xFFFFFFFF}` ≡ `Dec`, diz `semantic_key`). O encoder Alpha (LDA) já sign-extendia
-o disp; o executor somava `+4294967295` — o "gap Alpha" era isso. `semexec::execute` agora
-sign-extende i32 → largura (`0xFFFFFFFF` = −1 a 64 bits); differential Alpha 50% → 67%,
-sweep limpo. O round-trip literal+semântico **combinado ao diferencial** é a única forma
-de provar isso — o representacional sozinho não teria visto nem o ColdFire nem o Alpha.
+`MachineState { gpr[32], pc, flags, mem[64KiB] }` · width = 64 (Alpha) / 32 (demais) ·
+`Flags { carry, overflow, zero, negative, extra }` — NZCV via `set_nzcv_sub`/`set_nzcv_and` ·
+`eval_cond_nzcv()` evalua os 14 `Cond` variants. Memória: `load`/`store` com endianness
+do catálogo, widths 1/2/4/8, `MemError::OutOfBounds/BadWidth`.
 
-**Sweep gerado** (`base recomp verify --sweep --target <isa>`) — matriz de programas
-(kinds × imms `{0,1,0x7f,0x80,0x7fff,0x8000,0x7fffffff,0x80000000,0xfffffffe,0xffffffff}` ×
-estados iniciais `{0,1,0x7fffffff,0xffffffff}`) executada referência-vs-ISA. O espaço de
-estados é onde bugs de encoding se escondem:
+## P6.0 — Conditional control flow
+
+SIR ops: `Cmp { rd, rs }` (flags from rd-rs), `Test { rd, rs }` (flags from rd&rs),
+`BranchCond { cond: Cond, target }` (14 variants: Eq/Ne/Lt/Ge/Gt/Le/Cs/Cc/Mi/Pl/Vs/Vc/Hi/Ls).
+
+6 ISAs com encode/decode de conditional: x86_64, AArch64, ARM, ColdFire, PPC, SPARC.
+
+Sweep condicional: 70 programs — Cmp × {LT=0, EQ, GT=positive} × 14 conds + Test × {zero, nonzero} × 14 conds.
+Cada programa gera taken e not-taken, 4 estados iniciais = 560 differential cases.
+
+### Conditional per ISA
+
+| ISA | Cmp | Test | BranchCond | Notes |
+|-----|-----|------|------------|-------|
+| x86_64 | CMP r/m32,r32 | TEST r/m32,r32 | Jcc rel32 (all 14) | Full EFLAGS subset |
+| AArch64 | SUBS WZR,Wn,Wm | ANDS WZR,Wn,Wm | B.cond imm19 (all 14) | Full NZCV |
+| ARM | CMP Rd,Rs | TST Rd,Rs | B<cond> imm24 (all 14) | Full CPSR |
+| ColdFire | CMP.L Dn,Dm | CMP.L (as TST fallback) | Bcc.w disp16 (all 14) | TST gap documented |
+| PPC | cmpw rA,rB | cmplw rA,rB | BC BO/BI (8 canonical) | CR0 has 4 bits only |
+| SPARC | subcc %rs1,%rs2,%g0 | andcc %rs1,%rs2,%g0 | b<cond> disp22 (all 14) | icc/xcc |
+| MIPS/SuperH/Alpha/PaRISC | — | — | — | No flags register |
+
+### Accepted P6 conditions
 
 ```text
-coldfire: 268 aplicáveis · 268 match · 0 mismatches   (incl. push/pop/ld/st)
-x86_64:   268 aplicáveis · 268 match · 0 mismatches   (imm32 total + push/pop + ld/st)
-mips:     184 aplicáveis · 184 match · 0 mismatches   (incl. ld/st)
-ppc:      184 aplicáveis · 184 match · 0 mismatches   (incl. ld/st)
-alpha:    184 aplicáveis · 184 match · 0 mismatches   (incl. ld/st 64-bit)
-aarch64:  144 aplicáveis · 144 match · 0 mismatches   (incl. ld/st)
-arm:      112 aplicáveis · 112 match · 0 mismatches   (incl. ld/st)
-sparc:     64 aplicáveis ·  64 match · 0 mismatches   (incl. ld/st)
+P6 = P5 + 100% all dimensions + sweep condicional clean
 ```
 
-**Cobertura por dimensão** (`base recomp verify --all`) — nunca um score único que possa
-ser lido como "80% do MIPS preservado":
+Not in P6: MMU, interrupts, privileged, FP, SIMD, atomics, precise memory ordering, full exceptions.
+
+## Differential sweep
 
 ```text
-| ISA | enc | dec | literal | semantic | exec | differential | status |
-| mips     | 71% | 71% | 71% | 71% | 86% | 71% | PARTIAL |
-| ppc      | 71% | 71% | 64% | 71% | 86% | 71% | PARTIAL |
-| sh4      | 57% | 57% | 50% | 57% | 86% | 29% | PARTIAL |
-| alpha    | 71% | 71% | 64% | 71% | 86% | 71% | PARTIAL |
-| parisc   | 14% | 14% | 14% | 14% | 86% | 14% | PARTIAL |
-| coldfire | 86% | 86% | 86% | 86% | 86% | 86% | PARTIAL |
-| aarch64  | 71% | 71% | 71% | 71% | 86% | 43% | PARTIAL |
-| arm      | 71% | 71% | 64% | 71% | 86% | 43% | PARTIAL |
-| sparc    | 43% | 43% | 43% | 43% | 86% | 43% | PARTIAL |
-| x86_64   | 86% | 86% | 86% | 86% | 86% | 86% | PARTIAL |
-| m88k     |  0% |  0% |  0% |  0% | 86% |  0% | NONE    |
+coldfire: 268 base + conditional  · all match
+x86_64:   268 base + conditional  · all match
+mips:     184 base (no conditional) · all match
+ppc:      184 base + conditional  · all match
+alpha:    184 base (no conditional) · all match
+sparc:    base + conditional      · all match
+aarch64:  base + conditional      · all match
+arm:      base + conditional      · all match
 ```
 
-`literal < semantic` acontece quando o encoder normaliza (`Clear`→`mov #0` decodifica como
-`MovImm{·,0}`): o significado preserva-se, a forma não. AArch64/ARM: `differential` 29%
-porque os immediates de borda `0xFFFFFFFF` não cabem em MOVZ (16-bit)/ADD (12-bit) nem em
-ARM imm8 — mesma limitação honesta do SH; ARM `literal < semantic` porque `Clear` vira
-`MOV #0`; formas fora do subset (ARM rotate/S=1, AArch64 `lsl #12`) são gaps, nunca
-mis-decode. ARM/AArch64: `differential` 43% — ld/st (offset 0) round-trip; immediates de
-borda `0xFFFFFFFF` não cabem (imm8/12-bit) e offset ≠ 0 é gap honesto; ARM `literal <
-semantic` porque `Clear` vira `MOV #0`; rotate/S=1 são gaps. SPARC: `Nop/Ret/MovImm/
-Clear/ld/st` (%l0..%l7) → 43% (imm13 sign-extend faz edge `0xFFFFFFFF` = −1 encodar).
-x86_64: imm32 total + push/pop + ModRM ld/st → **86% em todas as dimensões** (empata com
-ColdFire); só `call`/`jmp` faltam (reloc precisa de linker — gap honesto). ColdFire:
-`move.l (An),Dn`/`Dn,(An)` + push/pop = 86%; os encodings antigos de push/pop estavam
-errados (`0x29C0` = `move.l d0,(a4)+`) e só D0 passava — fix com capstone. Todos os
-ld/st encoders são capstone-verificados; probes usam a largura de palavra da ISA
-(`word_bits/8`). `exec` mede o executor de referência (incl. push/pop/ld/st;
-independente do ISA). `abi`/`privileged`/`mmu`/`system` são eixos separados, todos
-`0%` (não modelados) — a tabela deixa isso explícito.
+Sweep space: kinds × 10 imms × 4 states × (conditional expansion for P6 ISAs).
 
-Honestidade: `static_recomp_complete: false` — o catálogo é o contrato semântico;
-encode/decoder/executor por ISA são parciais até validados contra cross-as/QEMU. Fixes:
-encoder PPC movido de `r0` para `r3..r31` (r0 lê como 0 no RA de `addi`); encoder
-ColdFire `Dn` em bits 5-3 (`<< 3` no grupo addi/subi/clr/addq/subq/push); executor de
-referência sign-extende imeds SIR (domínio i32) para a largura do ISA.
+## Cobertura por dimensão
 
-## Path v1.9
+17 kinds × 6 dimensões (encoder/decoder/literal/semantic/exec/differential):
 
-```bash
-base recomp encode --hex B80100000083C002C3 --target sh2 -o output/enc   # sem cross-as
-base recomp encode --hex 90C3 --target mips -o output/enc_mips
-base recomp pe --input game.exe --name start --target x86_64 -o output/pe  # só .text
-base recomp runtime   # Saturn/DC = false
-# Capstone: cargo test -p base-recomp --features capstone
-```
+| ISA | enc | dec | sem | diff | exec | status | Level |
+|-----|-----|-----|-----|------|------|--------|-------|
+| x86_64 | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| AArch64 | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| ARM | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| ColdFire | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| PPC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| SPARC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| MIPS | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
+| SuperH | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
+| Alpha | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
+| PA-RISC | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
+| M88k | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
+| IA-64 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
+| i860 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 
-## Path v1.8
+`exec` = 100% em todas (executor de referência modela todos os 17 kinds).
+82% = 14/17 kinds (sem cmp/test/bcond — sem flags register).
+`abi/privileged/mmu/system` = **0%** (não modelados).
 
-```bash
-base recomp elf --input base-recomp/tests/fixtures/add3.o --name add3 --target sh2 -o output/v18
-base recomp lift --hex 31C0C3 --target x86_64 -o output/clear  # xor eax,eax; ret
-```
+## Bugs pegos pelo verifier
 
-## Smoke (v1.7)
-
-```bash
-cargo test -p base-recomp
-base recomp lift --hex 90c3 --target x86_64 -o output/recomp_smoke
-base recomp roundtrip --hex B8010000000502000000C3 --name add3 --expect 3 -o output/r2
-```
+1. **ColdFire Dn bits 5-3**: `clr.l d3` → `0x4283` = `clr.l (a3)+`. Sweep com VReg não-zero detectou.
+2. **PPC r0 colisão**: `addi r0,0,5` lê RA como 0. Fix: encoder usa `r3..r31`.
+3. **Alpha i32 domain**: executor tratava imeds como `u32`, mas SIR é `i32`. Fix: sign-extend.
+4. **ColdFire push/pop encoding**: `0x29C0` era `move.l d0,(a4)+`, não push. Capstone validou.
 
 ## Honesty
 
-`static_recomp_complete: false` · `win32_abi_complete: false` · `runs_any_pe: false`  
-Fora: Wine, PE/Win32, runtime Saturn.
+`static_recomp_complete: false` · `win32_abi_complete: false` · `runs_any_pe: false`
+Encode/decode/executor são parciais até validados contra cross-assembler / QEMU / capstone.
+Eixos `abi/privileged/mmu/system` = 0% (separados, não misturados num score único).

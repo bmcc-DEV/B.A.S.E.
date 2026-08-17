@@ -524,7 +524,7 @@ fn emit_sparc(op: &Op) -> String {
             format!("  ! gap @{offset}: {note}\n  ta 1\n")
         }
         Op::Cmp { rd, rs } => format!("  cmp {}, {}\n", sparc_reg(*rd), sparc_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", sparc_reg(*rd), sparc_reg(*rs)),
+        Op::Test { rd, rs } => format!("  and {}, {}, %g0\n", sparc_reg(*rd), sparc_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "be",
@@ -535,13 +535,12 @@ fn emit_sparc(op: &Op) -> String {
                 crate::sir::Cond::Le => "ble",
                 crate::sir::Cond::Cs => "bcs",
                 crate::sir::Cond::Cc => "bcc",
-                crate::sir::Cond::Mi => "bn",
-                crate::sir::Cond::Pl => "bp",
+                crate::sir::Cond::Mi => "bneg",
+                crate::sir::Cond::Pl => "bpos",
                 crate::sir::Cond::Vs => "bvs",
                 crate::sir::Cond::Vc => "bvc",
-                crate::sir::Cond::Hi => "ba",
-                crate::sir::Cond::Ls => "blu",
-                _ => "ba",
+                crate::sir::Cond::Hi => "bgu",
+                crate::sir::Cond::Ls => "bleu",
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }

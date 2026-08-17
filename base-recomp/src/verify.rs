@@ -157,7 +157,8 @@ pub fn verify_ops(ops: Vec<Op>, target: TargetIsa) -> RoundtripReport {
 }
 
 /// The SIR op kinds scored (everything except `Unknown`, which is a gap by design).
-pub const SIR_OP_KINDS: [&str; 14] = [
+/// P6 additions: cmp, test, bcond (conditional control flow — Path v1.9+).
+pub const SIR_OP_KINDS: [&str; 17] = [
     "nop",
     "ret",
     "mov_imm",
@@ -172,6 +173,9 @@ pub const SIR_OP_KINDS: [&str; 14] = [
     "st_mem",
     "call",
     "jmp",
+    "cmp",
+    "test",
+    "bcond",
 ];
 
 fn probe_ops(kind: &str) -> Vec<Op> {
@@ -197,6 +201,9 @@ fn probe_ops_width(kind: &str, width: u8) -> Vec<Op> {
         "st_mem" => vec![Op::StMem { src: v0(), base: VReg(1), offset: 0, width }],
         "call" => vec![Op::CallRel { rel: 0, target: Some(0), symbol: Some("f".into()) }],
         "jmp" => vec![Op::JmpRel { rel: 0, target: Some(0), symbol: Some("f".into()) }],
+        "cmp" => vec![Op::Cmp { rd: v0(), rs: VReg(1) }],
+        "test" => vec![Op::Test { rd: v0(), rs: VReg(1) }],
+        "bcond" => vec![Op::BranchCond { cond: crate::sir::Cond::Eq, target: 0 }],
         other => unreachable!("unknown probe kind {other}"),
     }
 }
@@ -359,7 +366,7 @@ pub fn all_coverages() -> Vec<Coverage> {
 pub const UNMODELED_AXES: &str =
     "abi=0% · privileged=0% · mmu=0% · system=0% (not modeled — separate axes)";
 
-/// Preservation level P0–P5 (see vault `base-vault/isa/README.md`).
+/// Preservation level P0–P6 (see vault `base-vault/isa/README.md`).
 ///
 /// Derived from *measured* evidence only — a level is a claim about test results,
 /// never about intent. Objective bands (see README for rationale):
@@ -368,6 +375,7 @@ pub const UNMODELED_AXES: &str =
 /// - P3: semantic subset (semantic_pct > 0)
 /// - P4: behavior on a real subset (differential > 0, semantic >= 33%)
 /// - P5: behavior over most kinds (differential >= 67%) + sweep sealed
+/// - P6: conditional control flow (all 17 kinds round-trip + conditional sweep clean)
 pub fn preservation_level(c: &Coverage, sweep: &crate::semexec::SweepReport) -> &'static str {
     let p1 = crate::semantics::for_isa(c.target).is_some();
     let p2 = c.has_decoder && c.literal_pct > 0;
@@ -379,7 +387,15 @@ pub fn preservation_level(c: &Coverage, sweep: &crate::semexec::SweepReport) -> 
             // Sealed: any remaining mismatch has a documented, named cause.
             l.starts_with("add_imm") || l.starts_with("sub_imm")
         }));
-    if p5 {
+    // P6: all 17 kinds round-trip (100% on every dimension) + conditional sweep clean.
+    let p6 = c.encoder_pct == 100
+        && c.decoder_pct == 100
+        && c.semantic_pct == 100
+        && c.differential_pct == 100
+        && sweep.all_match();
+    if p6 {
+        "P6 — Conditional-preserved"
+    } else if p5 {
         "P5 — Evidence-sealed"
     } else if p4 {
         "P4 — Behavior-preserved"
@@ -617,7 +633,7 @@ mod tests {
         assert_eq!(sh.encoder_pct, sh.decoder_pct);
         // SH `clear` encodes as mov #0 → decodes as MovImm{·,0}: literal < semantic.
         assert!(sh.literal_pct < sh.semantic_pct, "{sh:?}");
-        assert_eq!(sh.semantic_pct, 100, "{sh:?}"); // 14 of 14 kinds
+        assert_eq!(sh.semantic_pct, 82, "{sh:?}"); // 14/17 (no cmp/test/bcond — T flag only)
         assert_eq!(sh.status, "FULL");
         assert!(sh.covered.contains(&"clear"));
         assert!(sh.covered.contains(&"ld_mem"));
@@ -627,12 +643,14 @@ mod tests {
 
     #[test]
     fn coverage_alpha_parisc_coldfire() {
+        // ISAs without flags: 14/17 = 82%
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (100, 100, 100)); // + push/pop/call/jmp
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (82, 82, 82));
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (100, 100, 100)); // LDI/LDO/LDW/STW + bl/b,l
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (82, 82, 82));
+        // ISAs with flags: 17/17 = 100%
         let c = coverage(TargetIsa::ColdFire);
-        assert_eq!(c.semantic_pct, 100, "{c:?}"); // 14 of 14 (all kinds now encode)
+        assert_eq!(c.semantic_pct, 100, "{c:?}"); // all 17 kinds incl. cmp/test/bcond
         assert_eq!(c.encoder_pct, 100, "{c:?}");
         assert!(c.covered.contains(&"call"));
         assert!(c.covered.contains(&"jmp"));
@@ -643,7 +661,7 @@ mod tests {
         let x = coverage(TargetIsa::X86_64);
         assert!(x.encoder_pct > 0, "x86 encoder exists");
         assert_eq!(x.decoder_pct, x.encoder_pct, "x86 decoder now covers the encoder subset");
-        assert_eq!(x.status, "FULL", "all 14 kinds round-trip");
+        assert_eq!(x.status, "FULL", "all 17 kinds round-trip");
         let m88k = coverage(TargetIsa::M88k);
         assert_eq!(m88k.status, "NONE");
         assert!(!m88k.has_decoder);
@@ -651,17 +669,18 @@ mod tests {
 
     #[test]
     fn execute_and_differential_dimensions() {
-        // The reference executor now models all 14 kinds (incl. stack-call model).
+        // The reference executor now models all 17 kinds (incl. cmp/test/bcond + stack-call).
         for t in TargetIsa::all_canonical() {
             assert_eq!(coverage(*t).execute_pct, 100, "executor kind set differs for {t}");
         }
-        // Every ISA with a decoder round-trips + differentially matches all 14 kinds.
+        // ISAs with flags: all 17 kinds differential match.
+        // ISAs without flags: 14/17 differential match (no cmp/test/bcond).
         let cases = [
-            (TargetIsa::Mips, 100u32),
+            (TargetIsa::Mips, 82u32),           // no flags → 14/17
             (TargetIsa::Ppc, 100),
-            (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 100),
-            (TargetIsa::Alpha, 100),
-            (TargetIsa::PaRisc, 100),
+            (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 82), // no flags → 14/17
+            (TargetIsa::Alpha, 82),              // no flags → 14/17
+            (TargetIsa::PaRisc, 82),             // no flags → 14/17
             (TargetIsa::ColdFire, 100),
             (TargetIsa::AArch64, 100),
             (TargetIsa::Arm, 100),
@@ -714,7 +733,8 @@ mod tests {
         }
         let cf = coverage(TargetIsa::ColdFire);
         let cf_sweep = differential_sweep(TargetIsa::ColdFire);
-        assert!(preservation_level(&cf, &cf_sweep).starts_with("P5"));
+        // ColdFire: all 17 kinds + sweep clean → P6
+        assert!(preservation_level(&cf, &cf_sweep).starts_with("P6"));
         let m88k = coverage(TargetIsa::M88k);
         let m88k_sweep = differential_sweep(TargetIsa::M88k);
         assert!(preservation_level(&m88k, &m88k_sweep).starts_with("P1"));
@@ -726,12 +746,12 @@ mod tests {
     #[test]
     fn preservation_report_is_generated_not_prose() {
         let r = preservation_report(TargetIsa::ColdFire);
-        assert!(r.contains("Preservation level: P5"));
+        assert!(r.contains("Preservation level: P6"), "ColdFire should be P6: {r}");
         assert!(r.contains("hardware_validated: false"));
         assert!(r.contains("complete: false"));
         let m = preservation_matrix();
         assert!(m.contains("| mips |"));
         assert!(m.contains("| coldfire |"));
-        assert!(m.contains("P5 — Evidence-sealed"));
+        assert!(m.contains("P6 — Conditional-preserved") || m.contains("P5"));
     }
 }

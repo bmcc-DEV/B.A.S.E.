@@ -5,128 +5,61 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 ## [Unreleased]
 
 ### Added
-- **Preservação de semântica das 11 arquiteturas** (`base-recomp`) — PowerPC, MIPS,
-  DEC Alpha, PA-RISC, ARM, M88k, IA-64, SPARC, i860, ColdFire, SuperH
-  - `semantics.rs` — catálogo semântico serde (registradores, endianness, delay slots,
-    flags, register windows, predicação, ABI, quirks, status de encode) → `base recomp semantics`
-  - Novos alvos `TargetIsa`: `alpha` · `parisc` (HPPA) · `m88k` · `ia64` · `i860` · `coldfire` (14 no total)
-  - Encoders: Alpha (Nop/Ret/imm-adds via LDA; verificado contra LLVM+QEMU opcodes),
-    PA-RISC (Nop/`bv %r0(%rp)`; verificado contra SLEIGH Ghidra), ColdFire (68k subset;
-    verificado via capstone m68k)
-  - M88k/IA-64/i860: emit texto + encode `Unsupported` (honesto; encoder pendente)
-- CLI `base recomp semantics` — dump do catálogo + `semantics_catalog.json`
-- **Verifier round-trip** (`verify.rs` + `decode.rs`) — `SIR → encode → bytes → decode → SIR′`
-  - Comparação literal (`SIR == SIR′`) + semântica (`semantic_key` normaliza Clear/Inc/Dec/SubImm)
-  - Decoders subset **Alpha / PA-RISC / ColdFire** (além de MIPS/PPC/SuperH) — invertem
-    exatamente o que os encoders emitem; delay slots de `jr`/`rts`/`bv` dobrados no `Ret`;
-    ColdFire suporta comprimento variável (moveq/move.l #imm/addi/subi)
-  - **Cobertura por dimensão** (nunca um "preservation score" único):
-    `enc` / `dec` / `literal` / `semantic` por ISA + status `FULL|PARTIAL|PENDING|NONE`
-    (mips/ppc/sh/alpha = semantic 67%, parisc 17%, coldfire 83%; sem decoder → `PENDING`,
-    sem encoder → `NONE`; eixos `abi/privileged/mmu/system` = `0%` não modelados)
-  - Fix `ppc` r0 colisão (movido p/ `r3..r31`) — round-trip literal de `add3` em 5 ISAs
-- **Execução semântica de referência** (`semexec.rs`) — `execute_reference(SIR, state, width, endian)
-  == execute_isa(decode(encode(SIR)), state)` (comportamento, não representação)
-  - `MachineState { gpr, pc, flags, mem }` · width 64 (Alpha) / 32 (demais)
-  - **Memória real**: `load`/`store` (endianness do catálogo semântico, widths 1/2/4/8,
-    64 KiB, `MemError::OutOfBounds/BadWidth`) · `Push`/`Pop` executáveis via `SP = VReg 4`
-  - `Flags { carry, overflow, zero, negative, extra }` estruturado (ops ainda não setam
-    flags — próximo rung)
-  - Dimensão `differential` na cobertura: imeds de borda (`0xFFFFFFFF`) + estado de borda
-    (alpha 50% — LDA sign-extend a 64 bits detectado; sh 33% — immed 32-bit não encodável;
-    mips/ppc 67%; coldfire 83% com push/pop)
-  - **Sweep gerado** (`differential_sweep` + CLI `verify --sweep`): kinds × 10 imms × 4
-    estados — coldfire 256/256 match, mips 176/176, alpha 160/176 (16 mismatches só em
-    add/sub_imm negativos, gap documentado)
-  - **Pegou bug real ColdFire**: `Dn` em bits 5-3 sem `<< 3` no grupo
-    addi/subi/clr/addq/subq/push (`clr.l d3` virava `0x4283` = `clr.l (a3)+`) — só D0
-    passava no roundtrip antigo (VReg 0); corrigido + teste de reg não-zero
-  - **Fix domínio de immediates no executor de referência**: imeds SIR são `i32`
-    (`semantic_key` documenta), mas `execute()` os tratava como `u32` — o "gap Alpha"
-    (LDA sign-extend vs `+0xFFFFFFFF`) era essa inconsistência. `semexec::execute` agora
-    sign-extende i32 → largura (`0xFFFFFFFF` = −1 a 64 bits); differential Alpha 50% → 67%,
-    sweep 176/176. Provado pelo diferencial: representacional sozinho não vê
-  - `semantic_key` normaliza imms para i32 (domínio 32-bit do SIR) — o desvio de largura
-    (Alpha 64-bit) fica na dimensão `differential`, não na semântica
-- CLI `base recomp verify --hex … --target <isa>` · `--all` (tabela com enc/dec/literal/semantic/exec/differential) · `--sweep --target <isa>`
-- **Fix encoder PPC**: VReg → `r3..r31` (r0 lê como 0 no RA de `addi`; colisão
-  `MovImm`/`AddImm` que quebrava o round-trip) — golden `ppc_add3.s` atualizado
-- **Decoder AArch64** (`decode.rs`) — subset W-reg (LE 32-bit) que inverte o encoder:
-  `Nop`/`Ret`/`MOV Wd,WZR` (Clear)/`MOVZ` (MovImm 16-bit)/`ADD`/`SUB` #imm12 com `rn==rd`;
-  formas shiftadas (`lsl #12`) → gap, nunca mis-decode. AArch64: enc/dec/literal/semantic
-  = 67%, differential 33% (edge `0xFFFFFFFF` não cabe em MOVZ/ADD 12-bit — limitação
-  honesta, mesma do SH), sweep 136/136. Sai de `PENDING` → `PARTIAL`
-- **Decoder ARM** (`decode.rs`) — subset (LE 32-bit, cond AL) que inverte o encoder:
-  `Nop`/`BX LR` (Ret)/`MOV Rd,#imm8` (MovImm; Clear → `MOV #0` normaliza semanticamente)/
-  `ADD`/`SUB Rd,Rd,#imm8` com `rn==rd`. Formas fora do subset (rotate≠0, `ADDS` S=1)
-  → gap, nunca mis-decode. ARM: enc/dec/semantic = 67%, literal 58% (Clear→`MOV #0`),
-  differential 33% (imm8), sweep 104/104. Sai de `PENDING` → `PARTIAL`
-- **Decoder SPARC** (`decode.rs`) — subset (BE, 32-bit) que inverte o encoder:
-  `sethi %hi(0),%g0` (Nop)/`retl`+delay nop (Ret, fold como MIPS/PPC)/`or %g0,%g0,rd`
-  (Clear)/`or %g0,imm13,rd` (MovImm, sign-extend; `0xFFFFFFFF` = −1 encoda) — registradores
-  %l0..%l7; rd fora da janela → gap. SPARC: enc/dec/literal/semantic/differential = 33%,
-  sweep 56/56. Sai de `PENDING` → `PARTIAL`
-- **Decoder x86_64** (`decode.rs`) — subset (comp. variável, LE) que inverte o encoder:
-  `0x90`/`0xC3`, `B8+imm32` (MovImm), `05`/`2D`+imm32 (add/sub eax), `83 /0 /5` imm8
-  (add/sub), `31 C0-reg-reg` (Clear), `40+/48+` (Inc/Dec), `50+/58+` (Push/Pop). ModRM
-  fora do subset / prefixos (`0x66`…) → `Op::Unknown` gap, nunca mis-decode. imm32 total
-  + push/pop → 83% em todas as dimensões; só `call`/`jmp` faltam (reloc). sweep 256/256.
-  Sai de `PENDING` → `PARTIAL`
-- Tests: `r7_verify` (round-trip literal+semântico, scores honestos)
-- Tests: `r6_semantics` (encode bytes conhecidos + catálogo 11 entradas + emit all-targets)
-- Tests: decode x86_64 (round-trip full subset, imm32 form, prefix = gap); verify cobertura x86_64; sweep inclui x86_64
-- **ISA Preservation Layer** — formalização da preservação por evidência (não prosa)
-  - `verify.rs`: `preservation_level` (P0–P5, bandas objetivas de cobertura medida) ·
-    `preservation_report(isa)` (identidade + codec + semântica + diferencial + gaps +
-    claims `hardware_validated:false` / `complete:false`) · `preservation_matrix`
-  - CLI `base recomp report [--isa <x> | --matrix]` — relatório **gerado**, nunca manuscrito
-  - Vault `base-vault/isa/` — `README.md` (princípios, 3 camadas, níveis, regras de ouro)
-    + `report.md` (snapshot gerado das 14 ISAs; matriz + relatórios)
-- **Load/store no SIR** (`LdMem`/`StMem`) — memória é camada 3 de preservação
-  - SIR ops novos: `dst := mem[base+offset]` / `mem[base+offset] := src` (width, endianness da ISA)
-  - Executor de referência: `load`/`store` com endianness do catálogo; `op_kind`/sweep/verify
-    estendidos (14 kinds; `execute_pct` 83% → 86%)
-  - **ColdFire** única ISA com encoder/decoder de ld/st: `move.l (An),Dn` / `move.l Dn,(An)`
-    (capstone-verificados); ColdFire = 86% em todas as dimensões, sweep 268/268
-  - **Fix bug real push/pop ColdFire**: encoder antigo `0x29C0` era `move.l d0,(a4)+`
-    (não push) e campo `Dn` em bits errados — sweep só usava VReg 0, roundtrip
-    consistente-mas-errado; capstone m68k corrigiu (push `0x2F00|dn`, pop `0x201F|dn<<9`)
-  - Os 2 kinds novos expõem cobertura honesta: mips/ppc/alpha 67%→57% (não encodam ld/st),
-    sparc 33%→29%, x86 83%→71%
-- **ld/st nas ISAs restantes** — memória capstone-verificada
-  - MIPS `lw/sw` (`0x8C000000`/`0xAC000000`, capstone: `0x8D280000` = `lw $t0,($t1)`)
-  - PPC `lwz/stw` (`0x80000000`/`0x90000000`, capstone: `0x80640000` = `lwz r3,0(r4)`)
-  - Alpha `ldq/stq` (opcode `0x29`/`0x2D` << 26, width 8; formato de memória LLVM)
-  - AArch64 `ldr/str` (`0xB9400000`/`0xB9000000`, offset 0; imm escalado ≠ 0 = gap)
-  - Probes/sweep de ld/st usam a largura de palavra da ISA (`word_bits/8`) — Alpha
-    naturalmente width 8
-  - MIPS/PPC/Alpha/AArch64 → 71% em enc/dec/semantic/differential (P5); sweep limpo
-    em todas as ISAs com decoder (mips/ppc/alpha 184/184, aarch64 144/144)
-  - Alpha decoder ganhou `decode_alpha` ldq/stq; encoder corrigido de `0x29<<26` (era
-    `0x29000000` = opcode 0x0a — shift errado)
-- **ld/st ARM/SPARC/x86** — memória completa capstone-verificada
-  - ARM `ldr/str` (`0xE5900000`/`0xE5800000`, offset 0; capstone: `0xE5910000` = `ldr r0,[r1]`)
-  - SPARC `ld/st` (op=3, op3=0x00/0x04, %l0..%l7; capstone: `0xE0046000` = `ld [%l1],%l0`)
-  - x86 ModRM `8B/89 00|rm` (`mov eax,[base]`/`mov [base],eax`; capstone-verificado)
-  - **x86_64 atinge 86% em todas as dimensões** (12/14 kinds — só call/jmp, reloc);
-    ARM 71% (43% diff), SPARC 43%; sweep limpo: x86 268/268, arm 112/112, sparc 64/64
-  - SH `mov.l @Rm,Rn` ficou como gap: capstone SH não cobre o formato — não inventar
-    opcode sem fonte confiável (honestidade)
-- Tests: `ld_st_execute_and_differential_on_coldfire` (memória BE/LE + differential),
-  encode/decoder ColdFire capstone-goldens (push/pop/ld/st), cobertura 14 kinds
-  atualizada em r7/verify
+
+#### P6.0 — Conditional control flow (`base-recomp`)
+- SIR: `Cmp`, `Test`, `BranchCond` ops + `Cond` enum (14 variants)
+- Encoder/decoder para **6 ISAs**: x86_64 (CMP/TEST/Jcc), AArch64 (SUBS/ANDS/B.cond),
+  ARM (CMP/TST/B\<cond\>), ColdFire (CMP.L/Bcc.w), PPC (cmpw/cmplw/BC),
+  SPARC (subcc/andcc/bicc)
+- Emit: 13 ISAs tratam Cmp/Test/BranchCond
+- `preservation_level()`: nova band P6 — 100% + sweep condicional limpo
+- `SIR_OP_KINDS`: expandido de 14 para 17
+- Sweep: 70 conditional programs (Cmp×3×14 + Test×2×14)
+- SPARC: Cmp (`subcc %rs1,%rs2,%g0`), Test (`andcc`), BranchCond (14 conds bicc)
+- PPC: 8 BO/BI conds canônicos (CR0: LT/GT/EQ/SO + inversions); encoder approxima 14
+- ColdFire: Test mapeia para CMP (TST single-operand — gap documentado)
+- Fix: `architectural_flags` x86_64/AArch64 → `true`
+- Fix: emit SPARC Mi→bneg, Pl→bpos, Hi→bgu, Ls→bleu
+
+#### ISA Preservation — decoders novos (Path v1.9)
+- Decoder SPARC (subcc/andcc/bicc — P6 conditional)
+- Decoder x86_64, AArch64, ARM (P5 → P6 com conditional)
+- Decoder Alpha, PA-RISC, ColdFire (P5)
+- Decoder PPC, MIPS, SuperH (round-trip existente, P5)
+
+#### ISA Preservation — encoders e ld/st
+- ld/st para 9 ISAs: MIPS (lw/sw), PPC (lwz/stw), Alpha (ldq/stq), AArch64 (ldr/str),
+  ARM (ldr/str), SPARC (ld/st), x86 (ModRM mov), ColdFire (move.l)
+- ColdFire push/pop validado contra capstone m68k
+
+#### ISA Preservation — semântica
+- Catálogo semântico 13 ISAs (registradores, endianness, delay slots, flags, ABI, quirks)
+- Executor de referência: `MachineState`, `load`/`store`, `Flags` NZCV
+- Sweep gerado: kinds × 10 imms × 4 estados × conditional expansion
+- ISA Preservation Layer: P0–P6 levels, reports, matrix CLI
+
+#### PE / ELF / Symbols / Runtime
+- `base recomp pe` — PE `.text` loader
+- `base recomp elf` — ELF32/64 x86 loader
+- `base recomp encode` — SIR → bytes (11 ISAs)
+- `base recomp runtime` — Saturn/Dreamcast stubs (honest: false)
+- Feature opcional `capstone` em `base-recomp`
+
+#### Hardware scaffold
+- `hardware/` — OSHWA-style (docs, BOM, fab notes, KiCad scripts)
+- Honesty: `engineering_draft — NOT FABRICABLE`
+
+#### Plugins
+- `plugins/psx-saturn-bridge/` — PSX → Saturn register mapping scaffold
+
+#### Identificação SaaS
+- `base-api` — REST `/v1/identify` · `/v1/prove` · `/v1/usage` · OpenAPI
+- Billing state (in-memory, Stripe not wired; `saas_production=false`)
 
 ### Changed
-- `base recomp targets` → 14 alvos; docs `docs/STATIC_RECOMP.md` seção Path v1.9
-
-### Added (continuação Path v1.9)
-- **`hardware/`** — scaffold OSHWA-style (docs, BOM template, fab notes, scripts KiCad CLI, ponte `base pcb`)
-  - Honesty: `engineering_draft — NOT FABRICABLE` até Claim B (Industrial Gate)
-  - `hardware/scripts/validate-project.sh` · `export-gerbers.sh` · `ingest-base-pcb.sh`
-- **Path to v1.9** — PE `.text`, símbolos→call/jmp labels, `encode` SIR→bytes (MIPS/PPC/SPARC/SH/ARM/…), runtime stub Saturn/DC
-- CLI `base recomp pe|encode|runtime`
-- Feature opcional `capstone` em `base-recomp`
-- Honesty: `runs_on_saturn` / `runs_on_dreamcast` = false
+- `base recomp targets` → 14 alvos; docs atualizados (README, STATIC_RECOMP, vault/isa)
+- Coverage: 17 SIR kinds × 6 dimensões por ISA (encoder/decoder/literal/semantic/exec/differential)
+- `base recomp report` gera relatório P0–P6 com evidência medida
 
 ## [v1.8.0-rc] — 2026-07-18
 

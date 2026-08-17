@@ -847,6 +847,7 @@ mod tests {
             TargetIsa::Arm,
             TargetIsa::Ppc,
             TargetIsa::X86_64,
+            TargetIsa::Sparc,
         ] {
             let s = differential_sweep(t);
             assert!(s.all_match(), "unexpected sweep mismatch for {t}: {:?}", s.mismatches.first());
@@ -855,7 +856,6 @@ mod tests {
         for t in [
             TargetIsa::Mips,
             TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4),
-            TargetIsa::Sparc,
             TargetIsa::Alpha,
         ] {
             let s = differential_sweep_base(t);

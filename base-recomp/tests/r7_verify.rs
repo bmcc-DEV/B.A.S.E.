@@ -50,11 +50,22 @@ fn coverage_table_all_targets_honest() {
             assert_eq!(c.semantic_pct, 0, "{} must show 0% semantic without decoder", c.target);
         }
     }
-    for t in [TargetIsa::Mips, TargetIsa::Ppc, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
+    for t in [TargetIsa::Ppc] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        let want = if t == TargetIsa::SuperH(SuperHFlavor::Sh4) { 100 } else { 100 }; // all kinds now round-trip
-        assert_eq!(c.semantic_pct, want, "{t}");
+        assert_eq!(c.semantic_pct, 100, "{t}"); // all 17 kinds round-trip (incl. cmp/test/bcond)
+        assert!(c.covered.contains(&"nop"));
+        assert!(c.covered.contains(&"ret"));
+        assert!(c.covered.contains(&"mov_imm"));
+        assert!(c.covered.contains(&"cmp"), "cmp encoded for {t}");
+        assert!(c.covered.contains(&"test"), "test encoded for {t}");
+        assert!(c.covered.contains(&"bcond"), "bcond encoded for {t}");
+    }
+    // ISAs without architectural flags (no Cmp/Test/BranchCond): 14/17 = 82%
+    for t in [TargetIsa::Mips, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
+        let c = coverage(t);
+        assert!(c.has_decoder);
+        assert_eq!(c.semantic_pct, 82, "{t}"); // 14/17 (no cmp/test/bcond — no flags register)
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
@@ -64,20 +75,24 @@ fn coverage_table_all_targets_honest() {
 
 #[test]
 fn coverage_new_decoders() {
+    // ISAs without flags: 14/17 = 82% (no cmp/test/bcond)
     let alpha = coverage(TargetIsa::Alpha);
-    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (100, 100, 100)); // + ld/st/call/jmp/push/pop
+    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (82, 82, 82));
 
     let parisc = coverage(TargetIsa::PaRisc);
-    assert_eq!(parisc.semantic_pct, 100, "{parisc:?}");
+    assert_eq!(parisc.semantic_pct, 82, "{parisc:?}");
     assert!(parisc.covered.contains(&"nop"));
     assert!(parisc.covered.contains(&"ret"));
 
+    // ISAs with flags + conditional support: 17/17 = 100%
     let cf = coverage(TargetIsa::ColdFire);
-    assert_eq!(cf.semantic_pct, 100, "{cf:?}"); // all 14 kinds
+    assert_eq!(cf.semantic_pct, 100, "{cf:?}"); // all 17 kinds incl. cmp/test/bcond
     assert!(cf.covered.contains(&"push"));
     assert!(cf.covered.contains(&"pop"));
     assert!(cf.covered.contains(&"ld_mem"));
     assert!(cf.covered.contains(&"st_mem"));
+    assert!(cf.covered.contains(&"cmp"));
+    assert!(cf.covered.contains(&"bcond"));
 }
 
 #[test]
@@ -90,7 +105,7 @@ fn parisc_bv_n_accepts_return() {
 fn pending_status_not_full() {
     let x = coverage(TargetIsa::X86_64);
     let x = coverage(TargetIsa::X86_64);
-    // x86 encoder/decoder now covers all 14 kinds (call/jmp implemented).
+    // x86 encoder/decoder now covers all 17 kinds (incl. cmp/test/bcond).
     assert_eq!(x.status, "FULL");
     assert_eq!(x.semantic_pct, 100, "{x:?}");
     let m88k = coverage(TargetIsa::M88k);
@@ -124,14 +139,14 @@ fn add3_differential_matches_behavior() {
 
 #[test]
 fn differential_coverage_separates_width_behavior() {
-    // Alpha 64-bit width now agrees (i32 imm domain, sign-extended by LDA and the
-    // reference executor); 32-bit wrapping ISAs agree trivially.
+    // ISAs without flags: 14/17 = 82% differential
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 100, "{a:?}"); // all kinds now round-trip
+    assert_eq!(a.differential_pct, 82, "{a:?}"); // 14/17 (no cmp/test/bcond)
 
+    // ISAs with flags: 17/17 = 100% differential
     let c = coverage(TargetIsa::ColdFire);
-    assert_eq!(c.differential_pct, 100, "{c:?}"); // all kinds round-trip
+    assert_eq!(c.differential_pct, 100, "{c:?}"); // all 17 kinds incl. conditional
 
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));
-    assert_eq!(s.differential_pct, 100, "{s:?}"); // all kinds now round-trip
+    assert_eq!(s.differential_pct, 82, "{s:?}"); // 14/17 (no cmp/test/bcond)
 }

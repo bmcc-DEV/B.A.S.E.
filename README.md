@@ -3,117 +3,47 @@
 [![CI](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/ci.yml/badge.svg)](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/ci.yml)
 [![Formal](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/formal.yml/badge.svg)](https://github.com/bmcc-DEV/B.A.S.E./actions/workflows/formal.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE.md)
-[![Release](https://img.shields.io/github/v/release/bmcc-DEV/B.A.S.E.?display_name=tag)](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.1.0-rc)
 
 > *"O que este hardware faz?" em vez de "Como este hardware foi implementado?"*
 
 **Plataforma de engenharia reversa automatizada assistida por evidência** — percepção HW + raciocínio SW (QRM / belief / triad).
 
-> **Honesty:** `generates_os: false` · `auto_fix_complete: false` · `static_recomp_complete: false` · flash = lab assist / manual  
-> **Tags:** [`v1.8.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.8.0-rc) · [`v1.7.0-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.7.0-rc) · [`v1.6.3-rc`](https://github.com/bmcc-DEV/B.A.S.E./releases/tag/v1.6.3-rc) · [CHANGELOG](CHANGELOG.md) · [Platform RE](docs/PLATFORM_RE.md) · [Static Recomp](docs/STATIC_RECOMP.md)
->
-> ≠ OS turnkey · ≠ PCB fabricável · ≠ HIL production · ≠ Transformer / “RE mágica” · ≠ Wine / Win32 completo
+> **Honesty:** `generates_os: false` · `auto_fix_complete: false` · `static_recomp_complete: false` · flash = lab assist / manual
+> ≠ OS turnkey · ≠ PCB fabricável · ≠ HIL production · ≠ Transformer · ≠ Wine/Win32 completo
+
+---
+
+## 16 crates · 14 ISAs · 17 SIR kinds · P6 conditional
+
+| Crate | Papel | Estado |
+|-------|-------|--------|
+| `specterprobe` | Lift binário → IR SSA + MMIO discovery | **REAL** |
+| `base-core` | Tipos, inferência, solver, SMT, tensão Ψ, paleo/phylo, honesty | **REAL** |
+| `base-recomp` | x86 → SIR → encode/decode/emit **14 ISAs** + preservação semântica (P0–P6) | **EXPERIMENTAL** |
+| `base-reason` | QRM → belief graph → hipóteses → triad → report (≠ Transformer) | **REAL** |
+| `base-virt` | QEMU live (QMP, NDJSON, twin↔guest, BIR bridge, continuous diff) | **EXPERIMENTAL** |
+| `base-port` | USB×DT, wedge P0, address/driver maps, fossil inventory | **EXPERIMENTAL** |
+| `base-hil` | USB probe, flash mock/live, Lab Gate A (5 checks) | **REAL*** |
+| `base-api` | REST `/v1/identify` · `/v1/prove` · OpenAPI (`saas_production=false`) | **REAL** |
+| `base-bir` | BIR type system, validation, contract extraction | **REAL** |
+| `base-bsl` | BSL → BIR compiler | **REAL** |
+| `base-check` | Dual-trace comparison, refuses self-pass | **REAL** |
+| `base-vm` | Specter VM (Forth-like + Lua policy) | **REAL** |
+| `base-fw` | C firmware gen (bootloader/HAL/drivers/Zephyr) | **REAL** |
+| `base-pcb` | KiCad schematic/BOM/PCB/DRC (`NOT FABRICABLE`) | **REAL** |
+| `base-evolve` | Bottleneck analysis → migration plan | **REAL** |
+| `base-paleo` | StratAlign + phylogenetics (CLI `paleo`) | **REAL** |
+
+Excluído do workspace: `base-learn` (ONNX/classifier — placeholder).
 
 ---
 
 ## Divisão HW / SW
 
-| Lado | Papel | Crates |
-|------|--------|--------|
-| **Hardware-facing** | Aquisição de evidência imutável | `specterprobe`, `base-virt` (QMP/Live), `base-port` (USB×DT/wedge), `base-hil`, `base-core` evidence |
-| **Software reasoning** | Perguntas → crenças → hipóteses → triad | **`base-reason`** |
-| **Static recomp** | x86 → SIR → multi-ISA + **preservação semântica** (Path v1.7 → v1.9) | **`base-recomp`** |
-
-Loop: **observar → perguntar → hipotetizar → lab/receipt → strengthen/forget**.
-
----
-
-## O que funciona hoje
-
-Fonte da verdade: [**Maturity Matrix**](base-vault/12%20-%20Path%20to%20Real/12.02%20-%20Maturity%20Matrix.md)
-
-### CLI / pipeline
-
-| Área | Estado |
-|------|--------|
-| `analyze` / `design` / `synth` / `replay` / `prove` / `bir` / `check` / `pipeline` | **REAL\*** no wedge |
-| `study` (Specter VM Forth + Lua) | **REAL\*** — loop autónomo; `auto_fix_complete=false` |
-| `reconstruct` | **REAL\*** — `stop_reason`; ≠ auto-fix |
-| `reason` | **REAL\*** — QRM/belief/triad sobre atlas/sinais; ≠ Transformer |
-| `recomp` | **EXPERIMENTAL** — lift x86 → SIR → encode/decode **11 ISAs** + verifier round-trip (literal/semantic/differential) + catálogo semântico + **preservation reports** (níveis P0–P5); ≠ Wine / ≠ PE |
-| `recomp verify` / `semantics` | Round-trip por dimensão (`enc`/`dec`/`literal`/`semantic`/`exec`/`differential`) + sweep gerado |
-| `recomp report` | **Preservation Layer** — matriz + relatório por ISA (nível P0–P5, evidência medida, gaps) → snapshot em [`base-vault/isa/`](base-vault/isa/README.md) |
-| `port` (package / usb-probe / wedge / clocks-pinctrl) | **EXPERIMENTAL** — mapa/fósseis/atlas; ≠ OS rewrite |
-| `virt` (Specter Live / QMP / twin) | **EXPERIMENTAL** — ≠ OS turnkey |
-| `evolve` / `fw` / `pcb` | **REAL\*** drafts; PCB `NOT FABRICABLE` → pacote [hardware/](hardware/README.md) (Claim B) |
-| `hil` | **REAL\*** host + Gate A; production gated |
-
-### Wedges / smokes
-
-| Wedge | Smoke |
-|-------|-------|
-| RP UART / SPI | `run.sh` / `run_t1_b2.sh` |
-| STM32 USART/SPI/I2C/TIM/triple | `pilot_stm32/run*.sh` |
-| Specter study | `examples/pilot_study/run_study.sh` |
-| Moto G35 Path A + reason | `run_path_a.sh` · `base reason g35` · [REASONING](examples/pilot_moto_g35/REASONING.md) |
-| Moto G35 wedge P0 | `run_wedge_pipeline.sh` · [WEDGE_HANDOFF](examples/pilot_moto_g35/WEDGE_HANDOFF.md) |
-| iMac G3 OS-port A | `examples/pilot_imac_g3/run.sh` |
-
----
-
-## Preservação semântica (Path v1.9)
-
-> *"O que este hardware faz?" ≠ "como foi implementado"* — B.A.S.E. preserva a **semântica**
-> das 11 arquiteturas (PowerPC · MIPS · DEC Alpha · PA-RISC · ARM · M88k · IA-64 · SPARC ·
-> i860 · ColdFire · SuperH), não apenas executa binários.
-
-| ISA | Encode | Decode | Differential |
-|-----|--------|--------|--------------|
-| MIPS · PPC · SuperH · **Alpha** · **PA-RISC** · **ColdFire** · **AArch64** · **ARM** · **SPARC** · **x86_64** | ✅ subset | ✅ | ✅ verificado |
-| **MIPS · PPC · Alpha · AArch64 · ARM · SPARC · x86_64** | ✅ **load/store** (lw/sw · lwz/stw · ldq/stq · ldr/str · ld/st SPARC · ModRM x86) | ✅ | ✅ **memória real** (sweep limpo) |
-| **ColdFire** | ✅ **load/store + push/pop** (12/14 kinds, 86%) | ✅ | ✅ **memória real** (BE, sweep 268/268) |
-| M88k · IA-64 · i860 | emit texto | — pendente | — |
-
-```bash
-base recomp semantics                        # catálogo semântico (regs, endianness, flags, quirks, ABI) + JSON
-base recomp verify --hex 90C3 --target mips  # SIR → encode → bytes → decode → SIR′ (literal + semântico)
-base recomp verify --all                     # cobertura por dimensão por ISA
-base recomp verify --sweep --target coldfire # matriz gerada imms × estados × kinds (comportamento)
-base recomp report --isa mips                # preservation report (nível P0–P5, evidência medida, gaps)
-base recomp report --matrix                  # matriz de preservação por ISA
-```
-
-Três níveis de confiança:
-
-```text
-literal      "os mesmos bytes recuperam a mesma forma?"
-semantic     "a forma recuperada tem o mesmo significado?"     (domínio 32-bit do SIR)
-differential "ela produz o mesmo estado arquitetural?"         (largura real do ISA)
-```
-
-O verifier **já pegou bugs reais** que o round-trip representacional não via: PPC `r0`
-(lê como 0 no RA de `addi`) e ColdFire `Dn` (bits 5-3 sem shift). Ao adicionar
-`load/store` ao SIR, o **encoder ColdFire push/pop foi validado contra capstone m68k** e
-revelou bug duplo: `0x29C0` era `move.l d0,(a4)+` (não push) e `Dn` estava em bits
-errados — o sweep só usava VReg 0 (D0), então o roundtrip antigo era
-consistente-mas-errado. Fix: `0x2F00|dn` (push, Dn em bits 2-0) e `0x201F|dn<<9` (pop).
-E o diferencial **revelou e corrigiu** uma inconsistência de modelo: o executor de
-referência tratava immediates SIR como `u32` quando o domínio é `i32` — o "gap de
-sign-extension" do Alpha era isso (encoder LDA já sign-extendia); fix no `semexec`
-alinhou referência e ISA (Alpha differential 50% → 57% com 14 kinds, P4). Eixos
-`abi`/`privileged`/`mmu`/`system` = **0%
-(não modelados)** — explícito, nunca um score único que pareça "80% do MIPS".
-Fonte: [docs/STATIC_RECOMP.md](docs/STATIC_RECOMP.md) ·
-vault [`29 - Path to v1.9`](base-vault/29%20-%20Path%20to%20v1.9/29.00%20-%20Index.md)
-
----
-
-## Pipeline
-
 ```text
 Firmware / USB / DTB / QMP
         ↓
-   Hardware-facing (Specter · wedge · twin)
+   Hardware-facing (Specter · wedge · twin · HIL)
         ↓
    Evidence DB → BIR → Contracts → Solver → Reference Design
         ↓
@@ -121,6 +51,83 @@ Firmware / USB / DTB / QMP
         ↓
    study / reconstruct / [PCB·FW draft opcional]
 ```
+
+---
+
+## Preservação semântica (Path v1.9 + P6.0)
+
+> B.A.S.E. preserva a **semântica** de 14 arquiteturas-alvo, não apenas executa binários.
+
+| ISA | Encode | Decode | Differential | Conditional | Preservation |
+|-----|--------|--------|--------------|-------------|-------------|
+| **x86_64** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
+| **AArch64** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
+| **ARM** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
+| **ColdFire** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
+| **PPC** | ✅ 17/17 | ✅ | ✅ | ✅ 8 BO/BI conds | P6 |
+| **SPARC** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
+| **MIPS** | ✅ 14/17 | ✅ | ✅ | — sem flags | P5 |
+| **SuperH** | ✅ 14/17 | ✅ | ✅ | — T flag only | P5 |
+| **Alpha** | ✅ 14/17 | ✅ | ✅ | — sem flags | P5 |
+| **PA-RISC** | ✅ 14/17 | ✅ | ✅ | — sem flags | P5 |
+| M88k · IA-64 · i860 | emit texto | — | — | — | P1 |
+
+```text
+P1: catálogo existe            P4: comportamento em subset real
+P2: round-trip de formato      P5: sweep sealed (≥67%)
+P3: subconjunto semântico      P6: 100% todas dimensões + sweep condicional limpo
+```
+
+17 SIR kinds: Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, **Cmp**, **Test**, **BranchCond**.
+14 Cond variants: Eq, Ne, Lt, Ge, Gt, Le, Cs, Cc, Mi, Pl, Vs, Vc, Hi, Ls.
+70 conditional sweep programs (Cmp×3 outcomes×14 + Test×2 outcomes×14).
+
+```bash
+base recomp semantics                          # catálogo 13 ISAs + JSON
+base recomp verify --hex 90C3 --target mips    # round-trip por ISA
+base recomp verify --all                       # cobertura 17 kinds × 6 dimensões
+base recomp verify --sweep --target coldfire   # sweep comportamental + condicional
+base recomp report --isa mips                  # preservation report (P0–P6)
+base recomp report --matrix                    # matriz por ISA
+```
+
+Verifier **já pegou bugs reais**: PPC `r0` (lê como 0 no RA de `addi`), ColdFire `Dn` (bits 5-3 sem shift), executor i32↔u32 (gap Alpha sign-extension). Eixos `abi/privileged/mmu/system` = **0%** (não modelados).
+
+Fonte: [docs/STATIC_RECOMP.md](docs/STATIC_RECOMP.md) · [vault/isa/](base-vault/isa/README.md)
+
+---
+
+## CLI
+
+| Comando | Notas |
+|---------|-------|
+| `analyze` / `synth` / `design` | Evidence → Reference Design |
+| `reason` | QRM + belief + triad → report + receipt draft |
+| `port` | package · usb-probe · usb-cross · wedge-p0 · clocks-pinctrl |
+| `virt` | ingest · score · run · qmp · study · twin · bir-twin · watch |
+| `hil` | enumerate · flash · lab-status (host REAL\*; production gated) |
+| `study` | Specter VM Forth+Lua (loop autónomo; `auto_fix_complete=false`) |
+| `reconstruct` | Structural refinement (stop_reason; ≠ auto-fix) |
+| `replay` / `prove` / `event-graph` | Contratos → violações / SMT-LIB / DOT |
+| `bir` | compile · validate · to-legacy · dot |
+| `recomp` | lift · encode · decode · semantics · verify · report · elf · pe |
+| `evolve` / `fw` / `pcb` / `check` / `pipeline` | Outputs + validação |
+| `paleo` | align · excavate · phylo |
+| **API** (`base-api`) | `/v1/identify` · `/v1/prove` · `/v1/usage` · OpenAPI |
+
+---
+
+## Wedges / smokes
+
+| Wedge | Smoke | CI |
+|-------|-------|----|
+| RP UART / SPI | `run.sh` · `run_t1_b2.sh` | ✅ |
+| STM32 USART/SPI/I2C/TIM/triple | `pilot_stm32/run*.sh` | ✅ |
+| Specter study | `pilot_study/run_study.sh` | ✅ |
+| Moto G35 wedge P0 | `run_wedge_pipeline.sh` · `run_path_a.sh` | ✅ (fase A) |
+| iMac G3 OS-port A | `pilot_imac_g3/run.sh` | ✅ (fase A) |
+| Sega Saturn | `pilot_saturn/run.sh` | draft |
+| HIL lab | `hil_lab/run_hil_lab*.sh` | ✅ |
 
 ---
 
@@ -149,18 +156,8 @@ cargo build -p base-cli
 ### Reason (G35)
 
 ```bash
-cargo build -p base-cli
 ./target/debug/base reason g35 -o output/reason_g35
 # → reason_report.md · reason_receipt_draft.json (flashed: false)
-```
-
-### Specter study
-
-```bash
-base study path/to/hardware_spec.yaml \
-  --policy examples/pilot_study/policy.lua \
-  --program examples/pilot_study/study.base \
-  -o out/study/
 ```
 
 ### Análise / HIL
@@ -178,23 +175,28 @@ base hil flash /tmp/x.bin --mock-flash -o /tmp/hil/
 ```mermaid
 flowchart TB
   subgraph hw [Hardware_Facing]
-    Acq[Specter_USB_DTB_QMP]
-    Twin[Twin_Live]
-    Atlas[Wedge_Atlas]
+    Specter[SpecterProbe]
+    Port[Port/USB/DTB]
+    Twin[Twin/Live/QMP]
     Hil[HIL]
   end
   subgraph sw [Software_Reasoning]
-    QRM[Question_Generator]
-    Bel[Belief_Graph]
-    Tri[Triad_Gate]
+    QRM[QRM]
+    Bel[Belief Graph]
+    Tri[Triad Gate]
   end
-  Acq --> QRM
+  subgraph recomp [Static Recomp]
+    Lift[Lift x86→SIR]
+    Enc[Encode 14 ISAs]
+    Dec[Decode 10 ISAs]
+    Sweep[Differential Sweep]
+  end
+  Specter --> QRM
+  Port --> QRM
   Twin --> Bel
-  Atlas --> QRM
-  QRM --> Bel
-  Bel --> Tri
-  Tri --> Out[Report_Receipt_Draft]
   Hil --> Bel
+  QRM --> Bel --> Tri --> Report[Report/Receipt]
+  Lift --> Enc --> Dec --> Sweep
 ```
 
 ### Tensão Ψ
@@ -206,36 +208,34 @@ confidence = max(0, 1 - Ψ/(1+Ψ))
 
 ---
 
-## CLI
-
-| Comando | Notas |
-|---------|-------|
-| `analyze` / `synth` / `design` | Evidence → Reference Design |
-| `reason` | QRM + belief + triad (HW signals → report) |
-| `port` / `virt` | Wedge atlas · Specter Live / QMP |
-| **Identify API** (`base-api`) | Canonical v1: `/v1/identify` · `/v1/prove` · `/v1/usage` · OpenAPI · `saas_production=false` |
-| `study` / `reconstruct` | Specter Forth+Lua · refine |
-| `replay` / `prove` / `event-graph` / `bir` | Contratos |
-| `recomp` | lift x86 → SIR → encode/decode/emit 14 alvos · `semantics` (catálogo 11 ISAs) · `verify` (round-trip + cobertura por dimensão + sweep) |
-| `evolve` / `fw` / `pcb` / `check` / `pipeline` | Outputs + validação |
-| `hil` | Host REAL\*; production gated |
-
----
-
-## Mercados
+## Mercados / Claims
 
 | Mercado | Papel |
 |---------|-------|
 | Forense / segurança | Wedge principal + reason loop |
 | Educação / pesquisa | Pipeline + Ψ + Specter |
-| Preservação industrial | Consultoria + [SOW v1.1](base-vault/21%20-%20Path%20to%20v1.1/21.21%20-%20SOW%20Industrial%20Checklist.md) |
+| Preservação industrial | Consultoria + SOW |
 | SaaS | Adiado |
+
+**Claims proibidos:** PCB fabricável · ASIC drop-in · HIL production · SaaS turnkey · auto-fix completa · OS turnkey · "produto industrial completo"
 
 [`COMMERCIAL.md`](COMMERCIAL.md)
 
-### Claims proibidos
+---
 
-PCB fabricável · ASIC drop-in · HIL production · SaaS turnkey · auto-fix completa · OS turnkey · “produto industrial completo”
+## Honesty gates
+
+| Gate | Valor |
+|------|-------|
+| `GENERATES_OS` | false |
+| `AUTO_FIX_COMPLETE` | false |
+| `STATIC_RECOMP_COMPLETE` | false |
+| `WIN32_ABI_COMPLETE` | false |
+| `RUNS_ANY_PE` | false |
+| `RUNS_ON_SATURN` | false |
+| `RUNS_ON_DREAMCAST` | false |
+| `saas_production` | false |
+| flash `production` | false |
 
 ---
 
@@ -243,12 +243,12 @@ PCB fabricável · ASIC drop-in · HIL production · SaaS turnkey · auto-fix co
 
 | Doc | Papel |
 |-----|-------|
-| [Platform RE HW/SW](docs/PLATFORM_RE.md) | Divisão percepção / raciocínio |
-| [G35 Reasoning](examples/pilot_moto_g35/REASONING.md) | Slice vertical reason |
-| [G35 postmarketOS](examples/pilot_moto_g35/POSTMARKETOS.md) | Port externo (≠ B.A.S.E. gera OS) |
-| [WEDGE_HANDOFF](examples/pilot_moto_g35/WEDGE_HANDOFF.md) | Handoff tree externo |
+| [Static Recomp](docs/STATIC_RECOMP.md) | Pipeline recomp + preservação semântica |
+| [Platform RE](docs/PLATFORM_RE.md) | Divisão percepção / raciocínio |
+| [P6 Conditional](docs/P6_CONDITIONAL.md) | P6 spec: flags + branches |
 | [Maturity Matrix](base-vault/12%20-%20Path%20to%20Real/12.02%20-%20Maturity%20Matrix.md) | Fonte da verdade |
-| [CHANGELOG](CHANGELOG.md) | Tags |
+| [ISA Preservation](base-vault/isa/README.md) | P0–P6 levels + regras de ouro |
+| [CHANGELOG](CHANGELOG.md) | Tags v0.2–v1.8 + Unreleased |
 
 ---
 

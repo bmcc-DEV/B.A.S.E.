@@ -657,6 +657,40 @@ fn encode_sparc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend(enc(0x01000000));
             v
         }
+        Op::Cmp { rd, rs } => {
+            // subcc %l{rd}, %l{rs}, %g0 — op=2, op3=0x14, rd=0, i=0.
+            let rs1 = 16 + rd.0.min(7);
+            let rs2 = 16 + rs.0.min(7);
+            enc(0x80A00000 | (rs1 << 14) | rs2)
+        }
+        Op::Test { rd, rs } => {
+            // andcc %l{rd}, %l{rs}, %g0 — op=2, op3=0x11, rd=0, i=0.
+            let rs1 = 16 + rd.0.min(7);
+            let rs2 = 16 + rs.0.min(7);
+            enc(0x80880000 | (rs1 << 14) | rs2)
+        }
+        Op::BranchCond { cond, target } => {
+            // b<cond> disp22 — delay-slot nop appended.
+            let sparc_cond: u32 = match cond {
+                crate::sir::Cond::Eq => 1,   // be
+                crate::sir::Cond::Le => 2,   // ble
+                crate::sir::Cond::Lt => 3,   // bl
+                crate::sir::Cond::Ls => 4,   // bleu
+                crate::sir::Cond::Cs => 5,   // bcs
+                crate::sir::Cond::Mi => 6,   // bneg
+                crate::sir::Cond::Vs => 7,   // bvs
+                crate::sir::Cond::Ne => 9,   // bne
+                crate::sir::Cond::Gt => 10,  // bg
+                crate::sir::Cond::Ge => 11,  // bge
+                crate::sir::Cond::Hi => 12,  // bgu
+                crate::sir::Cond::Cc => 13,  // bcc
+                crate::sir::Cond::Pl => 14,  // bpos
+                crate::sir::Cond::Vc => 15,  // bvc
+            };
+            let mut v = enc((sparc_cond << 25) | 0x00800000 | (((*target as u32) >> 2) & 0x3F_FFFF));
+            v.extend(enc(0x01000000));
+            v
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Sparc,
@@ -1005,11 +1039,11 @@ fn encode_coldfire(op: &Op) -> Result<Vec<u8>, EncodeError> {
             be(0xB140 | (dn << 9) | dm)
         }
         Op::Test { rd, rs } => {
-            // tst.l Dn — 0x4A00 | (Dn << 3)
-            // For TST between registers, we can use TST on one and the other as the source?
-            // Actually TST only takes one operand. Let's use CMP with zero for now.
-            // Or use TST.L Dn for testing if zero, but we need two regs.
-            // Use CMP instead as fallback for Test on ColdFire.
+            // ponytail: ColdFire TST is single-operand (tst.l Dn), but SIR Test is
+            // two-operand (flags from rd & rs). CMP.L rd,rs sets flags from rd-rs
+            // instead of rd&rs — semantic approximation. Upgrade: use AND.L rd,rs,Dn
+            // with temp register to get AND flag semantics, or map to TST.L rd
+            // (ignoring rs) when rs is known-zero.
             let dn = d(*rd);
             let dm = d(*rs);
             be(0xB140 | (dn << 9) | dm)

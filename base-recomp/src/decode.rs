@@ -1513,11 +1513,47 @@ fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             }
             continue;
         }
-        if op == 0 && ((w >> 25) & 0xf) == 8 && ((w >> 22) & 7) == 2 {
-            // ba disp22 — unconditional branch, delay-slot nop appended.
-            let disp = w & 0x3F_FFFF;
-            let disp = if disp & 0x20_0000 != 0 { (disp as i32 - 0x40_0000) } else { disp as i32 };
-            ops.push(Op::JmpRel { rel: disp << 2, target: None, symbol: None });
+        if op == 0 && ((w >> 22) & 7) == 2 {
+            // b<cond> disp22 or ba disp22 — conditional/unconditional branch on icc.
+            let cond = (w >> 25) & 0xf;
+            let annul = (w >> 29) & 1;
+            let disp = (w & 0x3F_FFFF) as i32;
+            let disp = if disp & 0x20_0000 != 0 { disp - 0x40_0000 } else { disp };
+            // Only accept annul=0 (delay-slot nop always executed).
+            if cond == 8 && annul == 0 {
+                // ba — unconditional branch.
+                ops.push(Op::JmpRel { rel: disp << 2, target: None, symbol: None });
+            } else if annul == 0 {
+                // b<cond> — conditional branch on icc.
+                let sir_cond = match cond {
+                    1 => Some(Cond::Eq),   // be
+                    2 => Some(Cond::Le),   // ble
+                    3 => Some(Cond::Lt),   // bl
+                    4 => Some(Cond::Ls),   // bleu
+                    5 => Some(Cond::Cs),   // bcs
+                    6 => Some(Cond::Mi),   // bneg
+                    7 => Some(Cond::Vs),   // bvs
+                    9 => Some(Cond::Ne),   // bne
+                    10 => Some(Cond::Gt),  // bg
+                    11 => Some(Cond::Ge),  // bge
+                    12 => Some(Cond::Hi),  // bgu
+                    13 => Some(Cond::Cc),  // bcc
+                    14 => Some(Cond::Pl),  // bpos
+                    15 => Some(Cond::Vc),  // bvc
+                    _ => None,
+                };
+                if let Some(c) = sir_cond {
+                    ops.push(Op::BranchCond { cond: c, target: (disp << 2) as u64 });
+                } else {
+                    ops.push(gap(i, w, format!("sparc unknown bcond cond={cond}")));
+                    i += 4;
+                    continue;
+                }
+            } else {
+                ops.push(gap(i, w, format!("sparc branch annul bit set, cond={cond}")));
+                i += 4;
+                continue;
+            }
             i += 4;
             if i + 4 <= bytes.len() {
                 let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
@@ -1611,6 +1647,28 @@ fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             }
             i += 4;
             continue;
+        }
+        // subcc %rs1, %rs2, %g0 → Cmp (sets icc from rs1-rs2, discards result).
+        // op=2, op3=0x14, rd=0, i=0.
+        if (w & 0xC1F7_FFFF) == 0x80A0_0000 {
+            let rs1 = (w >> 14) & 0x1f;
+            let rs2 = w & 0x1f;
+            if (16..24).contains(&rs1) && (16..24).contains(&rs2) {
+                ops.push(Op::Cmp { rd: VReg(rs1 - 16), rs: VReg(rs2 - 16) });
+                i += 4;
+                continue;
+            }
+        }
+        // andcc %rs1, %rs2, %g0 → Test (sets icc from rs1&rs2, discards result).
+        // op=2, op3=0x11, rd=0, i=0.
+        if (w & 0xC1F7_FFFF) == 0x8088_0000 {
+            let rs1 = (w >> 14) & 0x1f;
+            let rs2 = w & 0x1f;
+            if (16..24).contains(&rs1) && (16..24).contains(&rs2) {
+                ops.push(Op::Test { rd: VReg(rs1 - 16), rs: VReg(rs2 - 16) });
+                i += 4;
+                continue;
+            }
         }
         ops.push(gap(i, w, format!("sparc word {w:#010x} outside encoder subset")));
         i += 4;
