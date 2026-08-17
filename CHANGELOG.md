@@ -8,6 +8,11 @@ Formato aproximado [Keep a Changelog](https://keepachangelog.com/). Tags: `v0.3.
 
 #### P6.0 — Conditional control flow (`base-recomp`)
 - SIR: `Cmp`, `Test`, `BranchCond` ops + `Cond` enum (14 variants)
+
+#### P6.1 — Minimal exceptions (`base-recomp`)
+- SIR: new `Op::Trap` (synchronous trap: invalid opcode, breakpoint, alignment fault)
+- Emit: Trap para 14 ISAs (ud2, bkpt, brk, break, trap, ta 1, trapa, call_pal, break 0,0, trap 1, break.i 0, bpt, illegal)
+- `SIR_OP_KINDS`: 17→18 (trap added)
 - Encoder/decoder para **6 ISAs**: x86_64 (CMP/TEST/Jcc), AArch64 (SUBS/ANDS/B.cond),
   ARM (CMP/TST/B\<cond\>), ColdFire (CMP.L/Bcc.w), PPC (cmpw/cmplw/BC),
   SPARC (subcc/andcc/bicc)

@@ -38,12 +38,12 @@ por `base recomp report`, nunca tabelas escritas à mão (elas driftam).
 | **Comportamento** | o estado visível preserva? | `differential` com memória + endian + push/pop + sweep gerado |
 | **Condicional** | decisões condicionais preservam? | sweep taken/not-taken × 14 conds × 3 outcomes (P6) |
 
-## 17 SIR op kinds
+## 18 SIR op kinds
 
-Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, Cmp, Test, BranchCond.
+Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, Cmp, Test, BranchCond, Trap.
 
-ISAs com flags (17/17): x86_64, AArch64, ARM, ColdFire, PPC, SPARC.
-ISAs sem flags (14/17): MIPS, SuperH, Alpha, PA-RISC.
+ISAs com flags (18/18): x86_64, AArch64, ARM, ColdFire, PPC, SPARC.
+ISAs sem flags (15/18): MIPS, SuperH, Alpha, PA-RISC (Trap emit sem Cmp/Test/BC).
 Pending (emit only): M88k, IA-64, i860.
 
 ## Níveis de preservação P0–P6

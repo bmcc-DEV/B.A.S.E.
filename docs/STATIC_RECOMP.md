@@ -9,7 +9,7 @@ Crate: `base-recomp`
 x86-32 bytes | ELF .text | PE .text → lift → SIR → encode/decode/emit → multi-ISA
 ```
 
-17 SIR op kinds: Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, Cmp, Test, BranchCond.
+18 SIR op kinds: Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, Cmp, Test, BranchCond, Trap.
 
 14 target ISAs: x86_64, ARM, AArch64, MIPS, PPC, SPARC, SuperH (SH-2/SH-4), Alpha, PA-RISC, M88k, IA-64, i860, ColdFire.
 
@@ -98,7 +98,7 @@ Sweep space: kinds × 10 imms × 4 states × (conditional expansion for P6 ISAs)
 
 ## Cobertura por dimensão
 
-17 kinds × 6 dimensões (encoder/decoder/literal/semantic/exec/differential):
+18 kinds × 6 dimensões (encoder/decoder/literal/semantic/exec/differential):
 
 | ISA | enc | dec | sem | diff | exec | status | Level |
 |-----|-----|-----|-----|------|------|--------|-------|
@@ -108,16 +108,16 @@ Sweep space: kinds × 10 imms × 4 states × (conditional expansion for P6 ISAs)
 | ColdFire | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
 | PPC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
 | SPARC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
-| MIPS | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
-| SuperH | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
-| Alpha | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
-| PA-RISC | 82% | 82% | 82% | 82% | 100% | FULL | P5 |
+| MIPS | 83% | 83% | 83% | 83% | 100% | FULL | P5.1 |
+| SuperH | 83% | 83% | 83% | 83% | 100% | FULL | P5.1 |
+| Alpha | 83% | 83% | 83% | 83% | 100% | FULL | P5.1 |
+| PA-RISC | 83% | 83% | 83% | 83% | 100% | FULL | P5.1 |
 | M88k | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 | IA-64 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 | i860 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 
-`exec` = 100% em todas (executor de referência modela todos os 17 kinds).
-82% = 14/17 kinds (sem cmp/test/bcond — sem flags register).
+`exec` = 100% em todas (executor de referência modela todos os 18 kinds).
+83% = 15/18 kinds (sem cmp/test/bcond — sem flags register; trap emit sem encoder).
 `abi/privileged/mmu/system` = **0%** (não modelados).
 
 ## Bugs pegos pelo verifier

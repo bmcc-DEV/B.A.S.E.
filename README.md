@@ -54,31 +54,32 @@ Firmware / USB / DTB / QMP
 
 ---
 
-## Preservação semântica (Path v1.9 + P6.0)
+## Preservação semântica (Path v1.9 + P6.1)
 
 > B.A.S.E. preserva a **semântica** de 14 arquiteturas-alvo, não apenas executa binários.
 
-| ISA | Encode | Decode | Differential | Conditional | Preservation |
-|-----|--------|--------|--------------|-------------|-------------|
-| **x86_64** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
-| **AArch64** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
-| **ARM** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
-| **ColdFire** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
-| **PPC** | ✅ 17/17 | ✅ | ✅ | ✅ 8 BO/BI conds | P6 |
-| **SPARC** | ✅ 17/17 | ✅ | ✅ | ✅ Cmp/Test/BC | P6 |
-| **MIPS** | ✅ 14/17 | ✅ | ✅ | — sem flags | P5 |
-| **SuperH** | ✅ 14/17 | ✅ | ✅ | — T flag only | P5 |
-| **Alpha** | ✅ 14/17 | ✅ | ✅ | — sem flags | P5 |
-| **PA-RISC** | ✅ 14/17 | ✅ | ✅ | — sem flags | P5 |
-| M88k · IA-64 · i860 | emit texto | — | — | — | P1 |
+| ISA | Encode | Decode | Differential | Conditional | Trap | Preservation |
+|-----|--------|--------|--------------|-------------|------|-------------|
+| **x86_64** | ✅ 18/18 | ✅ | ✅ | ✅ Cmp/Test/BC | ✅ ud2 | P6.1 |
+| **AArch64** | ✅ 18/18 | ✅ | ✅ | ✅ Cmp/Test/BC | ✅ brk | P6.1 |
+| **ARM** | ✅ 18/18 | ✅ | ✅ | ✅ Cmp/Test/BC | ✅ bkpt | P6.1 |
+| **ColdFire** | ✅ 18/18 | ✅ | ✅ | ✅ Cmp/Test/BC | ✅ illegal | P6.1 |
+| **PPC** | ✅ 18/18 | ✅ | ✅ | ✅ 8 BO/BI conds | ✅ trap | P6.1 |
+| **SPARC** | ✅ 18/18 | ✅ | ✅ | ✅ Cmp/Test/BC | ✅ ta 1 | P6.1 |
+| **MIPS** | ✅ 15/18 | ✅ | ✅ | — sem flags | ✅ break | P5.1 |
+| **SuperH** | ✅ 15/18 | ✅ | ✅ | — T flag only | ✅ trapa | P5.1 |
+| **Alpha** | ✅ 15/18 | ✅ | ✅ | — sem flags | ✅ call_pal | P5.1 |
+| **PA-RISC** | ✅ 15/18 | ✅ | ✅ | — sem flags | ✅ break 0,0 | P5.1 |
+| M88k · IA-64 · i860 | emit texto | — | — | — | ✅ emit | P1 |
 
 ```text
-P1: catálogo existe            P4: comportamento em subset real
-P2: round-trip de formato      P5: sweep sealed (≥67%)
-P3: subconjunto semântico      P6: 100% todas dimensões + sweep condicional limpo
+P1: catálogo existe                    P4: comportamento em subset real
+P2: round-trip de formato              P5: sweep sealed (≥67%)
+P3: subconjunto semântico              P6: 100% todas dimensões + sweep condicional limpo
+                                       P6.1: P6 + Trap emit 14 ISAs
 ```
 
-17 SIR kinds: Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, **Cmp**, **Test**, **BranchCond**.
+18 SIR kinds: Nop, Ret, MovImm, AddImm, SubImm, Clear, Inc, Dec, Push, Pop, LdMem, StMem, CallRel, JmpRel, Cmp, Test, BranchCond, Trap.
 14 Cond variants: Eq, Ne, Lt, Ge, Gt, Le, Cs, Cc, Mi, Pl, Vs, Vc, Hi, Ls.
 70 conditional sweep programs (Cmp×3 outcomes×14 + Test×2 outcomes×14).
 
