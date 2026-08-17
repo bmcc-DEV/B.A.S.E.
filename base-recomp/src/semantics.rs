@@ -200,7 +200,7 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
             "1.1 is 32-bit, 2.0 is 64-bit",
             "no general flags — compare-and-branch / carry via DC registers",
         ],
-        EncodeStatus::Partial("Nop, Ret"),
+        EncodeStatus::Full,
     ),
     s(
         "arm",
@@ -359,6 +359,58 @@ pub const PRESERVED_ISAS: &[IsaSemantics] = &[
         EncodeStatus::Full,
     ),
     s(
+        "x86_64",
+        "AMD64 / x86-64",
+        64,
+        Endianness::Little,
+        16,
+        None,
+        "rsp",
+        Some("rbp"),
+        0,
+        0,
+        false,
+        &["cf", "pf", "af", "zf", "sf", "of"],
+        false,
+        false,
+        &["SSE", "AVX", "AVX2", "AVX-512"],
+        Some("System V AMD64 ABI"),
+        &[
+            "64-bit extension of x86",
+            "16 GPRs (RAX..R15)",
+            "RIP-relative addressing",
+            "SSE/AVX vector extensions",
+            "legacy 16/32-bit modes",
+        ],
+        EncodeStatus::Full,
+    ),
+    s(
+        "aarch64",
+        "ARM64 / AArch64",
+        64,
+        Endianness::Little,
+        31,
+        Some("xzr"),
+        "sp",
+        Some("lr (x30)"),
+        0,
+        0,
+        false,
+        &["n", "z", "c", "v"],
+        false,
+        false,
+        &["NEON", "SVE", "SVE2"],
+        Some("AAPCS64"),
+        &[
+            "64-bit ARM architecture",
+            "31 GPRs (X0-X30) + SP + ZR",
+            "fixed 32-bit instruction encoding",
+            "NEON/SVE vector extensions",
+            "exception levels EL0-EL3",
+        ],
+        EncodeStatus::Full,
+    ),
+    s(
         "superh",
         "Hitachi/Renesas SuperH (SH-1..SH-4)",
         32,
@@ -403,7 +455,7 @@ mod tests {
 
     #[test]
     fn eleven_preserved_isas() {
-        assert_eq!(PRESERVED_ISAS.len(), 11);
+        assert_eq!(PRESERVED_ISAS.len(), 13);
     }
 
     #[test]
@@ -421,7 +473,7 @@ mod tests {
             for_isa(TargetIsa::SuperH(SuperHFlavor::Sh4)).unwrap().name,
             "superh"
         );
-        assert!(for_isa(TargetIsa::X86_64).is_none());
+        assert!(for_isa(TargetIsa::X86_64).is_some());
     }
 
     #[test]
@@ -452,8 +504,10 @@ mod tests {
     fn catalog_serializes_to_json() {
         let json = to_json();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.as_array().unwrap().len(), 11);
+        assert_eq!(parsed.as_array().unwrap().len(), 13);
         assert!(json.contains("\"alpha\""));
         assert!(json.contains("\"coldfire\""));
+        assert!(json.contains("\"x86_64\""));
+        assert!(json.contains("\"aarch64\""));
     }
 }

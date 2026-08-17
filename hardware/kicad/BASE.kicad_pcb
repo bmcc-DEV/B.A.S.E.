@@ -1,0 +1,12 @@
+; engineering_draft — NOT FABRICABLE
+(kicad_pcb (version 20231121) (generator "base-pcb")
+  (page "A4")
+  (setup (stackup (layer "F.Cu") (layer "B.Cu"))))
+  (gr_text "engineering_draft — NOT FABRICABLE" (at 100 10) (layer "F.SilkS")
+(effects (font (size 2 2) (thickness 0.3))))
+  (footprint "Package:Generic"
+(at 60 40)
+(layer "F.Cu")
+(property "Reference" "RegisterFile_40034" (at 0 0))
+)
+)

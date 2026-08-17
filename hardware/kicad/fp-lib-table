@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "BASE-custom")(type "KiCad")(uri "${KIPRJMOD}/libs/footprints/BASE-custom.pretty")(options "")(descr "B.A.S.E. custom footprints"))
+)

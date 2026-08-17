@@ -1,0 +1,31 @@
+{
+  "backend": "symbolic",
+  "contracts_proved": 3,
+  "all_satisfied": true,
+  "results": [
+    {
+      "contract": "vdp1_cmd_kick",
+      "smt_lib": "; B.A.S.E. Temporal Contract Proof\n; Contract: vdp1_cmd_kick\n; Steps: 2\n\n(declare-const t0 Int)\n(declare-const t1 Int)\n\n(assert (= t0 0))\n(assert (< t0 t1))\n(assert (<= (- t1 t0) 3000))\n(assert (<= (- t1 t0) 5000))\n\n(check-sat)\n(get-model)\n",
+      "satisfiable": true,
+      "model": "symbolic: t0=0, t1=1",
+      "proved": true,
+      "backend": "symbolic"
+    },
+    {
+      "contract": "vdp2_tvmd",
+      "smt_lib": "; B.A.S.E. Temporal Contract Proof\n; Contract: vdp2_tvmd\n; Steps: 1\n\n(declare-const t0 Int)\n\n(assert (= t0 0))\n\n(check-sat)\n(get-model)\n",
+      "satisfiable": true,
+      "model": "t0=0",
+      "proved": true,
+      "backend": "symbolic"
+    },
+    {
+      "contract": "smpc_cmd",
+      "smt_lib": "; B.A.S.E. Temporal Contract Proof\n; Contract: smpc_cmd\n; Steps: 2\n\n(declare-const t0 Int)\n(declare-const t1 Int)\n\n(assert (= t0 0))\n(assert (< t0 t1))\n(assert (<= (- t1 t0) 3000))\n(assert (<= (- t1 t0) 5000))\n\n(check-sat)\n(get-model)\n",
+      "satisfiable": true,
+      "model": "symbolic: t0=0, t1=1",
+      "proved": true,
+      "backend": "symbolic"
+    }
+  ]
+}

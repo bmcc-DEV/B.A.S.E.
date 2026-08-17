@@ -1,0 +1,12 @@
+# Stackup — B.A.S.E. reference (2L)
+
+```
+Layer          Type        Thickness
+F.Cu           Copper      35 um (1 oz)
+Dielectric     FR-4        1.53 mm
+B.Cu           Copper      35 um (1 oz)
+--------------------------------------
+Finished board thickness: 1.6 mm +/-10%
+```
+
+Atualizar se o layout subir para 4L.

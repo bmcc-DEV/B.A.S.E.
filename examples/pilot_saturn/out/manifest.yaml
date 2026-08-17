@@ -1,0 +1,22 @@
+# Manifest — Sega Saturn HW discovery assist (port shortcut)
+
+target:
+  device: sega_saturn
+  cpu: sh2_dual
+  firmware: synth_mmio  # dumps reais = lab futuro
+  port_assist_for:
+    - ps1_games      # humano + runtime externo
+    - x86_90s_games # humano + runtime externo
+
+phases:
+  A: forense_vdp_smpc   # run.sh
+  B: recomp_sh2_link    # run_recomp_smoke.sh (CPU subset only)
+  C: lab_dump           # SOP.md — traces reais / Mednafen
+
+honesty:
+  generates_os: false
+  runs_on_saturn: false
+  ports_games: false
+  vdp_complete: false
+  static_recomp_complete: false
+  production: false

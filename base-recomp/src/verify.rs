@@ -73,6 +73,9 @@ pub fn semantic_key(op: &Op) -> String {
         // are resolved at link time and are not part of the machine encoding.
         Op::CallRel { .. } => "call".into(),
         Op::JmpRel { .. } => "jmp".into(),
+        Op::Cmp { .. } => "cmp".into(),
+        Op::Test { .. } => "test".into(),
+        Op::BranchCond { .. } => "bcond".into(),
         Op::Unknown { .. } => "gap".into(),
     }
 }
@@ -579,9 +582,12 @@ mod tests {
             probe_kind(TargetIsa::Alpha, "call"),
             KindProbe { encoder: true, decoder: true, literal: false, semantic: true }
         );
-        // parisc: only nop/ret round-trip (encoder not extended yet).
+        // parisc: the full kind set round-trips now (LDI/LDO/LDW/STW + bl/b,l).
         assert!(probe_kind(TargetIsa::PaRisc, "ret").semantic);
-        assert!(!probe_kind(TargetIsa::PaRisc, "mov_imm").encoder);
+        assert!(probe_kind(TargetIsa::PaRisc, "mov_imm").encoder);
+        assert!(probe_kind(TargetIsa::PaRisc, "mov_imm").semantic);
+        assert!(probe_kind(TargetIsa::PaRisc, "add_imm").semantic);
+        assert!(probe_kind(TargetIsa::PaRisc, "push").semantic);
         // coldfire push/pop/ld/st are fully verified.
         assert!(probe_kind(TargetIsa::ColdFire, "push").literal);
         assert!(probe_kind(TargetIsa::ColdFire, "pop").literal);
@@ -624,7 +630,7 @@ mod tests {
         let a = coverage(TargetIsa::Alpha);
         assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (100, 100, 100)); // + push/pop/call/jmp
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (14, 14, 14)); // nop/ret only so far
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (100, 100, 100)); // LDI/LDO/LDW/STW + bl/b,l
         let c = coverage(TargetIsa::ColdFire);
         assert_eq!(c.semantic_pct, 100, "{c:?}"); // 14 of 14 (all kinds now encode)
         assert_eq!(c.encoder_pct, 100, "{c:?}");
@@ -655,7 +661,7 @@ mod tests {
             (TargetIsa::Ppc, 100),
             (TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), 100),
             (TargetIsa::Alpha, 100),
-            (TargetIsa::PaRisc, 14), // nop/ret only — encoder not extended yet
+            (TargetIsa::PaRisc, 100),
             (TargetIsa::ColdFire, 100),
             (TargetIsa::AArch64, 100),
             (TargetIsa::Arm, 100),
@@ -714,7 +720,7 @@ mod tests {
         assert!(preservation_level(&m88k, &m88k_sweep).starts_with("P1"));
         let parisc = coverage(TargetIsa::PaRisc);
         let parisc_sweep = differential_sweep(TargetIsa::PaRisc);
-        assert!(preservation_level(&parisc, &parisc_sweep).starts_with("P3"));
+        assert!(preservation_level(&parisc, &parisc_sweep).starts_with("P5"));
     }
 
     #[test]

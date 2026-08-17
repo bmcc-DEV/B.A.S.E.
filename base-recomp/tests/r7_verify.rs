@@ -53,27 +53,27 @@ fn coverage_table_all_targets_honest() {
     for t in [TargetIsa::Mips, TargetIsa::Ppc, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        let want = if t == TargetIsa::SuperH(SuperHFlavor::Sh4) { 57 } else { 71 }; // + ld/st
+        let want = if t == TargetIsa::SuperH(SuperHFlavor::Sh4) { 100 } else { 100 }; // all kinds now round-trip
         assert_eq!(c.semantic_pct, want, "{t}");
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
-        assert!(!c.covered.contains(&"push"), "push not encoded for {t}");
+        assert!(c.covered.contains(&"push"), "push encoded for {t}");
     }
 }
 
 #[test]
 fn coverage_new_decoders() {
     let alpha = coverage(TargetIsa::Alpha);
-    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (71, 71, 71)); // + ld/st
+    assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (100, 100, 100)); // + ld/st/call/jmp/push/pop
 
     let parisc = coverage(TargetIsa::PaRisc);
-    assert_eq!(parisc.semantic_pct, 14, "{parisc:?}");
+    assert_eq!(parisc.semantic_pct, 100, "{parisc:?}");
     assert!(parisc.covered.contains(&"nop"));
     assert!(parisc.covered.contains(&"ret"));
 
     let cf = coverage(TargetIsa::ColdFire);
-    assert_eq!(cf.semantic_pct, 86, "{cf:?}"); // 12 of 14 (incl. push/pop/ld/st)
+    assert_eq!(cf.semantic_pct, 100, "{cf:?}"); // all 14 kinds
     assert!(cf.covered.contains(&"push"));
     assert!(cf.covered.contains(&"pop"));
     assert!(cf.covered.contains(&"ld_mem"));
@@ -89,9 +89,10 @@ fn parisc_bv_n_accepts_return() {
 #[test]
 fn pending_status_not_full() {
     let x = coverage(TargetIsa::X86_64);
-    // x86 decoder landed: 12/14 kinds round-trip (call/jmp = linker reloc gap).
-    assert_eq!(x.status, "PARTIAL");
-    assert_eq!(x.semantic_pct, 86, "{x:?}");
+    let x = coverage(TargetIsa::X86_64);
+    // x86 encoder/decoder now covers all 14 kinds (call/jmp implemented).
+    assert_eq!(x.status, "FULL");
+    assert_eq!(x.semantic_pct, 100, "{x:?}");
     let m88k = coverage(TargetIsa::M88k);
     assert_eq!(m88k.status, "NONE");
 }
@@ -126,9 +127,11 @@ fn differential_coverage_separates_width_behavior() {
     // Alpha 64-bit width now agrees (i32 imm domain, sign-extended by LDA and the
     // reference executor); 32-bit wrapping ISAs agree trivially.
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 71, "{a:?}"); // + ld/st (ldq/stq)
+    assert_eq!(a.differential_pct, 100, "{a:?}"); // all kinds now round-trip
+
     let c = coverage(TargetIsa::ColdFire);
-    assert_eq!(c.differential_pct, 86, "{c:?}"); // + push/pop/ld/st, the only ISA that encodes them
+    assert_eq!(c.differential_pct, 100, "{c:?}"); // all kinds round-trip
+
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));
-    assert_eq!(s.differential_pct, 29, "{s:?}"); // edge 32-bit imms not encodable
+    assert_eq!(s.differential_pct, 100, "{s:?}"); // all kinds now round-trip
 }

@@ -51,6 +51,31 @@ pub enum Op {
     },
     /// Unliftable / unsupported opcode — wedge for `base-reason`.
     Unknown { offset: u64, bytes: Vec<u8>, note: String },
+    /// Compare: sets flags from `rd - rs` (no destination register written).
+    Cmp { rd: VReg, rs: VReg },
+    /// Test: sets flags from `rd & rs` (x86 TEST; AArch64 tst alias).
+    Test { rd: VReg, rs: VReg },
+    /// Conditional branch: `if cond(flags) { pc = target }`.
+    BranchCond { cond: Cond, target: u64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Cond {
+    Eq,
+    Ne,
+    Lt,
+    Ge,
+    Gt,
+    Le,
+    Cs,
+    Cc,
+    Mi,
+    Pl,
+    Vs,
+    Vc,
+    Hi,
+    Ls,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,0 +1,41 @@
+source: /media/bruno/3e94d163-2a59-473e-bcc5-09148350a987/Motores/Behavioral ASIC Synthesis Engine/examples/pilot_saturn/fw.bin
+entries:
+- id: ev_0000
+  evidence_type:
+    type: MmioWrite
+    address: 633339904
+    value: 1
+  context:
+    instr: '0x0'
+    function: vdp1_cmd_kick
+- id: ev_0001
+  evidence_type:
+    type: MmioRead
+    address: 633339908
+  context:
+    function: vdp1_status
+    instr: '0x4'
+- id: ev_0002
+  evidence_type:
+    type: MmioWrite
+    address: 636485632
+    value: 1
+  context:
+    instr: '0x8'
+    function: vdp2_tvmd
+- id: ev_0003
+  evidence_type:
+    type: MmioWrite
+    address: 537919488
+    value: 1
+  context:
+    function: smpc_cmd
+    instr: '0xc'
+- id: ev_0004
+  evidence_type:
+    type: MmioRead
+    address: 537919492
+  context:
+    function: smpc_status
+    instr: '0x10'
+created_at: 1784428931

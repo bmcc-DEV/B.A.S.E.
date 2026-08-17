@@ -4,14 +4,18 @@ target:
   device: imac_g3_late_2001
   cpu: powerpc_g3_750
   firmware: OpenFirmware
-  port_os: ReactOS  # externo; PPC port retired upstream
+  port_os:
+    - ReactOS   # externo; PPC port retired upstream
+    - Haiku     # externo; PPC experimental / BeOS-era heritage
 
 phases:
   A: forense_of_macio   # run.sh
-  B: qemu_ppc_smoke     # esqueleto — precisa qemu-system-ppc + image externa
-  C: hardware_boot      # SOP.md
+  B: qemu_ppc_smoke     # run_qemu_smoke.sh — qemu-system-ppc + image externa
+  C: hardware_boot      # SOP.md — Late 2001 físico (depois de B verde)
 
 honesty:
   capstone_ppc: false   # path futuro
+  generates_os: false
   generates_reactos: false
+  generates_haiku: false
   production: false

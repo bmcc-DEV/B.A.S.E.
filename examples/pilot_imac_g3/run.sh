@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # iMac G3 OS-port assist — fase A (OF/MacIO contracts). Sem Capstone PPC.
-# ≠ ReactOS bootável.
+# Dual target: ReactOS + Haiku (externos). ≠ OS bootável in-tree.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PILOT="$(cd "$(dirname "$0")" && pwd)"
@@ -53,26 +53,43 @@ assert r.get("auto_fix_complete") is False
 print("reconstruct OK", r["stop_reason"])
 PY
 
-echo "== port package (OF/MacIO map + fossils) =="
+echo "== port package ReactOS (OF/MacIO map + fossils) =="
 "$BASE" port package "$OUT/analyze/hardware_spec.yaml" \
   --evidence "$OUT/analyze/evidence_db.yaml" \
   --tension "$OUT/analyze/tension_report.json" \
   --target-hal "hal_reactos_ppc_assist" \
   --hal-stub \
-  -o "$OUT/port_package"
-test -f "$OUT/port_package/PORT_PACKAGE.md"
-test -f "$OUT/port_package/address_driver_map.yaml"
+  -o "$OUT/port_package_reactos"
+test -f "$OUT/port_package_reactos/PORT_PACKAGE.md"
+test -f "$OUT/port_package_reactos/address_driver_map.yaml"
+
+echo "== port package Haiku (OF/MacIO map + fossils) =="
+"$BASE" port package "$OUT/analyze/hardware_spec.yaml" \
+  --evidence "$OUT/analyze/evidence_db.yaml" \
+  --tension "$OUT/analyze/tension_report.json" \
+  --target-hal "hal_haiku_ppc_assist" \
+  --hal-stub \
+  -o "$OUT/port_package_haiku"
+test -f "$OUT/port_package_haiku/PORT_PACKAGE.md"
+test -f "$OUT/port_package_haiku/address_driver_map.yaml"
 
 cp "$PILOT/manifest.yaml" "$OUT/manifest.yaml"
 cp "$PILOT/REACTOS_EXTERNAL.md" "$OUT/REACTOS_EXTERNAL.md"
+cp "$PILOT/HAIKU_EXTERNAL.md" "$OUT/HAIKU_EXTERNAL.md"
+if [[ -f "$PILOT/EXTERNAL_PORT_ROADMAP.md" ]]; then
+  cp "$PILOT/EXTERNAL_PORT_ROADMAP.md" "$OUT/EXTERNAL_PORT_ROADMAP.md"
+fi
 cat > "$OUT/CASE_SUMMARY_IMAC_A.md" <<EOF
-# iMac G3 OS-port assist — fase A
+# iMac G3 OS-port assist — fase A (dual target)
 
 - MacIO/OF contracts @ 0x80000000 (synth)
-- port_package atlas (map + fossils)
-- Capstone PPC: not in v1.4
-- ReactOS: external only
+- port_package_reactos (hal_reactos_ppc_assist)
+- port_package_haiku (hal_haiku_ppc_assist)
+- Capstone PPC: not in this path
+- ReactOS: external only (PPC retired upstream)
+- Haiku: external only (PPC experimental)
 - auto_fix_complete=false · generates_os=false
+- generates_reactos=false · generates_haiku=false
 - status: OK
 EOF
 

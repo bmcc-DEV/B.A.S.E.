@@ -14,7 +14,7 @@ const ADD3: [u8; 9] = [0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3];
 
 #[test]
 fn catalog_has_eleven_entries() {
-    assert_eq!(PRESERVED_ISAS.len(), 11);
+    assert_eq!(PRESERVED_ISAS.len(), 13);
     for s in PRESERVED_ISAS {
         assert!(!s.family.is_empty());
         assert!(!s.quirks.is_empty(), "{} needs documented quirks", s.name);
@@ -57,13 +57,10 @@ fn new_isa_encode_partial_or_pending() {
         let code = encode_module(&m, t).unwrap_or_else(|e| panic!("encode {t}: {e}"));
         assert!(!code.is_empty(), "{t} produced no bytes");
     }
-    // PA-RISC encoder covers Nop/Ret only (imm ops pending) — honest Partial.
+    // PA-RISC now covers the full kind set (LDI/LDO/LDW/STW + bl/b,l).
     let nop_ret = lift_x86_32(&[0x90, 0xC3], "nr").unwrap();
     assert!(!encode_module(&nop_ret, TargetIsa::PaRisc).unwrap().is_empty());
-    assert!(matches!(
-        encode_module(&m, TargetIsa::PaRisc),
-        Err(EncodeError::Unsupported(isa, _)) if isa == TargetIsa::PaRisc
-    ));
+    assert!(!encode_module(&m, TargetIsa::PaRisc).unwrap().is_empty());
     for t in [TargetIsa::M88k, TargetIsa::Ia64, TargetIsa::I860] {
         let err = encode_module(&m, t).unwrap_err();
         assert!(matches!(err, EncodeError::Unsupported(isa, _) if isa == t));
@@ -85,11 +82,13 @@ fn encode_status_matches_reality() {
         TargetIsa::SuperH(SuperHFlavor::Sh4),
         TargetIsa::X86_64,
     ] {
-        let s = base_recomp::semantics::for_isa(t).unwrap();
-        assert!(matches!(s.encode_status, EncodeStatus::Full), "{t} should be Full");
+        let s = base_recomp::semantics::for_isa(t);
+        if s.is_none() {
+            eprintln!("WARNING: for_isa returned None for {t:?} (as_str={})", t.as_str());
+        }
+        assert!(s.is_some(), "{t} should have semantic catalog entry");
+        assert!(matches!(s.unwrap().encode_status, EncodeStatus::Full), "{t} should be Full");
     }
-    let parisc = base_recomp::semantics::for_isa(TargetIsa::PaRisc).unwrap();
-    assert!(matches!(parisc.encode_status, EncodeStatus::Partial(_)));
 
     let m88k = base_recomp::semantics::for_isa(TargetIsa::M88k).unwrap();
     assert!(matches!(m88k.encode_status, EncodeStatus::None(_)));

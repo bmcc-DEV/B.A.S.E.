@@ -1,0 +1,28 @@
+fossils:
+- kind: unknown_block
+  block_id: RegisterFile_25c00
+  address: 633339904
+  detail: block RegisterFile_25c00 kind=Unknown confidence=0.68
+  rewrite_hint: Classify (uart/spi/…) or capture more MMIO before porting
+- kind: unknown_purpose
+  block_id: RegisterFile_25c00
+  address: 633339908
+  detail: RegisterFile_25c00+0x4 purpose unknown
+  rewrite_hint: Name/purpose from datasheet or Capstone before HAL bind
+- kind: unknown_block
+  block_id: RegisterFile_20100
+  address: 537919488
+  detail: block RegisterFile_20100 kind=Unknown confidence=0.68
+  rewrite_hint: Classify (uart/spi/…) or capture more MMIO before porting
+- kind: unknown_purpose
+  block_id: RegisterFile_20100
+  address: 537919492
+  detail: RegisterFile_20100+0x4 purpose unknown
+  rewrite_hint: Name/purpose from datasheet or Capstone before HAL bind
+summary:
+  unobserved_registers: 0
+  unknown_blocks: 2
+  unknown_purpose: 2
+  high_psi_blocks: 0
+  orphan_evidence: 0
+honesty: Fossils = unobserved/fragile strata — not dead-code decompiler output

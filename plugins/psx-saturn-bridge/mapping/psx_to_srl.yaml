@@ -1,0 +1,96 @@
+# PS1 (psxrecomp concepts) → Saturn Ring Library
+# Assist de port humano — ≠ runtime turnkey
+schema: psx_to_srl/v1
+honesty:
+  runs_on_saturn: false
+  auto_ports_games: false
+
+paths:
+  psxrecomp_vendor: ../vendor/psxrecomp
+  saturn_ring_lib: ../SaturnRingLib
+  srl_headers: ../SaturnRingLib/saturnringlib
+  docs_srl: https://srl.reye.me/
+
+cpu:
+  source: MIPS R3000A (+ GTE COP2)
+  dest: dual SH-2
+  base_assist: "base recomp encode --target sh2 (smoke only)"
+  note: "Não reutilizar codegen C do psxrecomp no Saturn sem reescrita ISA."
+
+subsystems:
+  - id: gpu
+    psx: [GPU MMIO, GP0/GP1, VRAM, texture pages]
+    psxrecomp_refs: [runtime gpu.c, gpu_sw_renderer]
+    saturn: [VDP1 sprites/polygons, VDP2 backgrounds]
+    srl:
+      - SRL::VDP1
+      - SRL::VDP2
+      - SRL::Scene2D
+      - SRL::Scene3D
+      - SRL::CRAM
+      - SRL::Bitmap
+    strategy: rewrite
+    notes: "PS1 VRAM linear ≠ VDP1/VDP2 split. Portar draw lists, não blit 1:1."
+
+  - id: gte
+    psx: [COP2 matrix / lighting]
+    saturn: [CPU SH-2 + SRL::Math / Scene3D]
+    srl: [SRL::Math, SRL::Scene3D]
+    strategy: rewrite
+    notes: "Sem GTE no Saturn — reimplementar transforms em fixed-point SRL."
+
+  - id: input_sio0
+    psx: [SIO0, digital pad, DualShock]
+    saturn: [SMPC peripherals]
+    srl: [SRL::Input::Digital, SRL::Input::Management]
+    strategy: wrap_map
+    button_map:
+      Cross: A      # convenção comum de port; ajustar por jogo
+      Circle: B
+      Triangle: C
+      Square: X
+      L1: L
+      R1: R
+      Start: START
+      Select: null  # Saturn digital clássico sem Select — mapear a Z ou UI
+      DPad: [Up, Down, Left, Right]
+
+  - id: cdrom
+    psx: [CD-ROM XA, ISO]
+    saturn: [GFS / CD filesystem]
+    srl: [SRL::Cd]
+    strategy: rewrite_io
+    notes: "Manter assets; reescrever loader. CDDA via SRL::Sound::Cdda se habilitado."
+
+  - id: spu
+    psx: [SPU ADPCM, reverb]
+    saturn: [SCSP]
+    srl: [SRL::Sound::Pcm, SRL::Sound::Cdda]
+    strategy: rewrite
+    notes: "SRL_USE_SGL_SOUND_DRIVER=1 no makefile."
+
+  - id: mdec_fmv
+    psx: [MDEC + XA]
+    saturn: [Cinepak / custom]
+    srl: [SRL::Cinepak]
+    strategy: asset_pipeline
+    notes: "Re-encode FMV; não portar MDEC bit-exact."
+
+  - id: bios_kernel
+    psx: [SCPH1001 LLE recompiled]
+    saturn: [SGL/SRL Core init]
+    srl: [SRL::Core::Initialize, SRL::Core::Synchronize]
+    strategy: replace
+    notes: "Não portar BIOS PS1. Usar init SRL + loop Synchronize."
+
+  - id: overlays
+    psx: [disc-streamed overlays, capture→compile]
+    saturn: [CD file loads into Work RAM]
+    srl: [SRL::Cd::File, SRL::Memory]
+    strategy: manual
+    notes: "Ideia de coverage do psxrecomp aplica-se a inventário de overlays; codegen é SH-2/SRL."
+
+base_pipeline:
+  phase_a: examples/pilot_saturn/run.sh
+  phase_b: examples/pilot_saturn/run_recomp_smoke.sh
+  phase_c: examples/pilot_saturn/SOP.md

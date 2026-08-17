@@ -1,0 +1,240 @@
+openapi: 3.0.3
+info:
+  title: B.A.S.E. Identify / Prove API
+  version: "1.0.0"
+  description: |
+    Evidence-driven HW/FW reverse engineering API.
+    Canonical v1: identify · prove · usage.
+    No LLM in the proof path. saas_production: false (lab meter).
+  license:
+    name: AGPL-3.0
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local lab
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+tags:
+  - name: canonical
+    description: Three stable v1 endpoints
+  - name: meta
+paths:
+  /v1/identify:
+    post:
+      tags: [canonical]
+      summary: Identify firmware/HW per contract
+      operationId: identify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentifyRequest"
+      responses:
+        "200":
+          description: Identification + usage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentifyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/prove:
+    post:
+      tags: [canonical]
+      summary: Prove temporal contracts (SMT/symbolic)
+      operationId: prove
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProveRequest"
+      responses:
+        "200":
+          description: Proof report + usage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProveResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/usage:
+    get:
+      tags: [canonical]
+      summary: Account credits and usage
+      operationId: usage
+      responses:
+        "200":
+          description: Account public view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountPublic"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/prices:
+    get:
+      tags: [meta]
+      summary: Price book (units)
+      security: []
+      responses:
+        "200":
+          description: Price book
+  /v1/openapi.yaml:
+    get:
+      tags: [meta]
+      summary: This OpenAPI document
+      security: []
+      responses:
+        "200":
+          description: OpenAPI YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /health:
+    get:
+      tags: [meta]
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: OK
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+    PaymentRequired:
+      description: Insufficient credits
+    BadRequest:
+      description: Invalid body
+  schemas:
+    IdentifyRequest:
+      type: object
+      required: [firmware_b64, mmio]
+      properties:
+        firmware_b64:
+          type: string
+          description: Base64 firmware bytes
+        mmio:
+          type: array
+          items:
+            $ref: "#/components/schemas/MmioAccess"
+        contracts_yaml:
+          type: string
+          description: Optional SequenceContract YAML list
+        label:
+          type: string
+    MmioAccess:
+      type: object
+      required: [address, access_type]
+      properties:
+        address:
+          type: integer
+          format: int64
+        value:
+          type: integer
+          format: int64
+          nullable: true
+        access_type:
+          type: string
+          enum: [read, write]
+        function_name:
+          type: string
+        instruction_addr:
+          type: integer
+          format: int64
+    IdentifyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: identify.result
+        hardware:
+          type: object
+        by_contract:
+          type: array
+          items:
+            type: object
+        usage:
+          $ref: "#/components/schemas/UsageBreakdown"
+        honesty:
+          type: object
+    ProveRequest:
+      type: object
+      required: [contracts_yaml]
+      properties:
+        contracts_yaml:
+          type: string
+        label:
+          type: string
+        deadlock:
+          type: boolean
+          default: false
+    ProveResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: prove.result
+        contracts_proved:
+          type: integer
+        contracts_total:
+          type: integer
+        all_satisfied:
+          type: boolean
+        results:
+          type: array
+          items:
+            type: object
+        usage:
+          $ref: "#/components/schemas/UsageBreakdown"
+    UsageBreakdown:
+      type: object
+      properties:
+        firmware_bytes:
+          type: integer
+        mmio_events:
+          type: integer
+        contracts:
+          type: integer
+        units:
+          type: integer
+        credits_charged:
+          type: integer
+        credits_remaining:
+          type: integer
+    AccountPublic:
+      type: object
+      properties:
+        label:
+          type: string
+        credits:
+          type: integer
+        total_units:
+          type: integer
+        request_count:
+          type: integer
+        saas_production:
+          type: boolean

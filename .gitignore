@@ -6,9 +6,17 @@
 *~
 .vscode/
 .idea/
-*.kicad_pro
+# KiCad local/cache — fontes versionáveis vivem em hardware/kicad/
 *.kicad_prl
+*-backups/
+fp-info-cache
 *.kicad_pcb-bak
+*.kicad_sch-bak
+*.bak
+# Não ignorar hardware/kicad/*.kicad_pro (fonte do pacote OSHWA)
+# Outputs efémeros de smoke PCB fora de hardware/
+**/06_pcb/
+**/out/**/pcb/
 
 # Large / non-source blobs (keep out of git)
 Firmware.zip
@@ -17,6 +25,8 @@ Firmware.zip
 !**/fixtures/**/*.zip
 PaleoComputação.pdf
 *.pdf
+!hardware/**/*.pdf
+!docs/**/*.pdf
 
 # Pilot ephemeral outputs
 examples/pilot/out/
@@ -45,6 +55,11 @@ examples/pilot_imac_g3/out_qemu/
 **/*.elf
 **/firmware_host
 base-virt/plugin/*.so
+
+# Isolated plugins — vendor clones & absolute SRL symlink (setup.sh)
+plugins/psx-saturn-bridge/vendor/psxrecomp/
+plugins/psx-saturn-bridge/SaturnRingLib
+plugins/psx-saturn-bridge/out/
 
 # Repo-root generated artifacts (reason reports, QMP probes)
 /output/

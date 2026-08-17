@@ -1,0 +1,56 @@
+{
+  "overall_tension": 0.23471799999999998,
+  "overall_confidence": 0.8099015321717186,
+  "compilatory_entropy": 0.5493061443340548,
+  "conclusiveness": "inconclusive",
+  "function_count": 5,
+  "instruction_count": 64,
+  "call_edge_count": 0,
+  "block_tensions": [
+    {
+      "block_id": "RegisterFile_25c00",
+      "tension": 0.23471799999999998,
+      "confidence": 0.8652280698233418,
+      "conclusiveness": "conclusive_match",
+      "components": {
+        "register_divergence": 0.0,
+        "access_divergence": 0.0,
+        "timing_divergence": 0.4,
+        "structural_divergence": 0.1,
+        "function_evidence": 0.00188,
+        "block_weight": 0.555
+      }
+    },
+    {
+      "block_id": "Doorbell_25f00",
+      "tension": 0.23471799999999998,
+      "confidence": 0.8652280698233418,
+      "conclusiveness": "conclusive_match",
+      "components": {
+        "register_divergence": 0.0,
+        "access_divergence": 0.0,
+        "timing_divergence": 0.4,
+        "structural_divergence": 0.1,
+        "function_evidence": 0.00188,
+        "block_weight": 0.5275
+      }
+    },
+    {
+      "block_id": "RegisterFile_20100",
+      "tension": 0.23471799999999998,
+      "confidence": 0.8652280698233418,
+      "conclusiveness": "conclusive_match",
+      "components": {
+        "register_divergence": 0.0,
+        "access_divergence": 0.0,
+        "timing_divergence": 0.4,
+        "structural_divergence": 0.1,
+        "function_evidence": 0.00188,
+        "block_weight": 0.555
+      }
+    }
+  ],
+  "generates_os": false,
+  "auto_fix_complete": false,
+  "honesty": "not_os_turnkey: MMIO heuristics alone are insufficient for a complete OS"
+}

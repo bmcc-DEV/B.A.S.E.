@@ -1,0 +1,9 @@
+{
+  "phase": "B",
+  "ok": true,
+  "target": "sh2",
+  "runs_on_saturn": false,
+  "ports_games": false,
+  "note": "CPU encode only \u2014 no VDP runtime; Mednafen/Yabause manual",
+  "production": false
+}

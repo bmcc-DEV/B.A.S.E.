@@ -1,0 +1,6 @@
+# engineering_draft — NOT FABRICABLE; Manufacturer=TBD means lookup pending
+Ref,Qty,Part,Manufacturer,Interface,Block,Notes
+U1,1,RP2040,TBD,uart,RegisterFile_40034,"TBD manufacturer — expand from component_db"
+C1,1,100nF,Ceramic,Decoupling,Power,"draft placeholder"
+C2,1,10uF,Ceramic,Bulk,Power,"draft placeholder"
+R1,1,10k,Resistor,Pull-up,Interface,"draft placeholder"

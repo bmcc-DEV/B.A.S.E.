@@ -1,0 +1,24 @@
+{
+  "name": "saturn_cpu_smoke",
+  "source_isa": "x86_32",
+  "functions": [
+    {
+      "name": "saturn_cpu_smoke",
+      "blocks": [
+        {
+          "label": "entry",
+          "ops": [
+            {
+              "op": "clear",
+              "dst": 0
+            },
+            {
+              "op": "ret"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "lift_gaps": 0
+}

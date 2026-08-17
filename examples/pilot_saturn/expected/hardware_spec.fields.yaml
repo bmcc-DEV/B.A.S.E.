@@ -1,0 +1,27 @@
+required_top_level:
+  - version
+  - source
+  - cpu
+  - memory
+  - blocks
+  - confidence
+
+required_block_fields:
+  - id
+  - kind
+  - base_address
+  - size
+  - registers
+  - confidence
+
+pilot_notes:
+  mmio_source: mmio.json
+  isa: sh2
+  bases:
+    - 0x25C00000  # VDP1 synth
+    - 0x25F80000  # VDP2 synth
+    - 0x20100000  # SMPC synth
+  runs_on_saturn: false
+  ports_games: false
+  assist: "HW discovery for PS1/x86→Saturn port teams"
+  not: "game recompiler / VDP runtime / Jo Engine"

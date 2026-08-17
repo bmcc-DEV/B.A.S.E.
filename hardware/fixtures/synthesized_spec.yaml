@@ -1,0 +1,136 @@
+original:
+  version: 1
+  source: hardware/fixtures/pilot_uart_wedge
+  cpu:
+    architecture: !Unknown ''
+    clock_mhz: 0
+    endianness: Little
+    cores: 1
+  memory:
+    regions: []
+  blocks:
+  - id: RegisterFile_40034
+    kind: Uart
+    base_address: 1073954816
+    size: 28
+    registers:
+    - offset: 0
+      name: control
+      width: 32
+      access: Write
+      purpose: UnknownPurpose
+      reset_value: 1
+      observed_values:
+      - value: 65
+        count: 1
+        context: ''
+      - value: 1
+        count: 1
+        context: ''
+      bitfields: []
+      polling: false
+      count: 2
+    - offset: 4
+      name: status
+      width: 32
+      access: Read
+      purpose: UnknownPurpose
+      reset_value: null
+      observed_values:
+      - value: 0
+        count: 1
+        context: ''
+      bitfields: []
+      polling: false
+      count: 1
+    - offset: 24
+      name: reg_18
+      width: 32
+      access: Write
+      purpose: Control
+      reset_value: 0
+      observed_values:
+      - value: 0
+        count: 1
+        context: ''
+      bitfields: []
+      polling: false
+      count: 1
+    protocol:
+      states:
+      - idle
+      - active
+      - state_41
+      - unknown
+      transitions:
+      - from: idle
+        to: active
+        trigger:
+          kind: write
+          register_offset: 0
+          value: 1
+        latency: null
+      - from: active
+        to: idle
+        trigger:
+          kind: write
+          register_offset: 0
+          value: 65
+        latency: null
+      entry_condition:
+        kind: power_on
+        detail: null
+      exit_condition: null
+    timing:
+      activation:
+        min_ns: 120
+        max_ns: 1200
+        avg_ns: 120
+        p99_ns: null
+        samples: 1
+      processing: null
+      interrupt_response: null
+      dma_setup: null
+      polling_interval: null
+    dma: null
+    dependencies: []
+    confidence: 0.9000000000000001
+  interrupts: []
+  dma_channels: []
+  constraints:
+    max_power_watts: 0.0
+    required_bandwidths: []
+    pin_count: null
+    pcb_layers: null
+    temp_range: null
+  confidence: 0.9000000000000001
+assignments:
+- block_id: RegisterFile_40034
+  component: RP2040
+  interface: uart
+  config:
+    category: Mcu
+    constraint_satisfied: true
+    match_score: 0.9833333333333334
+    preference: mcu_over_fpga_then_pref_mfg_then_price
+netlist:
+- from: RegisterFile_40034
+  to: gnd
+  signal: GND
+  protocol: power
+- from: RegisterFile_40034
+  to: irq_controller
+  signal: IRQ
+  protocol: irq
+- from: RegisterFile_40034
+  to: power_rail_3v3
+  signal: VCC_3V3
+  protocol: power
+- from: RegisterFile_40034
+  to: soc_cpu
+  signal: UART_data
+  protocol: uart
+constraints:
+  max_bom_cost: 80.0
+  preferred_manufacturer: null
+  preferred_package: null

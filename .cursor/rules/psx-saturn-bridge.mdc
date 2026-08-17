@@ -1,0 +1,31 @@
+---
+description: Plugin PSX→Saturn — driver máquina (sem humano no loop)
+globs: plugins/psx-saturn-bridge/**/*
+alwaysApply: false
+---
+
+# psx-saturn-bridge — machine path
+
+Default: `scripts/run_machine.sh` → `tools/machine_port.py`  
+EXE → projeto SRL em `out/machine_port/`. **Não** pedir checklist humano no caminho crítico.
+
+## Honesty
+
+- `human_required: false` · `machine_closed_loop: true`
+- `game_fidelity_complete: false` até tabelas GP0/GTE/MIPS cobrirem
+- Sem BIOS/discos no git · sem LLM no driver
+
+## Incrementar fidelidade (só código de máquina)
+
+1. Corpos em `GP0_TABLE` (`machine_port.py`) → VDP1/Scene2D
+2. Tabela GTE → `SRL::Math`
+3. Lift MIPS → `base recomp encode --target sh2`
+4. ISO walker → `SRL::Cd`
+
+## APIs geradas
+
+- `PsxSaturnBridge::PadMap` (YAML)
+- `PsxSaturnBridge::Gpu::TranslateGp0`
+- `SRL::Core::Initialize` / `Synchronize`
+
+Ver `saturn-ring-lib` e `MACHINE_RECEIPT.json`.

@@ -1,0 +1,9 @@
+# KiCad design rules — starter (tighten under EE)
+# Import or merge into BASE.kicad_dru when the project file exists.
+(version 1)
+(rule "min_track_width"
+  (constraint track_width (min 0.15mm)))
+(rule "min_clearance"
+  (constraint clearance (min 0.15mm)))
+(rule "min_hole"
+  (constraint hole_size (min 0.3mm)))

@@ -1,0 +1,15 @@
+{
+  "auto_fix_complete": false,
+  "avg_errors_per_iteration": 0.0,
+  "continuous": false,
+  "converged": false,
+  "final_pass_rate": 0.7666666666666666,
+  "improvement": 0.0,
+  "initial_pass_rate": 0.7666666666666666,
+  "max_iterations_effective": 16,
+  "stagnated": true,
+  "stop_reason": "stagnated",
+  "threshold": 0.99,
+  "total_errors_found": 0,
+  "total_iterations": 1
+}

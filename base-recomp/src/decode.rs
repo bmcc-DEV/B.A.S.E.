@@ -5,7 +5,7 @@
 //! `Op::Unknown` (gap), mirroring the lifter's honesty. Full ISA decode is future work
 //! (the catalog `encode_status`/decoder availability is the source of truth).
 
-use crate::sir::{Op, VReg};
+use crate::sir::{Op, VReg, Cond};
 use crate::target::TargetIsa;
 use thiserror::Error;
 
@@ -286,6 +286,50 @@ fn decode_ppc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // CMPW: 0x7C000000 | (RA << 16) | (RB << 11) | 0x0000
+        if (w & 0xFC00FFFF) == 0x7C000000 {
+            let ra = (w >> 16) & 0x1F;
+            let rb = (w >> 11) & 0x1F;
+            if ra >= 3 && rb >= 3 {
+                ops.push(Op::Cmp { rd: VReg(ra - 3), rs: VReg(rb - 3) });
+                i += 4;
+                continue;
+            }
+        }
+        // CMPLW: 0x7C000000 | (RA << 16) | (RB << 11) | 0x0020
+        if (w & 0xFC00FFFF) == 0x7C000020 {
+            let ra = (w >> 16) & 0x1F;
+            let rb = (w >> 11) & 0x1F;
+            if ra >= 3 && rb >= 3 {
+                ops.push(Op::Test { rd: VReg(ra - 3), rs: VReg(rb - 3) });
+                i += 4;
+                continue;
+            }
+        }
+        // BC: 0x40000000 | (BO << 21) | (BI << 16) | BD
+        if (w >> 26) == 16 {
+            let bo = (w >> 21) & 0x1F;
+            let bi = (w >> 16) & 0x1F;
+            let bd = sext16(w & 0xFFFF);
+            let cond = match (bo, bi) {
+                (12, 2) => Cond::Eq,
+                (4, 2) => Cond::Ne,
+                (12, 0) => Cond::Lt,
+                (4, 0) => Cond::Ge,
+                (12, 1) => Cond::Gt,
+                (4, 1) => Cond::Le,
+                (12, 3) => Cond::Vs,
+                (4, 3) => Cond::Vc,
+                _ => {
+                    ops.push(gap(i, w, format!("ppc unknown bc bo={bo} bi={bi}")));
+                    i += 4;
+                    continue;
+                }
+            };
+            ops.push(Op::BranchCond { cond, target: (bd as i32) as u64 });
+            i += 4;
+            continue;
+        }
         ops.push(gap(i, w, format!("ppc opcode {:#x} outside encoder subset", w >> 26)));
         i += 4;
     }
@@ -536,6 +580,7 @@ fn decode_alpha(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
 fn decode_parisc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     let mut ops = Vec::new();
     let mut i = 0usize;
+    let sext = |f: u32| (f & 0x7FFF) as i32 - (((f & 0x4000) as i32) << 1); // sign-extend 15-bit
     while i + 4 <= bytes.len() {
         let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
         if w == 0xE840C000 || w == 0xE840C002 {
@@ -558,6 +603,89 @@ fn decode_parisc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         if w == 0x08000240 {
             ops.push(Op::Nop); // or %r0, %r0, %r0
             i += 4;
+            continue;
+        }
+        let opc = w >> 26;
+        let b = (w >> 21) & 0x1f;
+        let t = (w >> 16) & 0x1f;
+        let field = w & 0xFFFF;
+        let v = |reg: u32| VReg(reg.saturating_sub(3)); // encoder maps VReg → r3..
+        // Push/Pop idiom folds (sp = r30): ldo -4(sp),sp; stw t,0(sp) /
+        // ldw t,0(sp); ldo 4(sp),sp. Must precede the general ldo/ldw/stw handlers.
+        if w == 0x37DEFFF8 && i + 8 <= bytes.len() {
+            let w2 = u32::from_be_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if (w2 >> 26) == 0x1A && ((w2 >> 21) & 0x1f) == 30 && (w2 & 0xFFFF) == 0 {
+                ops.push(Op::Push { src: v((w2 >> 16) & 0x1f) });
+                i += 8;
+                continue;
+            }
+        }
+        if (w >> 26) == 0x12 && b == 30 && (w & 0xFFFF) == 0 && i + 8 <= bytes.len() {
+            let w2 = u32::from_be_bytes(bytes[i + 4..i + 8].try_into().unwrap());
+            if w2 == 0x37DE0008 {
+                ops.push(Op::Pop { dst: v(t) });
+                i += 8;
+                continue;
+            }
+        }
+        if opc == 0x0D {
+            // ldi imm, %rt (base field 0) or ldo disp(%rb), %rt (base != 0).
+            if b == 0 {
+                ops.push(Op::MovImm { dst: v(t), imm: sext(field >> 1) as u32 });
+            } else if t == b {
+                ops.push(arith(v(t), sext(field >> 1)));
+            } else {
+                ops.push(gap(i, w, "parisc ldo with t != b outside encoder subset".into()));
+            }
+            i += 4;
+            continue;
+        }
+        if opc == 0x12 {
+            // ldw disp(%rb), %rt — LdMem (width 4). sp-based stray loads are the pop
+            // idiom (folded above); a lone one is outside the subset.
+            if b == 30 {
+                ops.push(gap(i, w, "parisc ldw with %sp base outside push/pop idiom".into()));
+            } else {
+                ops.push(Op::LdMem { dst: v(t), base: v(b), offset: sext(field >> 1), width: 4 });
+            }
+            i += 4;
+            continue;
+        }
+        if opc == 0x1A {
+            // stw %rt, disp(%rb) — StMem (width 4).
+            if b == 30 {
+                ops.push(gap(i, w, "parisc stw with %sp base outside push/pop idiom".into()));
+            } else {
+                ops.push(Op::StMem { src: v(t), base: v(b), offset: sext(field >> 1), width: 4 });
+            }
+            i += 4;
+            continue;
+        }
+        if opc == 0x3A {
+            // bl/b,l — disp18 at bits 20-3 (displacement LSB), bit 0 = sign (verified
+            // against objdump for the rel-0 subset; see encoder). Link register is
+            // bits 25-21 (NOT the memory-format t field): rp(r2) = call, r0 = jump.
+            let bt = (w >> 21) & 0x1f;
+            let disp = ((((w >> 3) & 0x3FFFF) as i32) - (((w & 1) << 18) as i32)) << 2;
+            if bt == 2 {
+                ops.push(Op::CallRel { rel: disp, target: None, symbol: None });
+            } else if bt == 0 {
+                ops.push(Op::JmpRel { rel: disp, target: None, symbol: None });
+            } else {
+                ops.push(gap(i, w, "parisc bl/b,l with link register outside {r0, rp}".into()));
+            }
+            i += 4;
+            if i + 4 <= bytes.len() {
+                let d = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+                if d != 0x08000240 {
+                    ops.push(Op::Unknown {
+                        offset: i as u64,
+                        bytes: d.to_be_bytes().to_vec(),
+                        note: "branch delay slot is not a nop".into(),
+                    });
+                }
+                i += 4;
+            }
             continue;
         }
         ops.push(gap(i, w, "parisc word outside encoder subset".into()));
@@ -587,6 +715,7 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         if (w & 0xFF00) == 0x6000 || (w & 0xFF00) == 0x6100 {
             // bra.w/bsr.w = 0x60 0x00 / 0x61 0x00 + word16; the .b forms (0x60xx, xx≠0)
             // are outside the encoder subset.
+            // Bcc.w: 0x6<cond>00 + word16 (cond in bits 11-8)
             if w == 0x6000 || w == 0x6100 {
                 if i + 4 > bytes.len() {
                     return Err(DecodeError::Truncated("coldfire", i as u64));
@@ -598,6 +727,41 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                     ops.push(Op::JmpRel { rel: disp as i32, target: None, symbol: None });
                 }
                 i += 4;
+            } else if (w & 0xF000) == 0x6000 && (w & 0x00FF) == 0x00 {
+                // Bcc.w — cond in bits 11-8
+                if i + 4 > bytes.len() {
+                    return Err(DecodeError::Truncated("coldfire", i as u64));
+                }
+                let cond_byte = (w >> 8) & 0xF;
+                let disp = i16::from_be_bytes(bytes[i + 2..i + 4].try_into().unwrap());
+                let cond = match cond_byte {
+                    0x7 => Cond::Eq,  // beq
+                    0x6 => Cond::Ne,  // bne
+                    0xD => Cond::Lt,  // blt
+                    0xC => Cond::Ge,  // bge
+                    0xF => Cond::Gt,  // bgt
+                    0xE => Cond::Le,  // ble
+                    0x5 => Cond::Cs,  // bcs/blo
+                    0x4 => Cond::Cc,  // bcc/bhs
+                    0xB => Cond::Mi,  // bmi
+                    0xA => Cond::Pl,  // bpl
+                    0x1 => Cond::Vs,  // bvs
+                    0x0 => Cond::Vc,  // bvc
+                    0x2 => Cond::Hi,  // bhi
+                    0x3 => Cond::Ls,  // bls
+                    _ => {
+                        ops.push(Op::Unknown {
+                            offset: i as u64,
+                            bytes: w.to_be_bytes().to_vec(),
+                            note: format!("coldfire unknown bcc cond {cond_byte:#x}"),
+                        });
+                        i += 4;
+                        continue;
+                    }
+                };
+                ops.push(Op::BranchCond { cond, target: disp as u64 });
+                i += 4;
+                continue;
             } else {
                 ops.push(Op::Unknown {
                     offset: i as u64,
@@ -653,6 +817,22 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 offset: 0,
                 width: 4,
             });
+            i += 2;
+            continue;
+        }
+        // CMP.L Dn, Dm — 0xB140 | (Dn << 9) | Dm
+        if (w & 0xFFC0) == 0xB140 {
+            let dn = ((w >> 9) & 7) as u32;
+            let dm = (w & 7) as u32;
+            ops.push(Op::Cmp { rd: VReg(dn), rs: VReg(dm) });
+            i += 2;
+            continue;
+        }
+        // TST.L Dn — 0x4A00 | (Dn << 3). Note: ColdFire TST only has one operand.
+        // For two-operand Test, we map to CMP with zero (handled by encoder as CMP).
+        if (w & 0xFFF8) == 0x4A00 {
+            let dn = ((w >> 3) & 7) as u32;
+            ops.push(Op::Test { rd: VReg(dn), rs: VReg(0) });
             i += 2;
             continue;
         }
@@ -823,6 +1003,52 @@ fn decode_arm(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // CMP: 0xE1500000 | (Rn << 16) | Rm — cond=AL, opcode=10101, S=1, Rd=0, Rn=Rn, Rm=Rm
+        if (w & 0xFFFF_F0F0) == 0xE150_0000 {
+            let rn = (w >> 16) & 0xf;
+            let rm = w & 0xf;
+            ops.push(Op::Cmp { rd: VReg(rn), rs: VReg(rm) });
+            i += 4;
+            continue;
+        }
+        // TST: 0xE1100000 | (Rn << 16) | Rm
+        if (w & 0xFFFF_F0F0) == 0xE110_0000 {
+            let rn = (w >> 16) & 0xf;
+            let rm = w & 0xf;
+            ops.push(Op::Test { rd: VReg(rn), rs: VReg(rm) });
+            i += 4;
+            continue;
+        }
+        // B<cond>: cond in bits 31-28, 101 in bits 27-25, imm24 in bits 23-0
+        if (w & 0x0E00_0000) == 0x0A00_0000 {
+            let cond_val = (w >> 28) & 0xF;
+            let imm24 = w & 0x00FF_FFFF;
+            let cond = match cond_val {
+                0x0 => Cond::Eq,
+                0x1 => Cond::Ne,
+                0x2 => Cond::Cs,
+                0x3 => Cond::Cc,
+                0x4 => Cond::Mi,
+                0x5 => Cond::Pl,
+                0x6 => Cond::Vs,
+                0x7 => Cond::Vc,
+                0x8 => Cond::Hi,
+                0x9 => Cond::Ls,
+                0xA => Cond::Ge,
+                0xB => Cond::Lt,
+                0xC => Cond::Gt,
+                0xD => Cond::Le,
+                _ => {
+                    ops.push(gap(i, w, format!("arm unknown cond {cond_val:#x}")));
+                    i += 4;
+                    continue;
+                }
+            };
+            let target = ((imm24 as i32) << 2) as u64;
+            ops.push(Op::BranchCond { cond, target });
+            i += 4;
+            continue;
+        }
         ops.push(gap(i, w, format!("arm word {w:#010x} outside encoder subset")));
         i += 4;
     }
@@ -935,6 +1161,52 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                     width: 4,
                 });
             }
+            i += 4;
+            continue;
+        }
+        // CMP: SUBS WZR, Wn, Wm — 0x6B000000 | (Rn << 16) | (Rm << 5) | 0x1F
+        if (w & 0xFFE0_FFE0) == 0x6B00_001F {
+            let rn = (w >> 16) & 0x1f;
+            let rm = (w >> 5) & 0x1f;
+            ops.push(Op::Cmp { rd: VReg(rn), rs: VReg(rm) });
+            i += 4;
+            continue;
+        }
+        // TST: ANDS WZR, Wn, Wm — 0x6A000000 | (Rn << 16) | (Rm << 5) | 0x1F
+        if (w & 0xFFE0_FFE0) == 0x6A00_001F {
+            let rn = (w >> 16) & 0x1f;
+            let rm = (w >> 5) & 0x1f;
+            ops.push(Op::Test { rd: VReg(rn), rs: VReg(rm) });
+            i += 4;
+            continue;
+        }
+        // B.cond: 0x54000000 | (cond << 24) | (imm19 << 5)
+        if (w & 0xFE00_0000) == 0x5400_0000 {
+            let cond_val = (w >> 24) & 0xF;
+            let imm19 = (w >> 5) & 0x7FFFF;
+            let cond = match cond_val {
+                0x0 => Cond::Eq,
+                0x1 => Cond::Ne,
+                0x2 => Cond::Cs,
+                0x3 => Cond::Cc,
+                0x4 => Cond::Mi,
+                0x5 => Cond::Pl,
+                0x6 => Cond::Vs,
+                0x7 => Cond::Vc,
+                0x8 => Cond::Hi,
+                0x9 => Cond::Ls,
+                0xA => Cond::Ge,
+                0xB => Cond::Lt,
+                0xC => Cond::Gt,
+                0xD => Cond::Le,
+                _ => {
+                    ops.push(gap(i, w, format!("aarch64 unknown cond {cond_val:#x}")));
+                    i += 4;
+                    continue;
+                }
+            };
+            let target = ((imm19 as i64) << 2) as u64;
+            ops.push(Op::BranchCond { cond, target });
             i += 4;
             continue;
         }
@@ -1078,6 +1350,77 @@ fn decode_x86(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
                 let rel = i32::from_le_bytes(bytes[i + 1..i + 5].try_into().unwrap());
                 ops.push(Op::JmpRel { rel, target: None, symbol: None });
                 i += 5;
+            }
+            0x39 => {
+                // cmp r/m32, r32 — ModRM follows. Encoder emits mod=11 (reg-reg).
+                need(i, 2, "x86 cmp")?;
+                let modrm = bytes[i + 1];
+                if modrm >> 6 != 3 {
+                    ops.push(gap(i, w32(bytes, i), "x86 cmp mod != 11".into()));
+                } else {
+                    let reg = (modrm >> 3) & 7; // source
+                    let rm = modrm & 7; // dest
+                    ops.push(Op::Cmp { rd: VReg(rm as u32), rs: VReg(reg as u32) });
+                }
+                i += 2;
+            }
+            0x85 => {
+                // test r/m32, r32 — ModRM follows. Encoder emits mod=11 (reg-reg).
+                need(i, 2, "x86 test")?;
+                let modrm = bytes[i + 1];
+                if modrm >> 6 != 3 {
+                    ops.push(gap(i, w32(bytes, i), "x86 test mod != 11".into()));
+                } else {
+                    let reg = (modrm >> 3) & 7;
+                    let rm = modrm & 7;
+                    ops.push(Op::Test { rd: VReg(rm as u32), rs: VReg(reg as u32) });
+                }
+                i += 2;
+            }
+            0x0F => {
+                // 0F 80-8F: Jcc rel32
+                if i + 2 >= bytes.len() {
+                    return Err(DecodeError::Truncated("x86", i as u64));
+                }
+                let b2 = bytes[i + 1];
+                if (0x80..=0x8F).contains(&b2) {
+                    need(i, 6, "x86 jcc")?;
+                    let rel = i32::from_le_bytes(bytes[i + 2..i + 6].try_into().unwrap());
+                    let cond = match b2 {
+                        0x84 => Cond::Eq,  // je
+                        0x85 => Cond::Ne,  // jne
+                        0x8C => Cond::Lt,  // jl
+                        0x8D => Cond::Ge,  // jge
+                        0x8F => Cond::Gt,  // jg
+                        0x8E => Cond::Le,  // jle
+                        0x82 => Cond::Cs,  // jb/jc
+                        0x83 => Cond::Cc,  // jae/jnc
+                        0x88 => Cond::Mi,  // js
+                        0x89 => Cond::Pl,  // jns
+                        0x80 => Cond::Vs,  // jo
+                        0x81 => Cond::Vc,  // jno
+                        0x87 => Cond::Hi,  // ja
+                        0x86 => Cond::Ls,  // jbe
+                        _ => {
+                            ops.push(Op::Unknown {
+                                offset: i as u64,
+                                bytes: bytes[i..i + 6].to_vec(),
+                                note: format!("x86 unknown jcc {b2:#04x}"),
+                            });
+                            i += 6;
+                            continue;
+                        }
+                    };
+                    ops.push(Op::BranchCond { cond, target: rel as u64 });
+                    i += 6;
+                    continue;
+                }
+                ops.push(Op::Unknown {
+                    offset: i as u64,
+                    bytes: vec![0x0F, b2],
+                    note: format!("x86 0F {b2:#04x} outside encoder subset"),
+                });
+                i += 2;
             }
             other => {
                 ops.push(Op::Unknown {

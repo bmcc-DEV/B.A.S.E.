@@ -1,0 +1,4 @@
+# BASE-custom.kicad_sym — placeholder library
+# Add symbols under EE review (Claim B2). Keep empty until real parts land.
+(kicad_symbol_lib (version 20231120) (generator "base-hardware-scaffold")
+)

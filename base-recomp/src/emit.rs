@@ -151,6 +151,27 @@ fn emit_x86_64(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  /* gap @{offset}: {note} */\n  ud2\n")
         }
+        Op::Cmp { rd, rs } => format!("  cmp %{}, %{}\n", x64_reg(*rd), x64_reg(*rs)),
+        Op::Test { rd, rs } => format!("  test %{}, %{}\n", x64_reg(*rd), x64_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "e",
+                crate::sir::Cond::Ne => "ne",
+                crate::sir::Cond::Lt => "l",
+                crate::sir::Cond::Ge => "ge",
+                crate::sir::Cond::Gt => "g",
+                crate::sir::Cond::Le => "le",
+                crate::sir::Cond::Cs => "b",  // CF=1 (below/carry)
+                crate::sir::Cond::Cc => "nb", // CF=0 (not below/no carry)
+                crate::sir::Cond::Mi => "s",  // SF=1 (sign/negative)
+                crate::sir::Cond::Pl => "ns", // SF=0 (no sign)
+                crate::sir::Cond::Vs => "o",  // OF=1 (overflow)
+                crate::sir::Cond::Vc => "no", // OF=0 (no overflow)
+                crate::sir::Cond::Hi => "a",  // CF=1 && ZF=0 (above)
+                crate::sir::Cond::Ls => "na", // CF=0 || ZF=1 (not above)
+            };
+            format!("  j{cond_str} 0x{target:x}\n")
+        }
     }
 }
 
@@ -213,6 +234,27 @@ fn emit_arm(op: &Op) -> String {
             }
         }
         Op::Unknown { offset, note, .. } => format!("  @ gap @{offset}: {note}\n  udf #0\n"),
+        Op::Cmp { rd, rs } => format!("  cmp {}, {}\n", arm_reg(*rd), arm_reg(*rs)),
+        Op::Test { rd, rs } => format!("  tst {}, {}\n", arm_reg(*rd), arm_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "eq",
+                crate::sir::Cond::Ne => "ne",
+                crate::sir::Cond::Cs => "cs",
+                crate::sir::Cond::Cc => "cc",
+                crate::sir::Cond::Mi => "mi",
+                crate::sir::Cond::Pl => "pl",
+                crate::sir::Cond::Vs => "vs",
+                crate::sir::Cond::Vc => "vc",
+                crate::sir::Cond::Hi => "hi",
+                crate::sir::Cond::Ls => "ls",
+                crate::sir::Cond::Ge => "ge",
+                crate::sir::Cond::Lt => "lt",
+                crate::sir::Cond::Gt => "gt",
+                crate::sir::Cond::Le => "le",
+            };
+            format!("  b{cond_str} 0x{target:x}\n")
+        }
     }
 }
 
@@ -262,6 +304,27 @@ fn emit_aarch64(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  // gap @{offset}: {note}\n  brk #0\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmp {}, {}\n", a64_reg(*rd), a64_reg(*rs)),
+        Op::Test { rd, rs } => format!("  tst {}, {}\n", a64_reg(*rd), a64_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "eq",
+                crate::sir::Cond::Ne => "ne",
+                crate::sir::Cond::Cs => "cs",
+                crate::sir::Cond::Cc => "cc",
+                crate::sir::Cond::Mi => "mi",
+                crate::sir::Cond::Pl => "pl",
+                crate::sir::Cond::Vs => "vs",
+                crate::sir::Cond::Vc => "vc",
+                crate::sir::Cond::Hi => "hi",
+                crate::sir::Cond::Ls => "ls",
+                crate::sir::Cond::Ge => "ge",
+                crate::sir::Cond::Lt => "lt",
+                crate::sir::Cond::Gt => "gt",
+                crate::sir::Cond::Le => "le",
+            };
+            format!("  b.{cond_str} 0x{target:x}\n")
         }
     }
 }
@@ -323,6 +386,20 @@ fn emit_mips(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  break\n")
         }
+        Op::Cmp { rd, rs } => format!("  # cmp {}, {} (emit TODO)\n  nop\n", mips_reg(*rd), mips_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", mips_reg(*rd), mips_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "beq",
+                crate::sir::Cond::Ne => "bne",
+                crate::sir::Cond::Lt => "blt",
+                crate::sir::Cond::Ge => "bge",
+                crate::sir::Cond::Gt => "bgt",
+                crate::sir::Cond::Le => "ble",
+                _ => "b",
+            };
+            format!("  # {cond_str} 0x{target:x} (emit TODO)\n  nop\n")
+        }
     }
 }
 
@@ -372,6 +449,28 @@ fn emit_ppc(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  trap\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmpw {}, {}\n", ppc_reg(*rd), ppc_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", ppc_reg(*rd), ppc_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "beq",
+                crate::sir::Cond::Ne => "bne",
+                crate::sir::Cond::Lt => "blt",
+                crate::sir::Cond::Ge => "bge",
+                crate::sir::Cond::Gt => "bgt",
+                crate::sir::Cond::Le => "ble",
+                crate::sir::Cond::Cs => "bcs",
+                crate::sir::Cond::Cc => "bcc",
+                crate::sir::Cond::Mi => "bmi",
+                crate::sir::Cond::Pl => "bpl",
+                crate::sir::Cond::Vs => "bvs",
+                crate::sir::Cond::Vc => "bvc",
+                crate::sir::Cond::Hi => "bhi",
+                crate::sir::Cond::Ls => "bls",
+                _ => "b",
+            };
+            format!("  {cond_str} 0x{target:x}\n")
         }
     }
 }
@@ -423,6 +522,28 @@ fn emit_sparc(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  ta 1\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmp {}, {}\n", sparc_reg(*rd), sparc_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", sparc_reg(*rd), sparc_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "be",
+                crate::sir::Cond::Ne => "bne",
+                crate::sir::Cond::Lt => "bl",
+                crate::sir::Cond::Ge => "bge",
+                crate::sir::Cond::Gt => "bg",
+                crate::sir::Cond::Le => "ble",
+                crate::sir::Cond::Cs => "bcs",
+                crate::sir::Cond::Cc => "bcc",
+                crate::sir::Cond::Mi => "bn",
+                crate::sir::Cond::Pl => "bp",
+                crate::sir::Cond::Vs => "bvs",
+                crate::sir::Cond::Vc => "bvc",
+                crate::sir::Cond::Hi => "ba",
+                crate::sir::Cond::Ls => "blu",
+                _ => "ba",
+            };
+            format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
     }
 }
@@ -488,6 +609,18 @@ fn emit_superh(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  trapa #0\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmp/eq {}, {}\n", sh_reg(*rd), sh_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", sh_reg(*rd), sh_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "bt",
+                crate::sir::Cond::Ne => "bf",
+                crate::sir::Cond::Cs => "bt",
+                crate::sir::Cond::Cc => "bf",
+                _ => "bf",
+            };
+            format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
     }
 }
@@ -556,6 +689,20 @@ fn emit_alpha(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  call_pal 1\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmplt {}, {}, r31\n", alpha_reg(*rd), alpha_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", alpha_reg(*rd), alpha_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "beq",
+                crate::sir::Cond::Ne => "bne",
+                crate::sir::Cond::Lt => "blt",
+                crate::sir::Cond::Ge => "bge",
+                crate::sir::Cond::Gt => "bgt",
+                crate::sir::Cond::Le => "ble",
+                _ => "br",
+            };
+            format!("  {cond_str} r31, 0x{target:x}\n")
         }
     }
 }
@@ -633,6 +780,20 @@ fn emit_parisc(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  break 0,0\n")
         }
+        Op::Cmp { rd, rs } => format!("  cmpib,= {}, {}, 0\n", parisc_reg(*rd), parisc_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", parisc_reg(*rd), parisc_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "b",
+                crate::sir::Cond::Ne => "b",
+                crate::sir::Cond::Lt => "b",
+                crate::sir::Cond::Ge => "b",
+                crate::sir::Cond::Gt => "b",
+                crate::sir::Cond::Le => "b",
+                _ => "b",
+            };
+            format!("  {cond_str} 0x{target:x}\n  nop\n")
+        }
     }
 }
 
@@ -694,6 +855,20 @@ fn emit_m88k(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  trap 1\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmp.eq {}, {}\n", m88k_reg(*rd), m88k_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", m88k_reg(*rd), m88k_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "br.eq",
+                crate::sir::Cond::Ne => "br.ne",
+                crate::sir::Cond::Lt => "br.lt",
+                crate::sir::Cond::Ge => "br.ge",
+                crate::sir::Cond::Gt => "br.gt",
+                crate::sir::Cond::Le => "br.le",
+                _ => "br",
+            };
+            format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
     }
 }
@@ -767,6 +942,16 @@ fn emit_ia64(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  // gap @{offset}: {note}\n  break.i 0\n")
         }
+        Op::Cmp { rd, rs } => format!("  cmp.eq p{}, p{}, r{}, r{}\n", ia64_reg(*rd), ia64_reg(*rs), ia64_reg(*rd), ia64_reg(*rs)),
+        Op::Test { rd, rs } => format!("  // test {}, {} (emit TODO)\n  nop.m 0\n", ia64_reg(*rd), ia64_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "br.cond",
+                crate::sir::Cond::Ne => "br.cond",
+                _ => "br.cond",
+            };
+            format!("  {cond_str} 0x{target:x}\n")
+        }
     }
 }
 
@@ -815,6 +1000,9 @@ fn emit_i860(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  nop\n")
         }
+        Op::Cmp { rd, rs } => format!("  # cmp {}, {} (emit TODO)\n  nop\n", i860_reg(*rd), i860_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", i860_reg(*rd), i860_reg(*rs)),
+        Op::BranchCond { cond, target } => format!("  # b.{} 0x{target:x} (emit TODO)\n  nop\n", format!("{:?}", cond).to_lowercase()),
     }
 }
 
@@ -858,6 +1046,28 @@ fn emit_coldfire(op: &Op) -> String {
         }
         Op::Unknown { offset, note, .. } => {
             format!("  | gap @{offset}: {note}\n  illegal\n")
+        }
+        Op::Cmp { rd, rs } => format!("  cmp.l {}, {}\n", coldfire_reg(*rd), coldfire_reg(*rs)),
+        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", coldfire_reg(*rd), coldfire_reg(*rs)),
+        Op::BranchCond { cond, target } => {
+            let cond_str = match cond {
+                crate::sir::Cond::Eq => "beq",
+                crate::sir::Cond::Ne => "bne",
+                crate::sir::Cond::Lt => "blt",
+                crate::sir::Cond::Ge => "bge",
+                crate::sir::Cond::Gt => "bgt",
+                crate::sir::Cond::Le => "ble",
+                crate::sir::Cond::Cs => "bcs",
+                crate::sir::Cond::Cc => "bcc",
+                crate::sir::Cond::Mi => "bmi",
+                crate::sir::Cond::Pl => "bpl",
+                crate::sir::Cond::Vs => "bvs",
+                crate::sir::Cond::Vc => "bvc",
+                crate::sir::Cond::Hi => "bhi",
+                crate::sir::Cond::Ls => "bls",
+                _ => "bra",
+            };
+            format!("  {cond_str} 0x{target:x}\n")
         }
     }
 }

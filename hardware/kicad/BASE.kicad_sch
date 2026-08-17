@@ -1,0 +1,72 @@
+; engineering_draft — NOT FABRICABLE
+(kicad_sch "(version 20231121)" "(generator "base-pcb")")
+  (title_block
+    (title "engineering_draft — NOT FABRICABLE")
+    (date 2026-07-20)
+    (rev draft)
+    (company B.A.S.E.))
+  (symbol "(lib_id "power:GND")" "(at 0 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference #GND
+      (at "0 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (pin 1 "(xy 0 0)"))
+  (symbol "(lib_id "power:VCC_3V3")" "(at 200 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference #VCC_3V3
+      (at "200 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (pin 1 "(xy 200 0)"))
+  (symbol "(lib_id "power:VCC_5V")" "(at 400 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference #VCC_5V
+      (at "400 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (pin 1 "(xy 400 0)"))
+  (symbol "(lib_id "Raspberry_Pi:RP2040")" "(at 200 0)" "(unit 1)" "(in_bom yes)" "(on_board yes)"
+    (property Reference U1
+      (at "200 -100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Value RP2040
+      (at "200 100"
+        (effects
+          (font "(size 1.27 1.27)"))))
+    (property Footprint Package:Raspberry_Pi:RP2040
+      (at "200 200"))
+    (pin 0 "(xy 160 0)"
+      (name GP0))
+    (pin 1 "(xy 160 20)"
+      (name GP1))
+    (pin 4 "(xy 160 40)"
+      (name GP4))
+    (pin 5 "(xy 160 60)"
+      (name GP5)))
+  (label uart0_tx "(at 140 0)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label uart0_rx "(at 140 20)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label uart1_tx "(at 140 40)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (label uart1_rx "(at 140 60)"
+    (fields
+      (effects
+        (font "(size 1.27 1.27)"))))
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (wire "(pts (xy 100 100) (xy 300 300))" "(stroke (width 0.254) (type default))" "(layer "F.Cu")")
+  (net "(code 0)" "(name "GND")")
+  (net "(code 1)" "(name "RegisterFile_40034_IRQ")")
+  (net "(code 2)" "(name "UART_DATA")")
+  (net "(code 3)" "(name "VCC_3V3")")
+  (net "(code 4)" "(name "uart0_rx")")
+  (net "(code 5)" "(name "uart0_tx")")
+  (net "(code 6)" "(name "uart1_rx")")
+  (net "(code 7)" "(name "uart1_tx")")

@@ -1,0 +1,54 @@
+source_arch: Unknown("")
+target_hal: hal_saturn_assist
+entries:
+- block_id: RegisterFile_25c00
+  kind: Unknown
+  source_base: 633339904
+  size: 8
+  hal_id: hal_unknown_25c00000
+  target_base: 634388480
+  strategy: stub
+  registers:
+  - name: control
+    offset: 0
+    purpose: Control
+    observed: true
+  - name: status
+    offset: 4
+    purpose: UnknownPurpose
+    observed: true
+  rewrite_needed: true
+  notes: Needs human driver/HAL work on target arch
+- block_id: Doorbell_25f00
+  kind: Gpu
+  source_base: 636485632
+  size: 4
+  hal_id: hal_gpu_25f00000
+  target_base: 637534208
+  strategy: trap
+  registers:
+  - name: control
+    offset: 0
+    purpose: Control
+    observed: true
+  rewrite_needed: false
+  notes: Candidate for trap/MMU wrap with existing contracts
+- block_id: RegisterFile_20100
+  kind: Unknown
+  source_base: 537919488
+  size: 8
+  hal_id: hal_unknown_20100000
+  target_base: 538968064
+  strategy: stub
+  registers:
+  - name: control
+    offset: 0
+    purpose: Control
+    observed: true
+  - name: status
+    offset: 4
+    purpose: UnknownPurpose
+    observed: true
+  rewrite_needed: true
+  notes: Needs human driver/HAL work on target arch
+honesty: Map guides HAL wrap/remap — does not replace driver rewrite for new ISA

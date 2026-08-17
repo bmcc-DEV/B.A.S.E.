@@ -1,0 +1,34 @@
+{
+  "id": "psx-saturn-bridge",
+  "kind": "isolated_plugin",
+  "honesty": {
+    "runs_on_saturn": false,
+    "auto_ports_games": false,
+    "ships_bios_or_discs": false
+  },
+  "upstream": {
+    "psxrecomp": "https://github.com/mstan/psxrecomp.git",
+    "license": "PolyForm-Noncommercial-1.0.0"
+  },
+  "saturn_ring_lib": {
+    "default_path": "/media/bruno/Bruno/SaturnRingLib",
+    "docs": "https://srl.reye.me/"
+  },
+  "pipeline": "scripts/run_machine.sh",
+  "setup": "scripts/setup.sh",
+  "mapping": "mapping/psx_to_srl.yaml",
+  "tools": [
+    "tools/machine_port.py",
+    "tools/psx_exe.py",
+    "tools/emit_from_map.py",
+    "tools/verify_srl_apis.py",
+    "tools/merge_atlas.py"
+  ],
+  "automation": "AUTOMATION.md",
+  "honesty": {
+    "machine_closed_loop": true,
+    "human_required": false,
+    "game_fidelity_complete": false,
+    "runs_on_saturn": false
+  }
+}

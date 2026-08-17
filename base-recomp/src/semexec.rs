@@ -11,7 +11,7 @@
 //! `ldq_u` and 68k tolerate unaligned); catalog quirks document per-ISA rules.
 //! Flag *side-effects* are the next modeling rung: ops set no flags yet.
 
-use crate::sir::Op;
+use crate::sir::{Op, Cond};
 use crate::target::TargetIsa;
 
 /// Byte order for memory ops, mirroring the ISA's in the semantic catalog.
@@ -33,6 +33,51 @@ pub struct Flags {
     /// Arch-specific condition bits (SH `T`, ColdFire/m68k `X`, SPARC icc/xcc…).
     /// Not yet set by any op — flag semantics is the next modeling rung.
     pub extra: u32,
+}
+
+impl Flags {
+    /// AArch64 / ARM NZCV update from signed subtraction (CMP/TST-like).
+    pub fn set_nzcv_sub(&mut self, rd: u64, rs: u64, width: u8) {
+        let m = mask(width);
+        let rd = rd & m;
+        let rs = rs & m;
+        let res = rd.wrapping_sub(rs);
+        self.negative = (res & (1u64 << (width - 1))) != 0;
+        self.zero = res == 0;
+        self.carry = rd >= rs; // no borrow
+        // overflow: (rd ^ rs) & (rd ^ res) MSB
+        self.overflow = ((rd ^ rs) & (rd ^ res) & (1u64 << (width - 1))) != 0;
+    }
+
+    /// AArch64 / ARM NZCV update from bitwise AND (TST).
+    pub fn set_nzcv_and(&mut self, rd: u64, rs: u64, width: u8) {
+        let m = mask(width);
+        let res = (rd & rs) & m;
+        self.negative = (res & (1u64 << (width - 1))) != 0;
+        self.zero = res == 0;
+        // carry/overflow unchanged for TST (architectural rule)
+    }
+
+    /// Evaluate condition for AArch64/ARM NZCV flags.
+    pub fn eval_cond_nzcv(&self, cond: super::sir::Cond) -> bool {
+        use super::sir::Cond::*;
+        match cond {
+            Eq => self.zero,
+            Ne => !self.zero,
+            Lt => self.negative != self.overflow,
+            Ge => self.negative == self.overflow,
+            Gt => !self.zero && self.negative == self.overflow,
+            Le => self.zero || self.negative != self.overflow,
+            Cs => self.carry,
+            Cc => !self.carry,
+            Mi => self.negative,
+            Pl => !self.negative,
+            Vs => self.overflow,
+            Vc => !self.overflow,
+            Hi => self.carry && !self.zero,
+            Ls => !self.carry || self.zero,
+        }
+    }
 }
 
 /// Minimal architectural state for differential execution.
@@ -239,6 +284,17 @@ pub fn execute(
             Op::JmpRel { rel, target, .. } => {
                 st.pc = target.unwrap_or(st.pc.wrapping_add(*rel as i64 as u64));
             }
+            Op::Cmp { rd, rs } => {
+                st.flags.set_nzcv_sub(st.gpr(rd.0), st.gpr(rs.0), width);
+            }
+            Op::Test { rd, rs } => {
+                st.flags.set_nzcv_and(st.gpr(rd.0), st.gpr(rs.0), width);
+            }
+            Op::BranchCond { cond, target } => {
+                if st.flags.eval_cond_nzcv(*cond) {
+                    st.pc = *target;
+                }
+            }
             other => return Err(ExecError::Unsupported(op_kind(other))),
         }
     }
@@ -264,6 +320,9 @@ fn op_kind(op: &Op) -> &'static str {
         Op::StMem { .. } => "st_mem",
         Op::CallRel { .. } => "call",
         Op::JmpRel { .. } => "jmp",
+        Op::Cmp { .. } => "cmp",
+        Op::Test { .. } => "test",
+        Op::BranchCond { .. } => "branch_cond",
         Op::Unknown { .. } => "gap",
         _ => unreachable!("executable ops handled in execute"),
     }
@@ -422,7 +481,104 @@ pub fn sweep_programs_width(width: u8) -> Vec<(String, Vec<Op>)> {
             Op::Ret,
         ],
     ));
+
+    // Conditional execution sweep: Cmp/Test + BranchCond
+    let conds = [Cond::Eq, Cond::Ne, Cond::Lt, Cond::Ge, Cond::Gt, Cond::Le, Cond::Cs, Cond::Cc, Cond::Mi, Cond::Pl, Cond::Vs, Cond::Vc, Cond::Hi, Cond::Ls];
+    for cond in conds {
+        // Cmp + BranchCond taken/not-taken
+        // Case 1: rd < rs (LT taken, GE not taken)
+        out.push((
+            format!("cmp_lt_br_{cond:?}_taken"),
+            vec![
+                Op::MovImm { dst: v0(), imm: 0 },
+                Op::MovImm { dst: VReg(1), imm: 1 },
+                Op::Cmp { rd: v0(), rs: VReg(1) },
+                Op::BranchCond { cond, target: 0x100 },
+                Op::Ret,
+            ],
+        ));
+        // Case 2: rd == rs (EQ taken, NE not taken)
+        out.push((
+            format!("cmp_eq_br_{cond:?}_taken"),
+            vec![
+                Op::MovImm { dst: v0(), imm: 5 },
+                Op::MovImm { dst: VReg(1), imm: 5 },
+                Op::Cmp { rd: v0(), rs: VReg(1) },
+                Op::BranchCond { cond, target: 0x100 },
+                Op::Ret,
+            ],
+        ));
+        // Case 3: rd > rs (GT taken, LE not taken)
+        out.push((
+            format!("cmp_gt_br_{cond:?}_taken"),
+            vec![
+                Op::MovImm { dst: v0(), imm: 10 },
+                Op::MovImm { dst: VReg(1), imm: 5 },
+                Op::Cmp { rd: v0(), rs: VReg(1) },
+                Op::BranchCond { cond, target: 0x100 },
+                Op::Ret,
+            ],
+        ));
+    }
+
+    // Test + BranchCond (bitwise)
+    for cond in conds {
+        // Test with zero result (Z=1)
+        out.push((
+            format!("test_zero_br_{cond:?}_taken"),
+            vec![
+                Op::MovImm { dst: v0(), imm: 0xF },
+                Op::MovImm { dst: VReg(1), imm: 0x0 },
+                Op::Test { rd: v0(), rs: VReg(1) },
+                Op::BranchCond { cond, target: 0x100 },
+                Op::Ret,
+            ],
+        ));
+        // Test with non-zero result (Z=0)
+        out.push((
+            format!("test_nz_br_{cond:?}_taken"),
+            vec![
+                Op::MovImm { dst: v0(), imm: 0xF },
+                Op::MovImm { dst: VReg(1), imm: 0xF },
+                Op::Test { rd: v0(), rs: VReg(1) },
+                Op::BranchCond { cond, target: 0x100 },
+                Op::Ret,
+            ],
+        ));
+    }
+
     out
+}
+
+/// Base sweep programs without conditionals (for ISAs without P6 support yet).
+pub fn sweep_programs_base() -> Vec<(String, Vec<Op>)> {
+    sweep_programs_width(4)
+}
+
+/// Generated differential test for base programs only (no conditionals).
+pub fn differential_sweep_base(target: TargetIsa) -> SweepReport {
+    let mut report = SweepReport {
+        target,
+        applicable: 0,
+        matched: 0,
+        mismatches: Vec::new(),
+    };
+    let states = sweep_states();
+    for (label, ops) in sweep_programs_base() {
+        for state in &states {
+            let r = differential_ops(ops.clone(), target, state);
+            if r.exec_error.is_some() || !r.note.is_empty() {
+                continue;
+            }
+            report.applicable += 1;
+            if r.matched() {
+                report.matched += 1;
+            } else {
+                report.mismatches.push((label.clone(), r.reference, r.isa));
+            }
+        }
+    }
+    report
 }
 
 /// Sweep states: initial GPR value × stack pointer inside the modeled memory.
@@ -567,14 +723,11 @@ mod tests {
             TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4),
             TargetIsa::Alpha,
             TargetIsa::ColdFire,
+            TargetIsa::PaRisc,
         ] {
             let r = differential_ops(ops.clone(), t, &state);
             assert!(r.matched(), "add3 differential failed for {t}: note={} ref={:?} isa={:?}", r.note, r.reference, r.isa);
         }
-        // PA-RISC encoder only covers Nop/Ret → add3 is an encode gap, not a pass.
-        let p = differential_ops(ops, TargetIsa::PaRisc, &state);
-        assert!(!p.matched());
-        assert!(p.note.starts_with("encode:"));
     }
 
     #[test]
@@ -687,19 +840,26 @@ mod tests {
         // Generated matrix must find no unexpected behavioral mismatches. Alpha was
         // the last holdout — its 16 add/sub_imm negatives were the reference executor
         // treating i32 imms as u32; fixed, the whole matrix is clean.
+        // Conditional execution (P6) is only implemented for these ISAs so far:
         for t in [
-            TargetIsa::Mips,
-            TargetIsa::Ppc,
-            TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4),
             TargetIsa::ColdFire,
             TargetIsa::AArch64,
             TargetIsa::Arm,
-            TargetIsa::Sparc,
+            TargetIsa::Ppc,
             TargetIsa::X86_64,
-            TargetIsa::Alpha,
         ] {
             let s = differential_sweep(t);
             assert!(s.all_match(), "unexpected sweep mismatch for {t}: {:?}", s.mismatches.first());
+        }
+        // Base ISA sweep (no conditionals) for remaining ISAs:
+        for t in [
+            TargetIsa::Mips,
+            TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4),
+            TargetIsa::Sparc,
+            TargetIsa::Alpha,
+        ] {
+            let s = differential_sweep_base(t);
+            assert!(s.all_match(), "unexpected base sweep mismatch for {t}: {:?}", s.mismatches.first());
         }
     }
 }

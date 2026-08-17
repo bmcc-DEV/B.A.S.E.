@@ -1,0 +1,192 @@
+version: 1
+source: /media/bruno/3e94d163-2a59-473e-bcc5-09148350a987/Motores/Behavioral ASIC Synthesis Engine/examples/pilot_saturn/fw.bin
+cpu:
+  architecture: !Unknown ''
+  clock_mhz: 0
+  endianness: Little
+  cores: 1
+memory:
+  regions: []
+blocks:
+- id: RegisterFile_25c00
+  kind: Unknown
+  base_address: 633339904
+  size: 8
+  registers:
+  - offset: 0
+    name: control
+    width: 32
+    access: Write
+    purpose: Control
+    reset_value: 1
+    observed_values:
+    - value: 1
+      count: 1
+      context: ''
+    bitfields: []
+    polling: false
+    count: 1
+  - offset: 4
+    name: status
+    width: 32
+    access: Read
+    purpose: UnknownPurpose
+    reset_value: null
+    observed_values:
+    - value: 0
+      count: 1
+      context: ''
+    bitfields: []
+    polling: false
+    count: 1
+  protocol:
+    states:
+    - idle
+    - active
+    - unknown
+    transitions:
+    - from: idle
+      to: active
+      trigger:
+        kind: write
+        register_offset: 0
+        value: 1
+      latency: null
+    entry_condition:
+      kind: power_on
+      detail: null
+    exit_condition: null
+  timing:
+    activation:
+      min_ns: 10000
+      max_ns: 100000
+      avg_ns: 10000
+      p99_ns: null
+      samples: 1
+    processing: null
+    interrupt_response: null
+    dma_setup: null
+    polling_interval: null
+  dma: null
+  dependencies: []
+  confidence: 0.675
+- id: Doorbell_25f00
+  kind: Gpu
+  base_address: 636485632
+  size: 4
+  registers:
+  - offset: 0
+    name: control
+    width: 32
+    access: Write
+    purpose: Control
+    reset_value: 1
+    observed_values:
+    - value: 1
+      count: 1
+      context: ''
+    bitfields: []
+    polling: false
+    count: 1
+  protocol:
+    states:
+    - idle
+    - active
+    - unknown
+    transitions:
+    - from: idle
+      to: active
+      trigger:
+        kind: write
+        register_offset: 0
+        value: 1
+      latency: null
+    entry_condition:
+      kind: power_on
+      detail: null
+    exit_condition: null
+  timing:
+    activation:
+      min_ns: 10000
+      max_ns: 100000
+      avg_ns: 10000
+      p99_ns: null
+      samples: 1
+    processing: null
+    interrupt_response: null
+    dma_setup: null
+    polling_interval: null
+  dma: null
+  dependencies: []
+  confidence: 0.95
+- id: RegisterFile_20100
+  kind: Unknown
+  base_address: 537919488
+  size: 8
+  registers:
+  - offset: 0
+    name: control
+    width: 32
+    access: Write
+    purpose: Control
+    reset_value: 1
+    observed_values:
+    - value: 1
+      count: 1
+      context: ''
+    bitfields: []
+    polling: false
+    count: 1
+  - offset: 4
+    name: status
+    width: 32
+    access: Read
+    purpose: UnknownPurpose
+    reset_value: null
+    observed_values:
+    - value: 0
+      count: 1
+      context: ''
+    bitfields: []
+    polling: false
+    count: 1
+  protocol:
+    states:
+    - idle
+    - active
+    - unknown
+    transitions:
+    - from: idle
+      to: active
+      trigger:
+        kind: write
+        register_offset: 0
+        value: 1
+      latency: null
+    entry_condition:
+      kind: power_on
+      detail: null
+    exit_condition: null
+  timing:
+    activation:
+      min_ns: 10000
+      max_ns: 100000
+      avg_ns: 10000
+      p99_ns: null
+      samples: 1
+    processing: null
+    interrupt_response: null
+    dma_setup: null
+    polling_interval: null
+  dma: null
+  dependencies: []
+  confidence: 0.675
+interrupts: []
+dma_channels: []
+constraints:
+  max_power_watts: 0.0
+  required_bandwidths: []
+  pin_count: null
+  pcb_layers: null
+  temp_range: null
+confidence: 0.7666666666666666

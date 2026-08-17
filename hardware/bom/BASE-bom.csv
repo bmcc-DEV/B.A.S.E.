@@ -1,0 +1,12 @@
+# engineering_draft — NOT FABRICABLE; Manufacturer=TBD until EE (Claim B2)
+# Template columns OSHWA-style — replace TBD with real MPN before fab
+Reference,Value,Footprint,MPN,Manufacturer,Supplier,Supplier_PN,Qty,Unit_Price,Notes
+U1,RP2350A,Package_QFN:QFN-56-1EP_7x7mm_P0.4mm_EP4.5x4.5mm,TBD,Raspberry Pi,TBD,TBD,1,TBD,template rp2350_minimal
+U2,W25Q128JV,Package_SO:SOIC-8_5.23x5.23mm_P1.27mm,W25Q128JVSIQ,Winbond,TBD,TBD,1,TBD,QSPI flash alvo
+Y1,12MHz,Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm,TBD,TBD,TBD,TBD,1,TBD,load caps C1/C2
+C1,18pF,Capacitor_SMD:C_0402_1005Metric,TBD,TBD,TBD,TBD,1,TBD,crystal load
+C2,18pF,Capacitor_SMD:C_0402_1005Metric,TBD,TBD,TBD,TBD,1,TBD,crystal load
+C3,100nF,Capacitor_SMD:C_0402_1005Metric,TBD,TBD,TBD,TBD,1,TBD,decoupling draft
+C4,10uF,Capacitor_SMD:C_0805_2012Metric,TBD,TBD,TBD,TBD,1,TBD,bulk draft
+R1,10k,Resistor_SMD:R_0402_1005Metric,TBD,TBD,TBD,TBD,1,TBD,pull-up draft
+J1,USB-C,Connector_USB:USB_C_Receptacle_USB2.0_16P,TBD,TBD,TBD,TBD,1,TBD,template usb_c

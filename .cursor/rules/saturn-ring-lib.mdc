@@ -1,0 +1,50 @@
+---
+description: Saturn Ring Library (SRL) — destino de port Sega Saturn
+globs: plugins/psx-saturn-bridge/**/*,**/SaturnRingLib/**/*,**/*saturn*/**/*.{cxx,cpp,hpp,h,mk,Makefile}
+alwaysApply: false
+---
+
+# Saturn Ring Library (SRL)
+
+Path canónico neste workspace: `/media/bruno/Bruno/SaturnRingLib`  
+Symlink do plugin: `plugins/psx-saturn-bridge/SaturnRingLib`  
+Docs: https://srl.reye.me/
+
+## Stack
+
+- Wrapper C++ sobre **SGL** (Sega Graphics Library).
+- Headers: `saturnringlib/srl.hpp` → puxa Core, VDP1/2, Input, Cd, Scene*, Sound…
+- Build: `include $(SRL_INSTALL_ROOT)/saturnringlib/shared.mk` (ver Samples/).
+
+## Padrões obrigatórios
+
+```cpp
+#include <srl.hpp>
+SRL::Core::Initialize(SRL::Types::HighColor::Colors::Black);
+// … setup …
+while (1) {
+    // lógica / draw
+    SRL::Core::Synchronize();
+}
+```
+
+- Input digital: `SRL::Input::Digital pad(0);` + `IsHeld(Digital::Button::A|B|C|X|Y|Z|L|R|START|Up|…)`
+- Sprites 2D: `SRL::Scene2D::DrawSprite` + texturas `SRL::VDP1::TryLoadTexture`
+- Backgrounds: `SRL::VDP2` / tilemaps — não misturar com modelo VRAM PS1
+- Som: só com `SRL_USE_SGL_SOUND_DRIVER=1` no makefile
+- CD: `SRL::Cd::Initialize` já no Core; ficheiros via `SRL::Cd::File`
+
+## Makefile knobs
+
+`SRL_MAX_TEXTURES`, `SRL_MODE` (NTSC/PAL), `SRL_FRAMERATE`, `SRL_HIGH_RES`, `SGL_MAX_VERTICES`, `SGL_MAX_POLYGONS`.
+
+## Anti-padrões
+
+- Não inventar MMIO VDP/SMPC fora do atlas B.A.S.E. / docs SRL.
+- Não assumir Select no pad digital Saturn (mapear explicitamente).
+- Não tratar SRL como emulador PS1 — é API nativa Saturn.
+- Não claim `runs_on_saturn` no núcleo B.A.S.E. a partir de stubs SRL.
+
+## Amostras de referência
+
+`SaturnRingLib/Samples/Input - Gamepad/`, `VDP1 - *`, `Sound - *`, `CD - *`, `TestProject/`.
