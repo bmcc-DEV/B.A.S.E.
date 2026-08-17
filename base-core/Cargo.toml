@@ -16,12 +16,10 @@ hex = "0.4"
 sha2 = "0.10"
 base-bir = { path = "../base-bir" }
 z3 = { version = "0.20", optional = true }
-good_lp = { version = "1", optional = true }
 
 [features]
 default = []
 solver_z3 = ["z3"]
-solver_ilp = ["good_lp"]
 
 [dev-dependencies]
 tempfile = "3"

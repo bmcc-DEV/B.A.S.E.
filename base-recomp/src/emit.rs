@@ -367,8 +367,8 @@ fn emit_mips(op: &Op) -> String {
             "  lw {}, 0($sp)\n  addiu $sp, $sp, 4\n",
             mips_reg(*dst)
         ),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", mips_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", mips_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  lw {}, {offset}({})\n", mips_reg(*dst), mips_reg(*base)),
+        Op::StMem { src, base, offset, .. } => format!("  sw {}, {offset}({})\n", mips_reg(*src), mips_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jal {name}\n")
@@ -386,19 +386,25 @@ fn emit_mips(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  break\n")
         }
-        Op::Cmp { rd, rs } => format!("  # cmp {}, {} (emit TODO)\n  nop\n", mips_reg(*rd), mips_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", mips_reg(*rd), mips_reg(*rs)),
+        Op::Cmp { rd, rs } => {
+            let (r, s) = (mips_reg(*rd), mips_reg(*rs));
+            format!("  bne {r}, {s}, 1f\n  nop\n  b 2f\n  nop\n1:\n  # cmp done\n2:\n")
+        }
+        Op::Test { rd, rs } => {
+            let (r, s) = (mips_reg(*rd), mips_reg(*rs));
+            format!("  and $at, {r}, {s}\n")
+        }
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "beq",
                 crate::sir::Cond::Ne => "bne",
-                crate::sir::Cond::Lt => "blt",
-                crate::sir::Cond::Ge => "bge",
-                crate::sir::Cond::Gt => "bgt",
-                crate::sir::Cond::Le => "ble",
+                crate::sir::Cond::Lt => "bltz",
+                crate::sir::Cond::Ge => "bgez",
+                crate::sir::Cond::Gt => "bgtz",
+                crate::sir::Cond::Le => "blez",
                 _ => "b",
             };
-            format!("  # {cond_str} 0x{target:x} (emit TODO)\n  nop\n")
+            format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
     }
 }
@@ -431,18 +437,18 @@ fn emit_ppc(op: &Op) -> String {
         }
         Op::Push { src } => format!("  stwu {}, -16(1)\n", ppc_reg(*src)),
         Op::Pop { dst } => format!("  lwz {}, 0(1)\n  addi 1, 1, 16\n", ppc_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", ppc_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", ppc_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  lwz {}, {offset}({})\n", ppc_reg(*dst), ppc_reg(*base)),
+        Op::StMem { src, base, offset, .. } => format!("  stw {}, {offset}({})\n", ppc_reg(*src), ppc_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  jal {name}\n")
+                format!("  bl {name}\n")
             } else {
                 format!("  # call rel {rel} target={target:?}\n  nop\n")
             }
         }
         Op::JmpRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  j {name}\n")
+                format!("  b {name}\n")
             } else {
                 format!("  # jmp rel {rel} target={target:?}\n  nop\n")
             }
@@ -451,7 +457,7 @@ fn emit_ppc(op: &Op) -> String {
             format!("  # gap @{offset}: {note}\n  trap\n")
         }
         Op::Cmp { rd, rs } => format!("  cmpw {}, {}\n", ppc_reg(*rd), ppc_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", ppc_reg(*rd), ppc_reg(*rs)),
+        Op::Test { rd, rs } => format!("  and. {}, {}, {}\n", ppc_reg(*rd), ppc_reg(*rd), ppc_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "beq",
@@ -504,20 +510,20 @@ fn emit_sparc(op: &Op) -> String {
         }
         Op::Push { src } => format!("  save %sp, -96, %sp\n  mov {}, %l0\n", sparc_reg(*src)),
         Op::Pop { dst } => format!("  mov %l0, {}\n  restore\n", sparc_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", sparc_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", sparc_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ld [{offset}, {}], {}\n", sparc_reg(*base), sparc_reg(*dst)),
+        Op::StMem { src, base, offset, .. } => format!("  st {}, [{offset}, {}]\n", sparc_reg(*src), sparc_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  ! call {name}\n  nop\n")
+                format!("  call {name}\n  nop\n")
             } else {
-                format!("  ! call rel {rel} target={target:?}\n  nop\n")
+                format!("  call rel {rel}\n  nop\n")
             }
         }
         Op::JmpRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  bra {name}\n  nop\n")
+                format!("  ba {name}\n  nop\n")
             } else {
-                format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+                format!("  ba rel {rel}\n  nop\n")
             }
         }
         Op::Unknown { offset, note, .. } => {
@@ -590,34 +596,32 @@ fn emit_superh(op: &Op) -> String {
         Op::Dec { dst } => format!("  add #-1, {}\n", sh_reg(*dst)),
         Op::Push { src } => format!("  mov.l {}, @-r15\n", sh_reg(*src)),
         Op::Pop { dst } => format!("  mov.l @r15+, {}\n", sh_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", sh_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", sh_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  mov.l @{}, {}\n  add #{offset}, {}\n", sh_reg(*base), sh_reg(*dst), sh_reg(*base)),
+        Op::StMem { src, base, offset, .. } => format!("  mov.l {}, @{}\n", sh_reg(*src), sh_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  ! call {name}\n  nop\n")
+                format!("  jsr @{name}\n  nop\n")
             } else {
-                format!("  ! call rel {rel} target={target:?}\n  nop\n")
+                format!("  # call rel {rel}\n  nop\n")
             }
         }
         Op::JmpRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  bra {name}\n  nop\n")
+                format!("  jmp @{name}\n  nop\n")
             } else {
-                format!("  ! jmp rel {rel} target={target:?}\n  nop\n")
+                format!("  bra {rel}\n  nop\n")
             }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  ! gap @{offset}: {note}\n  trapa #0\n")
         }
         Op::Cmp { rd, rs } => format!("  cmp/eq {}, {}\n", sh_reg(*rd), sh_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", sh_reg(*rd), sh_reg(*rs)),
+        Op::Test { rd, rs } => format!("  tst {}, {}\n", sh_reg(*rd), sh_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "bt",
                 crate::sir::Cond::Ne => "bf",
-                crate::sir::Cond::Cs => "bt",
-                crate::sir::Cond::Cc => "bf",
-                _ => "bf",
+                _ => "bt/s",
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
@@ -670,8 +674,8 @@ fn emit_alpha(op: &Op) -> String {
         Op::Dec { dst } => format!("  lda r{}, -1(r{})\n", alpha_reg(*dst), alpha_reg(*dst)),
         Op::Push { src } => format!("  lda sp, -8(sp)\n  stq {}, 0(sp)\n", alpha_reg(*src)),
         Op::Pop { dst } => format!("  ldq {}, 0(sp)\n  lda sp, 8(sp)\n", alpha_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", alpha_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", alpha_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ldq {}, {}(r{})\n", alpha_reg(*dst), disp(*offset as u32), alpha_reg(*base)),
+        Op::StMem { src, base, offset, .. } => format!("  stq {}, {}(r{})\n", alpha_reg(*src), disp(*offset as u32), alpha_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jsr r26, {name}\n")
@@ -689,8 +693,8 @@ fn emit_alpha(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  call_pal 1\n")
         }
-        Op::Cmp { rd, rs } => format!("  cmplt {}, {}, r31\n", alpha_reg(*rd), alpha_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", alpha_reg(*rd), alpha_reg(*rs)),
+        Op::Cmp { rd, rs } => format!("  cmpeq {}, {}, r{}\n", alpha_reg(*rd), alpha_reg(*rs), alpha_reg(*rd)),
+        Op::Test { rd, rs } => format!("  and {}, {}, r{}\n", alpha_reg(*rd), alpha_reg(*rs), alpha_reg(*rd)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "beq",
@@ -701,7 +705,7 @@ fn emit_alpha(op: &Op) -> String {
                 crate::sir::Cond::Le => "ble",
                 _ => "br",
             };
-            format!("  {cond_str} r31, 0x{target:x}\n")
+            format!("  {cond_str} r0, 0x{target:x}\n")
         }
     }
 }
@@ -760,8 +764,8 @@ fn emit_parisc(op: &Op) -> String {
         Op::Pop { dst } => {
             format!("  # pop {} (stwm/ldwm TODO)\n  nop\n", parisc_reg(*dst))
         }
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", parisc_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", parisc_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ldw {}({}), {}\n", *offset, parisc_reg(*base), parisc_reg(*dst)),
+        Op::StMem { src, base, offset, .. } => format!("  stw {}, {}({})\n", parisc_reg(*src), *offset, parisc_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bl {name}, %rp\n")
@@ -779,16 +783,16 @@ fn emit_parisc(op: &Op) -> String {
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  break 0,0\n")
         }
-        Op::Cmp { rd, rs } => format!("  cmpib,= {}, {}, 0\n", parisc_reg(*rd), parisc_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", parisc_reg(*rd), parisc_reg(*rs)),
+        Op::Cmp { rd, rs } => format!("  cmpb,= {}, {}, 0\n", parisc_reg(*rd), parisc_reg(*rs)),
+        Op::Test { rd, rs } => format!("  and {}, {}, %r0\n", parisc_reg(*rd), parisc_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
-                crate::sir::Cond::Eq => "b",
-                crate::sir::Cond::Ne => "b",
-                crate::sir::Cond::Lt => "b",
-                crate::sir::Cond::Ge => "b",
-                crate::sir::Cond::Gt => "b",
-                crate::sir::Cond::Le => "b",
+                crate::sir::Cond::Eq => "b,=",
+                crate::sir::Cond::Ne => "b,<>",
+                crate::sir::Cond::Lt => "b,<",
+                crate::sir::Cond::Ge => "b,>=",
+                crate::sir::Cond::Gt => "b,>",
+                crate::sir::Cond::Le => "b,<=",
                 _ => "b",
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
@@ -1027,8 +1031,8 @@ fn emit_coldfire(op: &Op) -> String {
         Op::Dec { dst } => format!("  subq.l #1, {}\n", coldfire_reg(*dst)),
         Op::Push { src } => format!("  move.l {}, -(A7)\n", coldfire_reg(*src)),
         Op::Pop { dst } => format!("  move.l (A7)+, {}\n", coldfire_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", coldfire_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", coldfire_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  move.l {}({}), {}\n", *offset, coldfire_reg(*base), coldfire_reg(*dst)),
+        Op::StMem { src, base, offset, .. } => format!("  move.l {}, {}({})\n", coldfire_reg(*src), *offset, coldfire_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  jsr {name}\n")
@@ -1047,7 +1051,7 @@ fn emit_coldfire(op: &Op) -> String {
             format!("  | gap @{offset}: {note}\n  illegal\n")
         }
         Op::Cmp { rd, rs } => format!("  cmp.l {}, {}\n", coldfire_reg(*rd), coldfire_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", coldfire_reg(*rd), coldfire_reg(*rs)),
+        Op::Test { rd, rs } => format!("  cmp.l {}, {}\n", coldfire_reg(*rd), coldfire_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "beq",
