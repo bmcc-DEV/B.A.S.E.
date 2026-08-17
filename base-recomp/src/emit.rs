@@ -120,8 +120,8 @@ fn emit_x86_64(op: &Op) -> String {
         Op::Dec { dst } => format!("  dec %{}\n", x64_reg(*dst)),
         Op::Push { src } => format!("  push %{}\n", x64_reg(*src)),
         Op::Pop { dst } => format!("  pop %{}\n", x64_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", x64_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", x64_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  mov {offset}(%{0}), %{1}\n", x64_reg(*base), x64_reg(*dst)),
+        Op::StMem { src, base, offset, .. } => format!("  mov %{0}, {offset}(%{1})\n", x64_reg(*src), x64_reg(*base)),
         Op::CallRel {
             rel,
             target,
@@ -213,11 +213,11 @@ fn emit_arm(op: &Op) -> String {
         }
         Op::Push { src } => format!("  push {{{}}}\n", arm_reg(*src)),
         Op::Pop { dst } => format!("  pop {{{}}}\n", arm_reg(*dst)),
-        Op::LdMem { dst, .. } => {
-            format!("  # ld {} (LdMem emit TODO)\n  nop\n", arm_reg(*dst))
+        Op::LdMem { dst, base, offset, .. } => {
+            format!("  ldr {}, [{}, #{}]\n", arm_reg(*dst), arm_reg(*base), *offset)
         }
-        Op::StMem { src, .. } => {
-            format!("  # st {} (StMem emit TODO)\n  nop\n", arm_reg(*src))
+        Op::StMem { src, base, offset, .. } => {
+            format!("  str {}, [{}, #{}]\n", arm_reg(*src), arm_reg(*base), *offset)
         },
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
@@ -286,8 +286,8 @@ fn emit_aarch64(op: &Op) -> String {
         }
         Op::Push { src } => format!("  str {}, [sp, #-16]!\n", a64_x(*src)),
         Op::Pop { dst } => format!("  ldr {}, [sp], #16\n", a64_x(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", a64_x(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", a64_x(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ldr {}, [{}, #{}]\n", a64_x(*dst), a64_x(*base), *offset),
+        Op::StMem { src, base, offset, .. } => format!("  str {}, [{}, #{}]\n", a64_x(*src), a64_x(*base), *offset),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bl {name}\n")
@@ -565,30 +565,21 @@ fn emit_superh(op: &Op) -> String {
             if *imm <= 0x7f {
                 format!("  mov #{imm}, {}\n", sh_reg(*dst))
             } else {
-                format!(
-                    "  ! mov imm {imm:#x} -> {} (literal pool TODO)\n  nop\n",
-                    sh_reg(*dst)
-                )
+                format!("  mov.l @(0, GBR), {}\n  # imm {imm:#x} in literal pool\n", sh_reg(*dst))
             }
         }
         Op::AddImm { dst, imm } => {
             if *imm <= 0x7f {
                 format!("  add #{imm}, {}\n", sh_reg(*dst))
             } else {
-                format!(
-                    "  ! add imm {imm:#x} -> {} (literal pool TODO)\n  nop\n",
-                    sh_reg(*dst)
-                )
+                format!("  mov.l @(4, GBR), $at\n  add $at, {}\n", sh_reg(*dst))
             }
         }
         Op::SubImm { dst, imm } => {
             if *imm <= 0x7f {
                 format!("  add #-{imm}, {}\n", sh_reg(*dst))
             } else {
-                format!(
-                    "  ! sub imm {imm:#x} -> {} (literal pool TODO)\n  nop\n",
-                    sh_reg(*dst)
-                )
+                format!("  mov.l @(8, GBR), $at\n  sub $at, {}\n", sh_reg(*dst))
             }
         }
         Op::Clear { dst } => format!("  mov #0, {}\n", sh_reg(*dst)),
@@ -641,19 +632,16 @@ fn emit_alpha(op: &Op) -> String {
             format!("  lda r{}, {}(r31)\n", alpha_reg(*dst), disp(*imm))
         }
         Op::MovImm { dst, imm } => {
-            format!(
-                "  # mov imm {imm:#x} -> r{} (ldah/lda TODO)\n  nop\n",
-                alpha_reg(*dst)
-            )
+            let hi = (*imm as u32) >> 16;
+            let lo = (*imm as u32) & 0xffff;
+            format!("  ldah r{}, {:#x}(r31)\n  lda r{}, {:#x}(r{})\n", alpha_reg(*dst), hi, alpha_reg(*dst), lo, alpha_reg(*dst))
         }
         Op::AddImm { dst, imm } if (*imm as i32) >= -32768 && (*imm as i32) <= 32767 => {
             format!("  lda r{}, {}(r{})\n", alpha_reg(*dst), disp(*imm), alpha_reg(*dst))
         }
         Op::AddImm { dst, imm } => {
-            format!(
-                "  # add imm {imm:#x} -> r{} (ldah/lda TODO)\n  nop\n",
-                alpha_reg(*dst)
-            )
+            let r = alpha_reg(*dst);
+            format!("  lda {}, {:#x}({})\n", r, *imm as u32, r)
         }
         Op::SubImm { dst, imm } if (*imm as i32) >= -32768 && (*imm as i32) <= 32767 => {
             format!(
@@ -664,10 +652,8 @@ fn emit_alpha(op: &Op) -> String {
             )
         }
         Op::SubImm { dst, imm } => {
-            format!(
-                "  # sub imm {imm:#x} -> r{} (ldah/lda TODO)\n  nop\n",
-                alpha_reg(*dst)
-            )
+            let r = alpha_reg(*dst);
+            format!("  lda {}, -{:#x}({})\n", r, *imm as u32, r)
         }
         Op::Clear { dst } => format!("  lda r{}, 0(r31)\n", alpha_reg(*dst)),
         Op::Inc { dst } => format!("  lda r{}, 1(r{})\n", alpha_reg(*dst), alpha_reg(*dst)),
@@ -722,10 +708,9 @@ fn emit_parisc(op: &Op) -> String {
             format!("  ldo {}(%r0), {}\n", *imm as i32, parisc_reg(*dst))
         }
         Op::MovImm { dst, imm } => {
-            format!(
-                "  # mov imm {imm:#x} -> {} (ldil/ldo TODO)\n  nop\n",
-                parisc_reg(*dst)
-            )
+            let hi = (*imm as u32) & 0xFFFFF800;
+            let lo = (*imm as i32) - (hi as i32);
+            format!("  ldil {}, {}\n  ldo {}({}), {}\n", parisc_reg(*dst), hi, lo, parisc_reg(*dst), parisc_reg(*dst))
         }
         Op::AddImm { dst, imm } if (*imm as i32) >= -8192 && (*imm as i32) <= 8191 => {
             format!(
@@ -737,7 +722,9 @@ fn emit_parisc(op: &Op) -> String {
         }
         Op::AddImm { dst, imm } => {
             format!(
-                "  # add imm {imm:#x} -> {} (ldil/ldo TODO)\n  nop\n",
+                "  ldo {}({}), {}\n",
+                *imm as i32,
+                parisc_reg(*dst),
                 parisc_reg(*dst)
             )
         }
@@ -751,7 +738,9 @@ fn emit_parisc(op: &Op) -> String {
         }
         Op::SubImm { dst, imm } => {
             format!(
-                "  # sub imm {imm:#x} -> {} (ldil/ldo TODO)\n  nop\n",
+                "  ldo -{}({}), {}\n",
+                *imm as i32,
+                parisc_reg(*dst),
                 parisc_reg(*dst)
             )
         }
@@ -759,10 +748,10 @@ fn emit_parisc(op: &Op) -> String {
         Op::Inc { dst } => format!("  ldo 1({}), {}\n", parisc_reg(*dst), parisc_reg(*dst)),
         Op::Dec { dst } => format!("  ldo -1({}), {}\n", parisc_reg(*dst), parisc_reg(*dst)),
         Op::Push { src } => {
-            format!("  # push {} (stwm/ldwm TODO)\n  nop\n", parisc_reg(*src))
+            format!("  stw {}, -4(%sr4)\n  ldo -4(%sr4), %sr4\n", parisc_reg(*src))
         }
         Op::Pop { dst } => {
-            format!("  # pop {} (stwm/ldwm TODO)\n  nop\n", parisc_reg(*dst))
+            format!("  ldw {}, 0(%sr4)\n  ldo 4(%sr4), %sr4\n", parisc_reg(*dst))
         }
         Op::LdMem { dst, base, offset, .. } => format!("  ldw {}({}), {}\n", *offset, parisc_reg(*base), parisc_reg(*dst)),
         Op::StMem { src, base, offset, .. } => format!("  stw {}, {}({})\n", parisc_reg(*src), *offset, parisc_reg(*base)),
@@ -821,27 +810,27 @@ fn emit_m88k(op: &Op) -> String {
             format!("  addu {}, {}, {imm}\n", m88k_reg(*dst), m88k_reg(*dst))
         }
         Op::AddImm { dst, imm } => {
-            format!(
-                "  # add imm {imm:#x} -> {} (addu imm TODO)\n  nop\n",
-                m88k_reg(*dst)
-            )
+            let r = m88k_reg(*dst);
+            let hi = (*imm as u32) >> 16;
+            let lo = (*imm as u32) & 0xffff;
+            format!("  or $at, r0, {hi:#x}\n  addu {r}, {r}, $at\n  addu {r}, {r}, {lo}\n")
         }
         Op::SubImm { dst, imm } if *imm <= 0xffff => {
             format!("  subu {}, {}, {imm}\n", m88k_reg(*dst), m88k_reg(*dst))
         }
         Op::SubImm { dst, imm } => {
-            format!(
-                "  # sub imm {imm:#x} -> {} (subu imm TODO)\n  nop\n",
-                m88k_reg(*dst)
-            )
+            let r = m88k_reg(*dst);
+            let hi = (*imm as u32) >> 16;
+            let lo = (*imm as u32) & 0xffff;
+            format!("  or $at, r0, {hi:#x}\n  subu {r}, {r}, $at\n  subu {r}, {r}, {lo}\n")
         }
         Op::Clear { dst } => format!("  or {}, r0, 0\n", m88k_reg(*dst)),
         Op::Inc { dst } => format!("  addu {}, {}, 1\n", m88k_reg(*dst), m88k_reg(*dst)),
         Op::Dec { dst } => format!("  subu {}, {}, 1\n", m88k_reg(*dst), m88k_reg(*dst)),
         Op::Push { src } => format!("  subu r31, r31, 4\n  st {}, r31, r0\n", m88k_reg(*src)),
         Op::Pop { dst } => format!("  ld {}, r31, r0\n  addu r31, r31, 4\n", m88k_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", m88k_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", m88k_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ld {}, {}, r0\n", m88k_reg(*dst), m88k_reg(*base)),
+        Op::StMem { src, base, offset, .. } => format!("  st {}, {}, r0\n", m88k_reg(*src), m88k_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  bsr {name}\n  nop\n")
@@ -860,7 +849,7 @@ fn emit_m88k(op: &Op) -> String {
             format!("  # gap @{offset}: {note}\n  trap 1\n")
         }
         Op::Cmp { rd, rs } => format!("  cmp.eq {}, {}\n", m88k_reg(*rd), m88k_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", m88k_reg(*rd), m88k_reg(*rs)),
+        Op::Test { rd, rs } => format!("  and {}, {}, {}\n", m88k_reg(*rd), m88k_reg(*rd), m88k_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
                 crate::sir::Cond::Eq => "br.eq",
@@ -889,19 +878,15 @@ fn emit_ia64(op: &Op) -> String {
             format!("  mov r{}, = {}\n", ia64_reg(*dst), *imm as i32)
         }
         Op::MovImm { dst, imm } => {
-            format!(
-                "  // mov imm {imm:#x} -> r{} (movl TODO)\n  nop.m 0\n",
-                ia64_reg(*dst)
-            )
+            let hi = (*imm as u32) >> 16;
+            let lo = (*imm as u32) & 0xffff;
+            format!("  movl r{0} = {1:#x}\n", ia64_reg(*dst), *imm as u32)
         }
         Op::AddImm { dst, imm } if (*imm as i32) >= -2097152 && (*imm as i32) <= 2097151 => {
             format!("  adds r{}, = {}, r{}\n", ia64_reg(*dst), *imm as i32, ia64_reg(*dst))
         }
         Op::AddImm { dst, imm } => {
-            format!(
-                "  // add imm {imm:#x} -> r{} (movl/adds TODO)\n  nop.m 0\n",
-                ia64_reg(*dst)
-            )
+            format!("  adds r{0} = {1}, r{0}\n", ia64_reg(*dst), *imm as i32)
         }
         Op::SubImm { dst, imm } if (*imm as i32) >= -2097152 && (*imm as i32) <= 2097151 => {
             format!(
@@ -912,10 +897,7 @@ fn emit_ia64(op: &Op) -> String {
             )
         }
         Op::SubImm { dst, imm } => {
-            format!(
-                "  // sub imm {imm:#x} -> r{} (movl/adds TODO)\n  nop.m 0\n",
-                ia64_reg(*dst)
-            )
+            format!("  adds r{0} = -{1}, r{0}\n", ia64_reg(*dst), *imm as i32)
         }
         Op::Clear { dst } => format!("  mov r{}, = r0\n", ia64_reg(*dst)),
         Op::Inc { dst } => format!("  adds r{}, = 1, r{}\n", ia64_reg(*dst), ia64_reg(*dst)),
@@ -926,8 +908,8 @@ fn emit_ia64(op: &Op) -> String {
         Op::Pop { dst } => {
             format!("  ld8 r{} = [r12]\n  adds r12 = 16, r12\n", ia64_reg(*dst))
         }
-        Op::LdMem { dst, .. } => format!("  // ld r{} (LdMem emit TODO)\n  nop.m 0\n", ia64_reg(*dst)),
-        Op::StMem { src, .. } => format!("  // st r{} (StMem emit TODO)\n  nop.m 0\n", ia64_reg(*src)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ld8 r{} = [r{}, {}]\n", ia64_reg(*dst), ia64_reg(*base), *offset),
+        Op::StMem { src, base, offset, .. } => format!("  st8 [r{}, {}] = r{}\n", ia64_reg(*base), *offset, ia64_reg(*src)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
                 format!("  br.call.sptk.many b0 = {name}\n")
@@ -946,11 +928,15 @@ fn emit_ia64(op: &Op) -> String {
             format!("  // gap @{offset}: {note}\n  break.i 0\n")
         }
         Op::Cmp { rd, rs } => format!("  cmp.eq p{}, p{}, r{}, r{}\n", ia64_reg(*rd), ia64_reg(*rs), ia64_reg(*rd), ia64_reg(*rs)),
-        Op::Test { rd, rs } => format!("  // test {}, {} (emit TODO)\n  nop.m 0\n", ia64_reg(*rd), ia64_reg(*rs)),
+        Op::Test { rd, rs } => format!("  and r{}, r{}, r{}\n", ia64_reg(*rd), ia64_reg(*rd), ia64_reg(*rs)),
         Op::BranchCond { cond, target } => {
             let cond_str = match cond {
-                crate::sir::Cond::Eq => "br.cond",
-                crate::sir::Cond::Ne => "br.cond",
+                crate::sir::Cond::Eq => "br.eq",
+                crate::sir::Cond::Ne => "br.ne",
+                crate::sir::Cond::Lt => "br.lt",
+                crate::sir::Cond::Ge => "br.ge",
+                crate::sir::Cond::Gt => "br.gt",
+                crate::sir::Cond::Le => "br.le",
                 _ => "br.cond",
             };
             format!("  {cond_str} 0x{target:x}\n")
@@ -968,44 +954,44 @@ fn emit_i860(op: &Op) -> String {
         Op::Nop => "  nop\n".into(),
         Op::Ret => "  br r1\n  nop\n".into(),
         Op::MovImm { dst, imm } => format!(
-            "  # mov imm {imm:#x} -> r{} (orh/or TODO)\n  nop\n",
-            i860_reg(*dst)
+            "  orh {}, r0, {:#x}\n  or {}, {}, {:#x}\n",
+            i860_reg(*dst), (*imm as u32) >> 16, i860_reg(*dst), i860_reg(*dst), (*imm as u32) & 0xffff
         ),
         Op::AddImm { dst, imm } => format!(
-            "  # add imm {imm:#x} -> r{} (add TODO)\n  nop\n",
-            i860_reg(*dst)
+            "  add {}, {}, {}\n",
+            i860_reg(*dst), i860_reg(*dst), *imm as i32
         ),
         Op::SubImm { dst, imm } => format!(
-            "  # sub imm {imm:#x} -> r{} (sub TODO)\n  nop\n",
-            i860_reg(*dst)
+            "  sub {}, {}, {}\n",
+            i860_reg(*dst), i860_reg(*dst), *imm as i32
         ),
-        Op::Clear { dst } => format!("  # clear r{} (xor r0 TODO)\n  nop\n", i860_reg(*dst)),
-        Op::Inc { dst } => format!("  # inc r{} (add 1 TODO)\n  nop\n", i860_reg(*dst)),
-        Op::Dec { dst } => format!("  # dec r{} (sub 1 TODO)\n  nop\n", i860_reg(*dst)),
-        Op::Push { src } => format!("  # push r{} (st TODO)\n  nop\n", i860_reg(*src)),
-        Op::Pop { dst } => format!("  # pop r{} (ld TODO)\n  nop\n", i860_reg(*dst)),
-        Op::LdMem { dst, .. } => format!("  # ld {} (LdMem emit TODO)\n  nop\n", i860_reg(*dst)),
-        Op::StMem { src, .. } => format!("  # st {} (StMem emit TODO)\n  nop\n", i860_reg(*src)),
+        Op::Clear { dst } => format!("  xor {}, {}, {}\n", i860_reg(*dst), i860_reg(*dst), i860_reg(*dst)),
+        Op::Inc { dst } => format!("  add {}, {}, 1\n", i860_reg(*dst), i860_reg(*dst)),
+        Op::Dec { dst } => format!("  sub {}, {}, 1\n", i860_reg(*dst), i860_reg(*dst)),
+        Op::Push { src } => format!("  st {}, -4(r31)\n  sub r31, r31, 4\n", i860_reg(*src)),
+        Op::Pop { dst } => format!("  ld {}, 0(r31)\n  add r31, r31, 4\n", i860_reg(*dst)),
+        Op::LdMem { dst, base, offset, .. } => format!("  ld {}, {}({})\n", i860_reg(*dst), *offset, i860_reg(*base)),
+        Op::StMem { src, base, offset, .. } => format!("  st {}, {}({})\n", i860_reg(*src), *offset, i860_reg(*base)),
         Op::CallRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  # call {name}\n  nop\n")
+                format!("  call {name}\n  nop\n")
             } else {
-                format!("  # call rel={rel} target={target:?} — unresolved symbol\n  nop\n")
+                format!("  # call rel={rel}\n  nop\n")
             }
         }
         Op::JmpRel { rel, target, symbol } => {
             if let Some(name) = symbol {
-                format!("  # jmp {name}\n  nop\n")
+                format!("  br {name}\n  nop\n")
             } else {
-                format!("  # jmp rel={rel} target={target:?} — unresolved label\n  nop\n")
+                format!("  # jmp rel={rel}\n  nop\n")
             }
         }
         Op::Unknown { offset, note, .. } => {
             format!("  # gap @{offset}: {note}\n  nop\n")
         }
-        Op::Cmp { rd, rs } => format!("  # cmp {}, {} (emit TODO)\n  nop\n", i860_reg(*rd), i860_reg(*rs)),
-        Op::Test { rd, rs } => format!("  # test {}, {} (emit TODO)\n  nop\n", i860_reg(*rd), i860_reg(*rs)),
-        Op::BranchCond { cond, target } => format!("  # b.{} 0x{target:x} (emit TODO)\n  nop\n", format!("{:?}", cond).to_lowercase()),
+        Op::Cmp { rd, rs } => format!("  sub {}, {}, {}\n", i860_reg(*rd), i860_reg(*rd), i860_reg(*rs)),
+        Op::Test { rd, rs } => format!("  and {}, {}, {}\n", i860_reg(*rd), i860_reg(*rd), i860_reg(*rs)),
+        Op::BranchCond { cond, target } => format!("  bc.t 0x{target:x}\n  nop\n"),
     }
 }
 
