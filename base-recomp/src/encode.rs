@@ -142,6 +142,7 @@ fn encode_x86(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend_from_slice(&(*target as i32).to_le_bytes());
             v
         }
+        Op::Trap => vec![0x0F, 0x0B], // ud2
         other => return Err(EncodeError::Unsupported(TargetIsa::X86_64, format!("{other:?}"))),
     })
 }
@@ -255,6 +256,7 @@ fn encode_arm(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // b +imm24 — llvm-mc verified (0xEA000000 = b #0).
             enc(0xEA000000 | ((*rel as u32 >> 2) & 0x00FF_FFFF))
         }
+        Op::Trap => enc(0xE1200070), // bkpt #0
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Arm,
@@ -339,6 +341,7 @@ fn encode_aarch64(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // b +imm26 — llvm-mc verified (0x14000000 = b #0).
             enc(0x14000000 | ((*rel as u32 >> 2) & 0x03FF_FFFF))
         }
+        Op::Trap => enc(0xD4200000), // brk #0
         Op::Cmp { rd, rs } => {
             // SUBS WZR, Wn, Wm — sets flags from Wn - Wm.
             let rn = rd.0.min(30) as u32;
@@ -571,6 +574,7 @@ fn encode_ppc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let bd = (*target as i16 as i32) >> 2;
             enc(0x40000000 | ((bo & 0x1F) << 21) | ((bi & 0x1F) << 16) | ((bd as u32) & 0xFFFF))
         }
+        Op::Trap => enc(0x7FE00008), // trap (tw 31,0,0)
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Ppc,
@@ -691,6 +695,7 @@ fn encode_sparc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend(enc(0x01000000));
             v
         }
+        Op::Trap => enc(0x91D00001), // ta 1 (trap always, level 1)
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Sparc,
@@ -1070,6 +1075,7 @@ fn encode_coldfire(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend_from_slice(&(*target as i16 as u16).to_be_bytes());
             v
         }
+        Op::Trap => be(0x4AFC), // illegal
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::ColdFire,

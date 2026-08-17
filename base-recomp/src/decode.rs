@@ -224,6 +224,11 @@ fn decode_ppc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if w == 0x7FE00008 {
+            ops.push(Op::Trap); // trap (tw 31,0,0)
+            i += 4;
+            continue;
+        }
         // stwu rS,-4(r1) → Push; lwzu rS,4(r1) → Pop (single-instruction stack ops).
         if w >> 26 == 37 && ((w >> 16) & 0x1f) == 1 && sext16(w & 0xffff) == -4 {
             ops.push(Op::Push { src: VReg(((w >> 21) & 0x1f).saturating_sub(3)) });
@@ -712,6 +717,11 @@ fn decode_coldfire(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 2;
             continue;
         }
+        if w == 0x4AFC {
+            ops.push(Op::Trap); // illegal
+            i += 2;
+            continue;
+        }
         if (w & 0xFF00) == 0x6000 || (w & 0xFF00) == 0x6100 {
             // bra.w/bsr.w = 0x60 0x00 / 0x61 0x00 + word16; the .b forms (0x60xx, xx≠0)
             // are outside the encoder subset.
@@ -902,6 +912,11 @@ fn decode_arm(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if w == 0xE1200070 {
+            ops.push(Op::Trap); // BKPT #0
+            i += 4;
+            continue;
+        }
         // push {rX} / pop {rX} — single-register STMDB/LDMIA with base sp.
         let single = |reglist: u32| -> Option<VReg> {
             if reglist & (reglist - 1) == 0 && reglist != 0 {
@@ -1073,6 +1088,11 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if w == 0xD4200000 {
+            ops.push(Op::Trap); // BRK #0
+            i += 4;
+            continue;
+        }
         // str wX,[sp,#-4]! / ldr wX,[sp],#4 — single-word stack ops (llvm-mc verified).
         if (w & 0xFFFF_FFE0) == 0xB81F_CFE0 {
             ops.push(Op::Push { src: VReg(w & 0x1f) });
@@ -1239,6 +1259,16 @@ fn decode_x86(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             0xC3 => {
                 ops.push(Op::Ret);
                 i += 1;
+            }
+            0x0F => {
+                // Two-byte escape: 0F 0B = ud2 (trap).
+                if i + 1 < bytes.len() && bytes[i + 1] == 0x0B {
+                    ops.push(Op::Trap);
+                    i += 2;
+                } else {
+                    ops.push(gap(i, w32(bytes, i), "x86 unknown 0F escape".into()));
+                    i += 2;
+                }
             }
             0xB8..=0xBF => {
                 need(i, 5, "x86 mov")?;
@@ -1449,6 +1479,11 @@ fn decode_sparc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
         let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
         if w == 0x01000000 {
             ops.push(Op::Nop); // sethi %hi(0), %g0
+            i += 4;
+            continue;
+        }
+        if w == 0x91D00001 {
+            ops.push(Op::Trap); // ta 1
             i += 4;
             continue;
         }
