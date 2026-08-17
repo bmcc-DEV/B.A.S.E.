@@ -653,8 +653,8 @@ mod tests {
         assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (78, 78, 78)); // 14/18
         // ISAs with flags: 17/17 = 100%
         let c = coverage(TargetIsa::ColdFire);
-        assert_eq!(c.semantic_pct, 94, "{c:?}"); // 17/18 (all incl. cmp/test/bcond, trap not encoded)
-        assert_eq!(c.encoder_pct, 94, "{c:?}");
+        assert_eq!(c.semantic_pct, 100, "{c:?}"); // 18/18 (all incl. cmp/test/bcond/trap)
+        assert_eq!(c.encoder_pct, 100, "{c:?}");
         assert!(c.covered.contains(&"call"));
         assert!(c.covered.contains(&"jmp"));
     }
@@ -664,7 +664,7 @@ mod tests {
         let x = coverage(TargetIsa::X86_64);
         assert!(x.encoder_pct > 0, "x86 encoder exists");
         assert_eq!(x.decoder_pct, x.encoder_pct, "x86 decoder now covers the encoder subset");
-        assert_eq!(x.status, "PARTIAL", "94% (17/18, trap not encoded)");
+        assert_eq!(x.status, "FULL", "all 18 kinds round-trip");
         let m88k = coverage(TargetIsa::M88k);
         assert_eq!(m88k.status, "NONE");
         assert!(!m88k.has_decoder);
@@ -736,8 +736,8 @@ mod tests {
         }
         let cf = coverage(TargetIsa::ColdFire);
         let cf_sweep = differential_sweep(TargetIsa::ColdFire);
-        // ColdFire: 17/18 kinds (trap not encoded) → P5
-        assert!(preservation_level(&cf, &cf_sweep).starts_with("P5"));
+        // ColdFire: all 18 kinds + sweep clean → P6
+        assert!(preservation_level(&cf, &cf_sweep).starts_with("P6"));
         let m88k = coverage(TargetIsa::M88k);
         let m88k_sweep = differential_sweep(TargetIsa::M88k);
         assert!(preservation_level(&m88k, &m88k_sweep).starts_with("P1"));
@@ -749,7 +749,7 @@ mod tests {
     #[test]
     fn preservation_report_is_generated_not_prose() {
         let r = preservation_report(TargetIsa::ColdFire);
-        assert!(r.contains("Preservation level: P5"), "ColdFire should be P5: {r}");
+        assert!(r.contains("Preservation level: P6"), "ColdFire should be P6: {r}");
         assert!(r.contains("hardware_validated: false"));
         assert!(r.contains("complete: false"));
         let m = preservation_matrix();

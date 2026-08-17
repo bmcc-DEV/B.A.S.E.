@@ -64,12 +64,12 @@ Bandas objetivas, derivadas de números medidos (`verify.rs::preservation_level`
 
 | ISA | Nível | Encode | Decode | Flags | Trap |
 |-----|-------|--------|--------|-------|------|
-| x86_64 | P5 | 17/18 | ✅ | EFLAGS (cf/pf/af/zf/sf/of) | ✅ ud2 |
-| AArch64 | P5 | 17/18 | ✅ | NZCV | ✅ brk |
-| ARM | P5 | 17/18 | ✅ | CPSR NZCV | ✅ bkpt |
-| ColdFire | P5 | 17/18 | ✅ | CCR (z/n/c/v/x) | ✅ illegal |
-| PPC | P5 | 17/18 | ✅ | CR0 (lt/gt/eq/so) | ✅ trap |
-| SPARC | P5 | 17/18 | ✅ | icc (z/n/c/v) | ✅ ta 1 |
+| x86_64 | **P6** | 18/18 | ✅ | EFLAGS (cf/pf/af/zf/sf/of) | ✅ ud2 |
+| AArch64 | **P6** | 18/18 | ✅ | NZCV | ✅ brk |
+| ARM | **P6** | 18/18 | ✅ | CPSR NZCV | ✅ bkpt |
+| ColdFire | **P6** | 18/18 | ✅ | CCR (z/n/c/v/x) | ✅ illegal |
+| PPC | **P6** | 18/18 | ✅ | CR0 (lt/gt/eq/so) | ✅ trap |
+| SPARC | **P6** | 18/18 | ✅ | icc (z/n/c/v) | ✅ ta 1 |
 | MIPS | P5 | 14/18 | ✅ | — sem flags | ✅ break |
 | SuperH | P5 | 14/18 | ✅ | T flag | ✅ trapa |
 | Alpha | P5 | 14/18 | ✅ | — sem flags | ✅ call_pal |

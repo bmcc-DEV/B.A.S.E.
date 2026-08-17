@@ -102,12 +102,12 @@ Sweep space: kinds × 10 imms × 4 states × (conditional expansion for P6 ISAs)
 
 | ISA | enc | dec | sem | diff | exec | status | Level |
 |-----|-----|-----|-----|------|------|--------|-------|
-| x86_64 | 94% | 94% | 94% | 94% | 100% | PARTIAL | P5 |
-| AArch64 | 94% | 94% | 94% | 94% | 100% | PARTIAL | P5 |
-| ARM | 94% | 94% | 94% | 94% | 100% | PARTIAL | P5 |
-| ColdFire | 94% | 94% | 94% | 94% | 100% | PARTIAL | P5 |
-| PPC | 94% | 94% | 94% | 94% | 100% | PARTIAL | P5 |
-| SPARC | 94% | 94% | 94% | 94% | 100% | PARTIAL | P5 |
+| x86_64 | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| AArch64 | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| ARM | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| ColdFire | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| PPC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| SPARC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
 | MIPS | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
 | SuperH | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
 | Alpha | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
