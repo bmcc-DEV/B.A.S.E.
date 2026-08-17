@@ -142,7 +142,7 @@ fn encode_x86(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend_from_slice(&(*target as i32).to_le_bytes());
             v
         }
-        Op::Unknown { .. } => return Err(EncodeError::Unsupported(TargetIsa::X86_64, "Unknown".into())),
+        other => return Err(EncodeError::Unsupported(TargetIsa::X86_64, format!("{other:?}"))),
     })
 }
 

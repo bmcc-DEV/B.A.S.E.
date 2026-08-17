@@ -454,7 +454,7 @@ mod tests {
     use crate::target::SuperHFlavor;
 
     #[test]
-    fn eleven_preserved_isas() {
+    fn thirteen_preserved_isas() {
         assert_eq!(PRESERVED_ISAS.len(), 13);
     }
 

@@ -295,7 +295,11 @@ pub fn execute(
                     st.pc = *target;
                 }
             }
-            Op::Trap => return Err(ExecError::Unsupported("trap")),
+            Op::Trap => {
+                // Trap terminates execution (invalid opcode / breakpoint / alignment fault).
+                // No state change — the machine halts at this PC.
+                return Ok(());
+            }
             other => return Err(ExecError::Unsupported(op_kind(other))),
         }
     }

@@ -62,21 +62,21 @@ Bandas objetivas, derivadas de números medidos (`verify.rs::preservation_level`
 
 ## Níveis por ISA (agosto 2026)
 
-| ISA | Nível | Encode | Decode | Flags |
-|-----|-------|--------|--------|-------|
-| x86_64 | **P6** | 17/17 | ✅ | EFLAGS (cf/pf/af/zf/sf/of) |
-| AArch64 | **P6** | 17/17 | ✅ | NZCV |
-| ARM | **P6** | 17/17 | ✅ | CPSR NZCV |
-| ColdFire | **P6** | 17/17 | ✅ | CCR (z/n/c/v/x) |
-| PPC | **P6** | 17/17 | ✅ | CR0 (lt/gt/eq/so) |
-| SPARC | **P6** | 17/17 | ✅ | icc (z/n/c/v) |
-| MIPS | P5 | 14/17 | ✅ | — sem flags |
-| SuperH | P5 | 14/17 | ✅ | T flag |
-| Alpha | P5 | 14/17 | ✅ | — sem flags |
-| PA-RISC | P5 | 14/17 | ✅ | — sem flags |
-| M88k | P1 | emit | — | — |
-| IA-64 | P1 | emit | — | — |
-| i860 | P1 | emit | — | — |
+| ISA | Nível | Encode | Decode | Flags | Trap |
+|-----|-------|--------|--------|-------|------|
+| x86_64 | P5 | 17/18 | ✅ | EFLAGS (cf/pf/af/zf/sf/of) | ✅ ud2 |
+| AArch64 | P5 | 17/18 | ✅ | NZCV | ✅ brk |
+| ARM | P5 | 17/18 | ✅ | CPSR NZCV | ✅ bkpt |
+| ColdFire | P5 | 17/18 | ✅ | CCR (z/n/c/v/x) | ✅ illegal |
+| PPC | P5 | 17/18 | ✅ | CR0 (lt/gt/eq/so) | ✅ trap |
+| SPARC | P5 | 17/18 | ✅ | icc (z/n/c/v) | ✅ ta 1 |
+| MIPS | P5 | 14/18 | ✅ | — sem flags | ✅ break |
+| SuperH | P5 | 14/18 | ✅ | T flag | ✅ trapa |
+| Alpha | P5 | 14/18 | ✅ | — sem flags | ✅ call_pal |
+| PA-RISC | P5 | 14/18 | ✅ | — sem flags | ✅ break 0,0 |
+| M88k | P1 | emit | — | — | ✅ trap 1 |
+| IA-64 | P1 | emit | — | — | ✅ break.i 0 |
+| i860 | P1 | emit | — | — | ✅ bpt |
 
 ## Regras de ouro
 

@@ -76,6 +76,7 @@ pub fn semantic_key(op: &Op) -> String {
         Op::Cmp { .. } => "cmp".into(),
         Op::Test { .. } => "test".into(),
         Op::BranchCond { .. } => "bcond".into(),
+        Op::Trap => "trap".into(),
         Op::Unknown { .. } => "gap".into(),
     }
 }
@@ -389,7 +390,7 @@ pub fn preservation_level(c: &Coverage, sweep: &crate::semexec::SweepReport) -> 
             // Sealed: any remaining mismatch has a documented, named cause.
             l.starts_with("add_imm") || l.starts_with("sub_imm")
         }));
-    // P6: all 17 kinds round-trip (100% on every dimension) + conditional sweep clean.
+    // P6: all 18 kinds round-trip (100% on every dimension) + conditional sweep clean.
     let p6 = c.encoder_pct == 100
         && c.decoder_pct == 100
         && c.semantic_pct == 100
@@ -455,7 +456,7 @@ pub fn preservation_report(isa: TargetIsa) -> String {
         gaps.push("encoder normalizes forms (e.g. Clear → mov #0) — semantic preserved, literal not".into());
     }
     if c.semantic_pct < 100 && c.semantic_pct > 0 {
-        gaps.push(format!("{} of 14 SIR op kinds round-trip semantically", c.covered.len()));
+        gaps.push(format!("{} of 18 SIR op kinds round-trip semantically", c.covered.len()));
     }
     let mut seen = std::collections::HashSet::new();
     for (label, _ref, _isa) in &sweep.mismatches {
@@ -635,8 +636,8 @@ mod tests {
         assert_eq!(sh.encoder_pct, sh.decoder_pct);
         // SH `clear` encodes as mov #0 → decodes as MovImm{·,0}: literal < semantic.
         assert!(sh.literal_pct < sh.semantic_pct, "{sh:?}");
-        assert_eq!(sh.semantic_pct, 82, "{sh:?}"); // 14/17 (no cmp/test/bcond — T flag only)
-        assert_eq!(sh.status, "FULL");
+        assert_eq!(sh.semantic_pct, 78, "{sh:?}"); // 14/18 (no cmp/test/bcond/trap — T flag only)
+        assert_eq!(sh.status, "PARTIAL"); // 78% (no trap encoder)
         assert!(sh.covered.contains(&"clear"));
         assert!(sh.covered.contains(&"ld_mem"));
         assert!(sh.covered.contains(&"push"));
@@ -647,13 +648,13 @@ mod tests {
     fn coverage_alpha_parisc_coldfire() {
         // ISAs without flags: 14/17 = 82%
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (82, 82, 82));
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (78, 78, 78)); // 14/18
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (82, 82, 82));
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (78, 78, 78)); // 14/18
         // ISAs with flags: 17/17 = 100%
         let c = coverage(TargetIsa::ColdFire);
-        assert_eq!(c.semantic_pct, 100, "{c:?}"); // all 17 kinds incl. cmp/test/bcond
-        assert_eq!(c.encoder_pct, 100, "{c:?}");
+        assert_eq!(c.semantic_pct, 94, "{c:?}"); // 17/18 (all incl. cmp/test/bcond, trap not encoded)
+        assert_eq!(c.encoder_pct, 94, "{c:?}");
         assert!(c.covered.contains(&"call"));
         assert!(c.covered.contains(&"jmp"));
     }
@@ -663,7 +664,7 @@ mod tests {
         let x = coverage(TargetIsa::X86_64);
         assert!(x.encoder_pct > 0, "x86 encoder exists");
         assert_eq!(x.decoder_pct, x.encoder_pct, "x86 decoder now covers the encoder subset");
-        assert_eq!(x.status, "FULL", "all 17 kinds round-trip");
+        assert_eq!(x.status, "PARTIAL", "94% (17/18, trap not encoded)");
         let m88k = coverage(TargetIsa::M88k);
         assert_eq!(m88k.status, "NONE");
         assert!(!m88k.has_decoder);
@@ -735,8 +736,8 @@ mod tests {
         }
         let cf = coverage(TargetIsa::ColdFire);
         let cf_sweep = differential_sweep(TargetIsa::ColdFire);
-        // ColdFire: all 17 kinds + sweep clean → P6
-        assert!(preservation_level(&cf, &cf_sweep).starts_with("P6"));
+        // ColdFire: 17/18 kinds (trap not encoded) → P5
+        assert!(preservation_level(&cf, &cf_sweep).starts_with("P5"));
         let m88k = coverage(TargetIsa::M88k);
         let m88k_sweep = differential_sweep(TargetIsa::M88k);
         assert!(preservation_level(&m88k, &m88k_sweep).starts_with("P1"));
@@ -748,7 +749,7 @@ mod tests {
     #[test]
     fn preservation_report_is_generated_not_prose() {
         let r = preservation_report(TargetIsa::ColdFire);
-        assert!(r.contains("Preservation level: P6"), "ColdFire should be P6: {r}");
+        assert!(r.contains("Preservation level: P5"), "ColdFire should be P5: {r}");
         assert!(r.contains("hardware_validated: false"));
         assert!(r.contains("complete: false"));
         let m = preservation_matrix();

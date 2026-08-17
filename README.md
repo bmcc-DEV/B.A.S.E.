@@ -13,7 +13,7 @@
 
 ---
 
-## 16 crates · 14 ISAs · 17 SIR kinds · P6 conditional
+## 16 crates · 14 ISAs · 18 SIR kinds · P6.1 traps
 
 | Crate | Papel | Estado |
 |-------|-------|--------|

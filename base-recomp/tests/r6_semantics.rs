@@ -13,7 +13,7 @@ use base_recomp::target::{SuperHFlavor, TargetIsa};
 const ADD3: [u8; 9] = [0xB8, 0x01, 0x00, 0x00, 0x00, 0x83, 0xC0, 0x02, 0xC3];
 
 #[test]
-fn catalog_has_eleven_entries() {
+fn catalog_has_thirteen_entries() {
     assert_eq!(PRESERVED_ISAS.len(), 13);
     for s in PRESERVED_ISAS {
         assert!(!s.family.is_empty());
@@ -69,8 +69,8 @@ fn new_isa_encode_partial_or_pending() {
 
 #[test]
 fn encode_status_matches_reality() {
-    // 10 of 11 preserved ISAs now encode the full lifted SIR op subset (Full);
-    // PA-RISC is Partial (Nop/Ret only); M88k/IA-64/i860 are text-only.
+    // 10 of 13 preserved ISAs encode the full lifted SIR op subset (Full);
+    // M88k/IA-64/i860 are text-only.
     for t in [
         TargetIsa::Alpha,
         TargetIsa::ColdFire,
