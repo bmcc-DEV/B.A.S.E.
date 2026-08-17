@@ -172,6 +172,7 @@ fn emit_x86_64(op: &Op) -> String {
             };
             format!("  j{cond_str} 0x{target:x}\n")
         }
+        Op::Trap => "  ud2\n".into(),
     }
 }
 
@@ -255,6 +256,7 @@ fn emit_arm(op: &Op) -> String {
             };
             format!("  b{cond_str} 0x{target:x}\n")
         }
+        Op::Trap => "  bkpt #0\n".into(),
     }
 }
 
@@ -326,6 +328,7 @@ fn emit_aarch64(op: &Op) -> String {
             };
             format!("  b.{cond_str} 0x{target:x}\n")
         }
+        Op::Trap => "  brk #0\n".into(),
     }
 }
 
@@ -406,6 +409,7 @@ fn emit_mips(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::Trap => "  break\n".into(),
     }
 }
 
@@ -478,10 +482,13 @@ fn emit_ppc(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n")
         }
+        Op::Trap => "  trap\n".into(),
     }
 }
 
 fn ppc_reg(v: VReg) -> String {
+    format!("r{}", 3 + v.0.min(28))
+}
     // r0 reads as 0 in addi (RA field); r1/r2 ABI-special → window r3..r31.
     format!("r{}", 3 + v.0.min(28))
 }
@@ -550,6 +557,7 @@ fn emit_sparc(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::Trap => "  ta 1\n".into(),
     }
 }
 
@@ -616,6 +624,7 @@ fn emit_superh(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::Trap => "  trapa #0\n".into(),
     }
 }
 
@@ -693,6 +702,7 @@ fn emit_alpha(op: &Op) -> String {
             };
             format!("  {cond_str} r0, 0x{target:x}\n")
         }
+        Op::Trap => "  call_pal 0x00\n".into(),
     }
 }
 
@@ -786,6 +796,7 @@ fn emit_parisc(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::Trap => "  break 0,0\n".into(),
     }
 }
 
@@ -862,6 +873,7 @@ fn emit_m88k(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::Trap => "  trap 1\n".into(),
     }
 }
 
@@ -941,6 +953,7 @@ fn emit_ia64(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n")
         }
+        Op::Trap => "  break.i 0\n".into(),
     }
 }
 
@@ -992,6 +1005,7 @@ fn emit_i860(op: &Op) -> String {
         Op::Cmp { rd, rs } => format!("  sub {}, {}, {}\n", i860_reg(*rd), i860_reg(*rd), i860_reg(*rs)),
         Op::Test { rd, rs } => format!("  and {}, {}, {}\n", i860_reg(*rd), i860_reg(*rd), i860_reg(*rs)),
         Op::BranchCond { cond, target } => format!("  bc.t 0x{target:x}\n  nop\n"),
+        Op::Trap => "  bpt\n".into(),
     }
 }
 
@@ -1058,6 +1072,7 @@ fn emit_coldfire(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n")
         }
+        Op::Trap => "  illegal\n".into(),
     }
 }
 

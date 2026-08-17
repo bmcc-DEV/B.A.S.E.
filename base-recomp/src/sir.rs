@@ -57,6 +57,8 @@ pub enum Op {
     Test { rd: VReg, rs: VReg },
     /// Conditional branch: `if cond(flags) { pc = target }`.
     BranchCond { cond: Cond, target: u64 },
+    /// Synchronous trap: invalid opcode, breakpoint, alignment fault, software interrupt.
+    Trap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

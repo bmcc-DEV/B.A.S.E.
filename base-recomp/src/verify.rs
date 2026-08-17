@@ -157,8 +157,8 @@ pub fn verify_ops(ops: Vec<Op>, target: TargetIsa) -> RoundtripReport {
 }
 
 /// The SIR op kinds scored (everything except `Unknown`, which is a gap by design).
-/// P6 additions: cmp, test, bcond (conditional control flow — Path v1.9+).
-pub const SIR_OP_KINDS: [&str; 17] = [
+/// P6 additions: cmp, test, bcond, trap (conditional control flow + exceptions — Path v1.9+).
+pub const SIR_OP_KINDS: [&str; 18] = [
     "nop",
     "ret",
     "mov_imm",
@@ -176,6 +176,7 @@ pub const SIR_OP_KINDS: [&str; 17] = [
     "cmp",
     "test",
     "bcond",
+    "trap",
 ];
 
 fn probe_ops(kind: &str) -> Vec<Op> {
@@ -204,6 +205,7 @@ fn probe_ops_width(kind: &str, width: u8) -> Vec<Op> {
         "cmp" => vec![Op::Cmp { rd: v0(), rs: VReg(1) }],
         "test" => vec![Op::Test { rd: v0(), rs: VReg(1) }],
         "bcond" => vec![Op::BranchCond { cond: crate::sir::Cond::Eq, target: 0 }],
+        "trap" => vec![Op::Trap],
         other => unreachable!("unknown probe kind {other}"),
     }
 }

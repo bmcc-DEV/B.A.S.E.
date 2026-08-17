@@ -295,6 +295,7 @@ pub fn execute(
                     st.pc = *target;
                 }
             }
+            Op::Trap => return Err(ExecError::Unsupported("trap")),
             other => return Err(ExecError::Unsupported(op_kind(other))),
         }
     }
@@ -323,6 +324,7 @@ fn op_kind(op: &Op) -> &'static str {
         Op::Cmp { .. } => "cmp",
         Op::Test { .. } => "test",
         Op::BranchCond { .. } => "branch_cond",
+        Op::Trap => "trap",
         Op::Unknown { .. } => "gap",
         _ => unreachable!("executable ops handled in execute"),
     }
