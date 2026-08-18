@@ -1,7 +1,13 @@
 //! B.A.S.E. RTL Generator — SIR → synthesizable Verilog.
+//!
+//! Generates synthesizable Verilog cores from SIR/ELF input.
+//! Supports MIPS, ARM, AArch64 targets.
 
 mod mips;
+mod arm;
+mod aarch64;
 pub mod verilog;
+mod pipeline;
 
 pub use verilog::VerilogCore;
 
@@ -16,6 +22,8 @@ pub fn generate_rtl(
 ) -> anyhow::Result<VerilogCore> {
     match isa {
         TargetIsa::Mips => mips::generate(elf_path, output),
+        TargetIsa::Arm => arm::generate(elf_path, output),
+        TargetIsa::AArch64 => aarch64::generate(elf_path, output),
         _ => anyhow::bail!("RTL generation not yet implemented for {:?}", isa),
     }
 }
