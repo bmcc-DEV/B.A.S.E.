@@ -19,7 +19,7 @@ x86-32 bytes | ELF .text | PE .text → lift → SIR → encode/decode/emit → 
 base recomp targets            # 14 alvos (amd64 ≡ x86_64)
 base recomp semantics          # catálogo semântico 13 ISAs + JSON
 base recomp verify --hex B80100000083C002C3 --target mips -o output/verify
-base recomp verify --all       # cobertura 17 kinds × 6 dimensões por ISA
+base recomp verify --all       # cobertura 18 kinds × 6 dimensões por ISA
 base recomp encode --hex B80100000083C002C3 --target coldfire -o output/enc
 base recomp report --matrix    # matriz P0–P6 por ISA
 ```
@@ -117,7 +117,7 @@ Sweep space: kinds × 10 imms × 4 states × (conditional expansion for P6 ISAs)
 | i860 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 
 `exec` = 100% em todas (executor de referência modela todos os 18 kinds).
-83% = 15/18 kinds (sem cmp/test/bcond — sem flags register; trap emit sem encoder).
+Todos os 10 ISAs com encoder = 100% (18/18). M88k/IA-64/i860 = emit only.
 `abi/privileged/mmu/system` = **0%** (não modelados).
 
 ## Bugs pegos pelo verifier

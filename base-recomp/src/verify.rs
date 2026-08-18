@@ -378,7 +378,7 @@ pub const UNMODELED_AXES: &str =
 /// - P3: semantic subset (semantic_pct > 0)
 /// - P4: behavior on a real subset (differential > 0, semantic >= 33%)
 /// - P5: behavior over most kinds (differential >= 67%) + sweep sealed
-/// - P6: conditional control flow (all 17 kinds round-trip + conditional sweep clean)
+/// - P6: conditional control flow (all 18 kinds round-trip + conditional sweep clean)
 pub fn preservation_level(c: &Coverage, sweep: &crate::semexec::SweepReport) -> &'static str {
     let p1 = crate::semantics::for_isa(c.target).is_some();
     let p2 = c.has_decoder && c.literal_pct > 0;
@@ -646,7 +646,7 @@ mod tests {
 
     #[test]
     fn coverage_alpha_parisc_coldfire() {
-        // ISAs without flags: 14/17 = 82%
+        // ISAs without flags: 18/18 = 100% (all kinds encode+decode)
         let a = coverage(TargetIsa::Alpha);
         assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (100, 100, 100)); // 18/18
         let p = coverage(TargetIsa::PaRisc);
@@ -672,11 +672,11 @@ mod tests {
 
     #[test]
     fn execute_and_differential_dimensions() {
-        // The reference executor now models all 17 kinds (incl. cmp/test/bcond + stack-call).
+        // The reference executor now models all 18 kinds (incl. cmp/test/bcond/trap + stack-call).
         for t in TargetIsa::all_canonical() {
             assert_eq!(coverage(*t).execute_pct, 100, "executor kind set differs for {t}");
         }
-        // ISAs with flags: all 17 kinds differential match.
+        // ISAs with flags: all 18 kinds differential match.
         // ISAs without flags: 14/17 differential match (no cmp/test/bcond).
         let cases = [
             (TargetIsa::Mips, 82u32),           // no flags → 14/17

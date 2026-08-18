@@ -93,7 +93,7 @@ Bandas objetivas, derivadas de números medidos (`verify.rs::preservation_level`
 base recomp report --isa mips      # relatório de uma ISA (evidência, não prosa)
 base recomp report --matrix        # matriz de preservação (nível por ISA)
 base recomp report                 # matriz + relatórios de todas as ISAs
-base recomp verify --all           # cobertura por dimensão (17 kinds)
+base recomp verify --all           # cobertura por dimensão (18 kinds)
 base recomp verify --sweep --target coldfire   # sweep comportamental + condicional
 ```
 

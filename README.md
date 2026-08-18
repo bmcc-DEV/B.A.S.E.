@@ -86,7 +86,7 @@ P3: subconjunto semântico              P6: 100% todas dimensões + sweep condic
 ```bash
 base recomp semantics                          # catálogo 13 ISAs + JSON
 base recomp verify --hex 90C3 --target mips    # round-trip por ISA
-base recomp verify --all                       # cobertura 17 kinds × 6 dimensões
+base recomp verify --all                       # cobertura 18 kinds × 6 dimensões
 base recomp verify --sweep --target coldfire   # sweep comportamental + condicional
 base recomp report --isa mips                  # preservation report (P0–P6)
 base recomp report --matrix                    # matriz por ISA
