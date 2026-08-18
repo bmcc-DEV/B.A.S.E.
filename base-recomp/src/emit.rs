@@ -504,9 +504,6 @@ fn emit_ppc(op: &Op) -> String {
 fn ppc_reg(v: VReg) -> String {
     format!("r{}", 3 + v.0.min(28))
 }
-    // r0 reads as 0 in addi (RA field); r1/r2 ABI-special → window r3..r31.
-    format!("r{}", 3 + v.0.min(28))
-}
 
 fn emit_sparc(op: &Op) -> String {
     match op {

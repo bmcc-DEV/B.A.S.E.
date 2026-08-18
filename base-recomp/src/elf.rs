@@ -265,7 +265,10 @@ fn lift_isa_elf(path: &Path, target: TargetIsa, fn_name: &str) -> Result<(ElfTex
 
 pub fn lift_elf_text(path: &Path, fn_name: &str) -> Result<(ElfText, Module), ElfError> {
     let text = load_elf_text(path)?;
-    let arch = Architecture::from(&text.architecture[..]);
+    // Re-parse to get Architecture enum from the ELF file.
+    let data = fs::read(path)?;
+    let file = object::File::parse(&*data).map_err(|e| ElfError::Object(e.to_string()))?;
+    let arch = file.architecture();
     let target = arch_to_target_isa(arch)
         .ok_or(ElfError::UnsupportedArch(arch))?;
 

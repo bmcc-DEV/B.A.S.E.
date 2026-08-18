@@ -935,14 +935,14 @@ fn encode_alpha(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Trap => enc(0x00000000), // call_pal 0 (trap to PALcode)
         Op::Cmp { rd, rs } => {
             // cmpeq Ra, Rb, Rc → Rc = (Ra == Rb) ? 1 : 0. Use $at (r27) as temp.
-            let ra = alpha_reg(*rd);
-            let rb = alpha_reg(*rs);
+            let ra = r(*rd);
+            let rb = r(*rs);
             enc((0x10 << 26) | (27 << 21) | (ra << 16) | (rb << 11) | 0x20) // cmpeq $27, rd, rs
         }
         Op::Test { rd, rs } => {
             // and Ra, Rb, Rc → Rc = Ra & Rb. Use $at (r27) as temp.
-            let ra = alpha_reg(*rd);
-            let rb = alpha_reg(*rs);
+            let ra = r(*rd);
+            let rb = r(*rs);
             enc((0x08 << 26) | (27 << 21) | (ra << 16) | (rb << 11)) // and $27, rd, rs
         }
         Op::BranchCond { cond, target } => {
@@ -1047,14 +1047,14 @@ fn encode_parisc(op: &Op) -> Result<Vec<u8>, EncodeError> {
         Op::Trap => enc(0x00000000), // break 0,0
         Op::Cmp { rd, rs } => {
             // sub %rs, %rd, %r1 — subtract, result in temp, sets condition codes.
-            let ra = parisc_reg(*rd);
-            let rb = parisc_reg(*rs);
+            let ra = r(*rd);
+            let rb = r(*rs);
             enc((0x08 << 26) | (0x04 << 6) | (ra << 21) | (1 << 14) | rb) // sub r1=rd-rs
         }
         Op::Test { rd, rs } => {
             // and %rd, %rs, %r1 — AND, result in temp.
-            let ra = parisc_reg(*rd);
-            let rb = parisc_reg(*rs);
+            let ra = r(*rd);
+            let rb = r(*rs);
             enc((0x08 << 26) | (0x00 << 6) | (ra << 21) | (1 << 14) | rb) // and r1=rd&rs
         }
         Op::BranchCond { cond, target } => {
