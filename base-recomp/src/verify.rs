@@ -636,8 +636,8 @@ mod tests {
         assert_eq!(sh.encoder_pct, sh.decoder_pct);
         // SH `clear` encodes as mov #0 → decodes as MovImm{·,0}: literal < semantic.
         assert!(sh.literal_pct < sh.semantic_pct, "{sh:?}");
-        assert_eq!(sh.semantic_pct, 100, "{sh:?}"); // 18/18
-        assert_eq!(sh.status, "FULL");
+        assert_eq!(sh.semantic_pct, 83, "{sh:?}"); // 15/18 (trap encodes, but no cmp/test/bcond)
+        assert_eq!(sh.status, "PARTIAL");
         assert!(sh.covered.contains(&"clear"));
         assert!(sh.covered.contains(&"ld_mem"));
         assert!(sh.covered.contains(&"push"));
@@ -648,9 +648,9 @@ mod tests {
     fn coverage_alpha_parisc_coldfire() {
         // ISAs without flags: 18/18 = 100% (all kinds encode+decode)
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (100, 100, 100)); // 18/18
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (83, 83, 83)); // 15/18 (no cmp/test/bcond encoder)
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (100, 100, 100)); // 18/18
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (83, 83, 83)); // 15/18
         // ISAs with flags: 17/17 = 100%
         let c = coverage(TargetIsa::ColdFire);
         assert_eq!(c.semantic_pct, 100, "{c:?}"); // 18/18 (all incl. cmp/test/bcond/trap)

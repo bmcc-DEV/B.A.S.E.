@@ -64,16 +64,16 @@ Bandas objetivas, derivadas de números medidos (`verify.rs::preservation_level`
 
 | ISA | Nível | Encode | Decode | Flags | Trap |
 |-----|-------|--------|--------|-------|------|
-| x86_64 | **P6** | 18/18 | ✅ | EFLAGS (cf/pf/af/zf/sf/of) | ✅ ud2 |
-| AArch64 | **P6** | 18/18 | ✅ | NZCV | ✅ brk |
-| ARM | **P6** | 18/18 | ✅ | CPSR NZCV | ✅ bkpt |
-| ColdFire | **P6** | 18/18 | ✅ | CCR (z/n/c/v/x) | ✅ illegal |
-| PPC | **P6** | 18/18 | ✅ | CR0 (lt/gt/eq/so) | ✅ trap |
-| SPARC | **P6** | 18/18 | ✅ | icc (z/n/c/v) | ✅ ta 1 |
-| MIPS | **P6** | 18/18 | ✅ | — sem flags | ✅ break |
-| SuperH | **P6** | 18/18 | ✅ | T flag | ✅ trapa |
-| Alpha | **P6** | 18/18 | ✅ | — sem flags | ✅ call_pal |
-| PA-RISC | **P6** | 18/18 | ✅ | — sem flags | ✅ break 0,0 |
+| x86_64 | **P6.1** | 18/18 | ✅ | EFLAGS (cf/pf/af/zf/sf/of) | ✅ ud2 |
+| AArch64 | **P6.1** | 18/18 | ✅ | NZCV | ✅ brk |
+| ARM | **P6.1** | 18/18 | ✅ | CPSR NZCV | ✅ bkpt |
+| ColdFire | **P6.1** | 18/18 | ✅ | CCR (z/n/c/v/x) | ✅ illegal |
+| PPC | **P6.1** | 18/18 | ✅ | CR0 (lt/gt/eq/so) | ✅ trap |
+| SPARC | **P6.1** | 18/18 | ✅ | icc (z/n/c/v) | ✅ ta 1 |
+| MIPS | **P5.1** | 15/18 | ✅ | — sem flags | ✅ break |
+| SuperH | **P5.1** | 15/18 | ✅ | T flag | ✅ trapa |
+| Alpha | **P5.1** | 15/18 | ✅ | — sem flags | ✅ call_pal |
+| PA-RISC | **P5.1** | 15/18 | ✅ | — sem flags | ✅ break 0,0 |
 | M88k | P1 | emit | — | — | ✅ trap 1 |
 | IA-64 | P1 | emit | — | — | ✅ break.i 0 |
 | i860 | P1 | emit | — | — | ✅ bpt |
