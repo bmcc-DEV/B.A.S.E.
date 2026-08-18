@@ -62,6 +62,11 @@ fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     let v = |reg: u32| VReg(reg.saturating_sub(8)); // encoder maps VReg → $t8..
     while i + 4 <= bytes.len() {
         let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0x0000000D {
+            ops.push(Op::Trap); // break
+            i += 4;
+            continue;
+        }
         if w == 0x03E00008 {
             // jr $ra — encoder always appends the delay-slot nop.
             ops.push(Op::Ret);
@@ -371,6 +376,11 @@ fn decode_superh(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 2;
             continue;
         }
+        if w == 0xC300 {
+            ops.push(Op::Trap); // trapa #0
+            i += 2;
+            continue;
+        }
         // Memory group: mov.l @r15+,Rn → Pop; mov.l @Rm,Rn → LdMem (offset 0).
         if (w & 0xF000) == 0x5000 {
             let n = ((w >> 8) & 0x0f) as u32;
@@ -499,6 +509,11 @@ fn decode_alpha(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if w == 0x00000000 {
+            ops.push(Op::Trap); // call_pal 0 (trap to PALcode)
+            i += 4;
+            continue;
+        }
         // Push/Pop idiom folds (8-byte slot on Alpha): lda sp,-8(sp); stq rx,0(sp) /
         // ldq rx,0(sp); lda sp,8(sp). Must precede the general lda/stq/ldq handlers.
         if w == 0x23DEFFF8 && i + 8 <= bytes.len() {
@@ -588,6 +603,11 @@ fn decode_parisc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
     let sext = |f: u32| (f & 0x7FFF) as i32 - (((f & 0x4000) as i32) << 1); // sign-extend 15-bit
     while i + 4 <= bytes.len() {
         let w = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap());
+        if w == 0x00000000 {
+            ops.push(Op::Trap); // break 0,0
+            i += 4;
+            continue;
+        }
         if w == 0xE840C000 || w == 0xE840C002 {
             // bv %r0(%rp) / bv,n — encoder appends the delay-slot nop.
             ops.push(Op::Ret);

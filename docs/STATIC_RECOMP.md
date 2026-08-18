@@ -108,10 +108,10 @@ Sweep space: kinds × 10 imms × 4 states × (conditional expansion for P6 ISAs)
 | ColdFire | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
 | PPC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
 | SPARC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
-| MIPS | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
-| SuperH | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
-| Alpha | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
-| PA-RISC | 78% | 78% | 78% | 78% | 100% | PARTIAL | P5 |
+| MIPS | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| SuperH | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| Alpha | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
+| PA-RISC | 100% | 100% | 100% | 100% | 100% | FULL | **P6** |
 | M88k | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 | IA-64 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |
 | i860 | 0% | 0% | 0% | 0% | 100% | NONE | P1 |

@@ -463,6 +463,7 @@ fn encode_mips(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend(enc(0));
             v
         }
+        Op::Trap => enc(0x0000000D), // break 0
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Mips,
@@ -775,6 +776,7 @@ fn encode_superh(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend(h(0x0009));
             v
         }
+        Op::Trap => h(0xC310), // trapa #0
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::SuperH(SuperHFlavor::Sh2),
@@ -854,6 +856,7 @@ fn encode_alpha(op: &Op) -> Result<Vec<u8>, EncodeError> {
             // br $31, disp — opcode 0x30 (objdump: 0xC3E00000 = br zero,0).
             enc((0x30 << 26) | (31 << 21) | ((*rel as u32 >> 2) & 0x1F_FFFF))
         }
+        Op::Trap => enc(0x00000000), // call_pal 0 (trap to PALcode)
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Alpha,
@@ -941,6 +944,7 @@ fn encode_parisc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v.extend(enc(0x08000240));
             v
         }
+        Op::Trap => enc(0x00000000), // break 0,0
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::PaRisc,
