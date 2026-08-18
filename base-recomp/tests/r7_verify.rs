@@ -65,7 +65,7 @@ fn coverage_table_all_targets_honest() {
     for t in [TargetIsa::Mips, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        assert_eq!(c.semantic_pct, 83, "{t}"); // 15/18 (no cmp/test/bcond encoder)
+        assert_eq!(c.semantic_pct, 100, "{t}"); // 18/18 kinds (trap + cmp/test/bcond)
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
@@ -77,10 +77,10 @@ fn coverage_table_all_targets_honest() {
 fn coverage_new_decoders() {
     // ISAs without flags: all 18 kinds (no cmp/test/bcond)
     let alpha = coverage(TargetIsa::Alpha);
-        assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (83, 83, 83)); // 15/18 (no cmp/test/bcond)
+        assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (100, 100, 100)); // 18/18
 
     let parisc = coverage(TargetIsa::PaRisc);
-        assert_eq!(parisc.semantic_pct, 83, "{parisc:?}"); // 15/18
+        assert_eq!(parisc.semantic_pct, 100, "{parisc:?}"); // 18/18
     assert!(parisc.covered.contains(&"nop"));
     assert!(parisc.covered.contains(&"ret"));
 
@@ -141,12 +141,12 @@ fn add3_differential_matches_behavior() {
 fn differential_coverage_separates_width_behavior() {
     // ISAs without flags: 15/18 = 83% differential (no cmp/test/bcond)
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 83, "{a:?}"); // 15/18 (no cmp/test/bcond)
+    assert_eq!(a.differential_pct, 100, "{a:?}"); // 18/18
 
     // ISAs with flags: 18/18 = 100% differential
     let c = coverage(TargetIsa::ColdFire);
     assert_eq!(c.differential_pct, 100, "{c:?}"); // 18/18 kinds incl. conditional+trap
 
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));
-    assert_eq!(s.differential_pct, 83, "{s:?}"); // 15/18
+    assert_eq!(s.differential_pct, 100, "{s:?}"); // 18/18
 }

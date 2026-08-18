@@ -67,6 +67,68 @@ fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // subu $1, $rd, $rs → Cmp (op=0, funct=0x23, rd=$1)
+        if (w & 0xFFE00FFF) == 0x00000023 && ((w >> 11) & 0x1F) == 1 {
+            let rs = (w >> 21) & 0x1F;
+            let rt = (w >> 16) & 0x1F;
+            if rs >= 8 && rs <= 15 && rt >= 8 && rt <= 15 {
+                ops.push(Op::Cmp { rd: VReg(rs - 8), rs: VReg(rt - 8) });
+                i += 4;
+                continue;
+            }
+        }
+        // and $1, $rd, $rs → Test (op=0, funct=0x24, rd=$1)
+        if (w & 0xFFE00FFF) == 0x00000024 && ((w >> 11) & 0x1F) == 1 {
+            let rs = (w >> 21) & 0x1F;
+            let rt = (w >> 16) & 0x1F;
+            if rs >= 8 && rs <= 15 && rt >= 8 && rt <= 15 {
+                ops.push(Op::Test { rd: VReg(rs - 8), rs: VReg(rt - 8) });
+                i += 4;
+                continue;
+            }
+        }
+        // beq $1, $0, offset → BranchCond(Eq)
+        if (w >> 26) == 4 && ((w >> 21) & 0x1F) == 1 && ((w >> 16) & 0x1F) == 0 {
+            let offset = sext16(w & 0xFFFF) << 2;
+            ops.push(Op::BranchCond { cond: Cond::Eq, target: offset as u64 });
+            i += 4;
+            continue;
+        }
+        // bne $1, $0, offset → BranchCond(Ne)
+        if (w >> 26) == 5 && ((w >> 21) & 0x1F) == 1 && ((w >> 16) & 0x1F) == 0 {
+            let offset = sext16(w & 0xFFFF) << 2;
+            ops.push(Op::BranchCond { cond: Cond::Ne, target: offset as u64 });
+            i += 4;
+            continue;
+        }
+        // bltz $1, offset → BranchCond(Lt) (regimm, rt=0)
+        if (w >> 26) == 1 && ((w >> 21) & 0x1F) == 1 && ((w >> 16) & 0x1F) == 0 {
+            let offset = sext16(w & 0xFFFF) << 2;
+            ops.push(Op::BranchCond { cond: Cond::Lt, target: offset as u64 });
+            i += 4;
+            continue;
+        }
+        // bgez $1, offset → BranchCond(Ge) (regimm, rt=1)
+        if (w >> 26) == 1 && ((w >> 21) & 0x1F) == 1 && ((w >> 16) & 0x1F) == 1 {
+            let offset = sext16(w & 0xFFFF) << 2;
+            ops.push(Op::BranchCond { cond: Cond::Ge, target: offset as u64 });
+            i += 4;
+            continue;
+        }
+        // bgtz $1, offset → BranchCond(Gt)
+        if (w >> 26) == 7 && ((w >> 21) & 0x1F) == 1 {
+            let offset = sext16(w & 0xFFFF) << 2;
+            ops.push(Op::BranchCond { cond: Cond::Gt, target: offset as u64 });
+            i += 4;
+            continue;
+        }
+        // blez $1, offset → BranchCond(Le)
+        if (w >> 26) == 6 && ((w >> 21) & 0x1F) == 1 {
+            let offset = sext16(w & 0xFFFF) << 2;
+            ops.push(Op::BranchCond { cond: Cond::Le, target: offset as u64 });
+            i += 4;
+            continue;
+        }
         if w == 0x03E00008 {
             // jr $ra — encoder always appends the delay-slot nop.
             ops.push(Op::Ret);
@@ -381,6 +443,36 @@ fn decode_superh(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 2;
             continue;
         }
+        // cmp/eq Rm, Rn → Cmp (0011_xxxx_xxxx_xxxx, funct=0011 in bits 3:0)
+        if (w & 0xF000) == 0x3000 {
+            let rm = ((w >> 4) & 0xF) as u32;
+            let rn = (w & 0xF) as u32;
+            ops.push(Op::Cmp { rd: VReg(rn), rs: VReg(rm) });
+            i += 2;
+            continue;
+        }
+        // tst Rm, Rn → Test (0010_xxxx_xxxx_xxxx, funct=0010 in bits 3:0)
+        if (w & 0xF000) == 0x2000 {
+            let rm = ((w >> 4) & 0xF) as u32;
+            let rn = (w & 0xF) as u32;
+            ops.push(Op::Test { rd: VReg(rn), rs: VReg(rm) });
+            i += 2;
+            continue;
+        }
+        // bt/s target → BranchCond(Eq) (1000_1001_disp8)
+        if (w & 0xFF00) == 0x8900 {
+            let disp = (w & 0xFF) as i8 as i32 * 2;
+            ops.push(Op::BranchCond { cond: Cond::Eq, target: (i as i32 + disp + 4) as u64 });
+            i += 2;
+            continue;
+        }
+        // bf/s target → BranchCond(Ne) (1000_1011_disp8)
+        if (w & 0xFF00) == 0x8B00 {
+            let disp = (w & 0xFF) as i8 as i32 * 2;
+            ops.push(Op::BranchCond { cond: Cond::Ne, target: (i as i32 + disp + 4) as u64 });
+            i += 2;
+            continue;
+        }
         // Memory group: mov.l @r15+,Rn → Pop; mov.l @Rm,Rn → LdMem (offset 0).
         if (w & 0xF000) == 0x5000 {
             let n = ((w >> 8) & 0x0f) as u32;
@@ -514,6 +606,47 @@ fn decode_alpha(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        // cmpeq Ra, Rb, $27 → Cmp (op=0x10, funct=0x20, rd=$27)
+        if (w >> 26) == 0x10 && ((w >> 5) & 0x7F) == 0x20 && ((w >> 21) & 0x1F) == 27 {
+            let ra = (w >> 16) & 0x1F;
+            let rb = (w >> 11) & 0x1F;
+            if (4..=14).contains(&ra) && (4..=14).contains(&rb) {
+                ops.push(Op::Cmp { rd: VReg(ra - 4), rs: VReg(rb - 4) });
+                i += 4;
+                continue;
+            }
+        }
+        // and Ra, Rb, $27 → Test (op=0x08, funct=0x00, rd=$27)
+        if (w >> 26) == 0x08 && ((w >> 5) & 0x7F) == 0x00 && ((w >> 21) & 0x1F) == 27 {
+            let ra = (w >> 16) & 0x1F;
+            let rb = (w >> 11) & 0x1F;
+            if (4..=14).contains(&ra) && (4..=14).contains(&rb) {
+                ops.push(Op::Test { rd: VReg(ra - 4), rs: VReg(rb - 4) });
+                i += 4;
+                continue;
+            }
+        }
+        // beq/bne/blt/bge/bgt/ble $27, offset → BranchCond
+        {
+            let op = (w >> 26) & 0x3F;
+            let ra = (w >> 21) & 0x1F;
+            if ra == 27 && (op == 0x31 || op == 0x35 || op == 0x36 || op == 0x34 || op == 0x37 || op == 0x3D) {
+                let disp = ((w & 0x1FFFFF) << 2) as i32;
+                let disp = if disp & 0x400000 != 0 { disp - 0x800000 } else { disp };
+                let cond = match op {
+                    0x31 => Cond::Eq,
+                    0x35 => Cond::Ne,
+                    0x36 => Cond::Lt,
+                    0x34 => Cond::Ge,
+                    0x37 => Cond::Gt,
+                    0x3D => Cond::Le,
+                    _ => unreachable!(),
+                };
+                ops.push(Op::BranchCond { cond, target: ((i as i32) + disp) as u64 });
+                i += 4;
+                continue;
+            }
+        }
         // Push/Pop idiom folds (8-byte slot on Alpha): lda sp,-8(sp); stq rx,0(sp) /
         // ldq rx,0(sp); lda sp,8(sp). Must precede the general lda/stq/ldq handlers.
         if w == 0x23DEFFF8 && i + 8 <= bytes.len() {
@@ -607,6 +740,46 @@ fn decode_parisc(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             ops.push(Op::Trap); // break 0,0
             i += 4;
             continue;
+        }
+        // sub %rs, %rd, %r1 → Cmp (op=0x08, ext=0x04, rd=r1)
+        if (w >> 26) == 0x08 && ((w >> 6) & 0x3F) == 0x04 && ((w >> 14) & 0x1F) == 1 {
+            let ra = (w >> 21) & 0x1F;
+            let rb = w & 0x1F;
+            if (3..=12).contains(&ra) && (3..=12).contains(&rb) {
+                ops.push(Op::Cmp { rd: VReg(ra - 3), rs: VReg(rb - 3) });
+                i += 4;
+                continue;
+            }
+        }
+        // and %rd, %rs, %r1 → Test (op=0x08, ext=0x00, rd=r1)
+        if (w >> 26) == 0x08 && ((w >> 6) & 0x3F) == 0x00 && ((w >> 14) & 0x1F) == 1 {
+            let ra = (w >> 21) & 0x1F;
+            let rb = w & 0x1F;
+            if (3..=12).contains(&ra) && (3..=12).contains(&rb) {
+                ops.push(Op::Test { rd: VReg(ra - 3), rs: VReg(rb - 3) });
+                i += 4;
+                continue;
+            }
+        }
+        // b,cond 0(sr4, r1) → BranchCond
+        if (w >> 26) == 0x00 && ((w >> 21) & 0x1F) == 0x01 {
+            let c = (w >> 13) & 0xF;
+            let disp = ((w & 0x3FF) << 2) as i32;
+            let disp = if disp & 0x800 != 0 { disp - 0x1000 } else { disp };
+            let cond = match c {
+                0 => Some(Cond::Eq),
+                4 => Some(Cond::Ne),
+                1 => Some(Cond::Lt),
+                5 => Some(Cond::Ge),
+                2 => Some(Cond::Gt),
+                6 => Some(Cond::Le),
+                _ => None,
+            };
+            if let Some(cond) = cond {
+                ops.push(Op::BranchCond { cond, target: ((i as i32) + disp) as u64 });
+                i += 4;
+                continue;
+            }
         }
         if w == 0xE840C000 || w == 0xE840C002 {
             // bv %r0(%rp) / bv,n — encoder appends the delay-slot nop.

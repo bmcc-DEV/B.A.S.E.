@@ -464,6 +464,30 @@ fn encode_mips(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v
         }
         Op::Trap => enc(0x0000000D), // break 0
+        Op::Cmp { rd, rs } => {
+            // subu $at, $rd, $rs — result in $1 (VReg(1)), no flags but result in GPR.
+            let rd = treg(*rd);
+            let rs = treg(*rs);
+            enc(0x00000023 | (rd << 21) | (rs << 16) | (1 << 11)) // subu $1, rd, rs
+        }
+        Op::Test { rd, rs } => {
+            // and $at, $rd, $rs — result in $1.
+            let rd = treg(*rd);
+            let rs = treg(*rs);
+            enc(0x00000024 | (rd << 21) | (rs << 16) | (1 << 11)) // and $1, rd, rs
+        }
+        Op::BranchCond { cond, target } => {
+            let rt = 1; // $at
+            match cond {
+                crate::sir::Cond::Eq => enc(0x10000000 | (rt << 21) | ((*target as u32 >> 2) & 0xFFFF)),
+                crate::sir::Cond::Ne => enc(0x14000000 | (rt << 21) | ((*target as u32 >> 2) & 0xFFFF)),
+                crate::sir::Cond::Lt => enc(0x04000000 | (0 << 21) | ((*target as u32 >> 2) & 0xFFFF)), // bltz $1
+                crate::sir::Cond::Ge => enc(0x04000000 | (1 << 21) | ((*target as u32 >> 2) & 0xFFFF)), // bgez $1
+                crate::sir::Cond::Gt => enc(0x1C000000 | (rt << 21) | ((*target as u32 >> 2) & 0xFFFF)),
+                crate::sir::Cond::Le => enc(0x18000000 | (rt << 21) | ((*target as u32 >> 2) & 0xFFFF)),
+                _ => return Err(EncodeError::Unsupported(TargetIsa::Mips, format!("{cond:?} on MIPS"))),
+            }
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Mips,
@@ -777,6 +801,35 @@ fn encode_superh(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v
         }
         Op::Trap => h(0xC310), // trapa #0
+        Op::Cmp { rd, rs } => {
+            // cmp/eq Rm, Rn — sets T if Rn == Rm.
+            let rn = rd.0.min(15) as u16;
+            let rm = rs.0.min(15) as u16;
+            h(0x3000 | (rm << 4) | rn)
+        }
+        Op::Test { rd, rs } => {
+            // tst Rm, Rn — sets T if (Rn & Rm) == 0.
+            let rn = rd.0.min(15) as u16;
+            let rm = rs.0.min(15) as u16;
+            h(0x2000 | (rm << 4) | rn)
+        }
+        Op::BranchCond { cond, target } => {
+            match cond {
+                crate::sir::Cond::Eq => {
+                    // bt/s target (delay slot)
+                    let mut v = h(0x8900 | (((*target as u16) >> 1) & 0xFF));
+                    v.extend(h(0x0009));
+                    v
+                }
+                crate::sir::Cond::Ne => {
+                    // bf/s target (delay slot)
+                    let mut v = h(0x8B00 | (((*target as u16) >> 1) & 0xFF));
+                    v.extend(h(0x0009));
+                    v
+                }
+                _ => return Err(EncodeError::Unsupported(TargetIsa::SuperH(crate::target::SuperHFlavor::Sh4), format!("{cond:?} on SuperH"))),
+            }
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::SuperH(SuperHFlavor::Sh2),
@@ -857,6 +910,30 @@ fn encode_alpha(op: &Op) -> Result<Vec<u8>, EncodeError> {
             enc((0x30 << 26) | (31 << 21) | ((*rel as u32 >> 2) & 0x1F_FFFF))
         }
         Op::Trap => enc(0x00000000), // call_pal 0 (trap to PALcode)
+        Op::Cmp { rd, rs } => {
+            // cmpeq Ra, Rb, Rc → Rc = (Ra == Rb) ? 1 : 0. Use $at (r27) as temp.
+            let ra = alpha_reg(*rd);
+            let rb = alpha_reg(*rs);
+            enc((0x10 << 26) | (27 << 21) | (ra << 16) | (rb << 11) | 0x20) // cmpeq $27, rd, rs
+        }
+        Op::Test { rd, rs } => {
+            // and Ra, Rb, Rc → Rc = Ra & Rb. Use $at (r27) as temp.
+            let ra = alpha_reg(*rd);
+            let rb = alpha_reg(*rs);
+            enc((0x08 << 26) | (27 << 21) | (ra << 16) | (rb << 11)) // and $27, rd, rs
+        }
+        Op::BranchCond { cond, target } => {
+            let f = match cond {
+                crate::sir::Cond::Eq => 0x31u32, // beq
+                crate::sir::Cond::Ne => 0x35u32, // bne
+                crate::sir::Cond::Lt => 0x36u32, // blt
+                crate::sir::Cond::Ge => 0x34u32, // bge
+                crate::sir::Cond::Gt => 0x37u32, // bgt
+                crate::sir::Cond::Le => 0x3Du32, // ble
+                _ => return Err(EncodeError::Unsupported(TargetIsa::Alpha, format!("{cond:?} on Alpha"))),
+            };
+            enc((f << 26) | (27 << 21) | (((*target as u32 >> 2) & 0x1FFFFF)))
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::Alpha,
@@ -945,6 +1022,32 @@ fn encode_parisc(op: &Op) -> Result<Vec<u8>, EncodeError> {
             v
         }
         Op::Trap => enc(0x00000000), // break 0,0
+        Op::Cmp { rd, rs } => {
+            // sub %rs, %rd, %r1 — subtract, result in temp, sets condition codes.
+            let ra = parisc_reg(*rd);
+            let rb = parisc_reg(*rs);
+            enc((0x08 << 26) | (0x04 << 6) | (ra << 21) | (1 << 14) | rb) // sub r1=rd-rs
+        }
+        Op::Test { rd, rs } => {
+            // and %rd, %rs, %r1 — AND, result in temp.
+            let ra = parisc_reg(*rd);
+            let rb = parisc_reg(*rs);
+            enc((0x08 << 26) | (0x00 << 6) | (ra << 21) | (1 << 14) | rb) // and r1=rd&rs
+        }
+        Op::BranchCond { cond, target } => {
+            let c = match cond {
+                crate::sir::Cond::Eq => 0u32,   // =
+                crate::sir::Cond::Ne => 4u32,    // <>
+                crate::sir::Cond::Lt => 1u32,    // <
+                crate::sir::Cond::Ge => 5u32,    // >=
+                crate::sir::Cond::Gt => 2u32,    // >
+                crate::sir::Cond::Le => 6u32,    // <=
+                _ => return Err(EncodeError::Unsupported(TargetIsa::PaRisc, format!("{cond:?} on PA-RISC"))),
+            };
+            // b,cond 0(sr4, r1) — conditional branch on condition codes.
+            // Format: op=0, sub=1, ext=2, c=cond, null=0, d=disp22
+            enc((0x00 << 26) | (0x01 << 21) | (c << 13) | (0x02 << 10) | (((*target as u32) >> 2) & 0x3FF))
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::PaRisc,

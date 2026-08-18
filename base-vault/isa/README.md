@@ -70,10 +70,10 @@ Bandas objetivas, derivadas de números medidos (`verify.rs::preservation_level`
 | ColdFire | **P6.1** | 18/18 | ✅ | CCR (z/n/c/v/x) | ✅ illegal |
 | PPC | **P6.1** | 18/18 | ✅ | CR0 (lt/gt/eq/so) | ✅ trap |
 | SPARC | **P6.1** | 18/18 | ✅ | icc (z/n/c/v) | ✅ ta 1 |
-| MIPS | **P5.1** | 15/18 | ✅ | — sem flags | ✅ break |
-| SuperH | **P5.1** | 15/18 | ✅ | T flag | ✅ trapa |
-| Alpha | **P5.1** | 15/18 | ✅ | — sem flags | ✅ call_pal |
-| PA-RISC | **P5.1** | 15/18 | ✅ | — sem flags | ✅ break 0,0 |
+| MIPS | **P6.1** | 18/18 | ✅ | — sem flags | ✅ break |
+| SuperH | **P6.1** | 18/18 | ✅ | T flag | ✅ trapa |
+| Alpha | **P6.1** | 18/18 | ✅ | — sem flags | ✅ call_pal |
+| PA-RISC | **P6.1** | 18/18 | ✅ | — sem flags | ✅ break 0,0 |
 | M88k | P1 | emit | — | — | ✅ trap 1 |
 | IA-64 | P1 | emit | — | — | ✅ break.i 0 |
 | i860 | P1 | emit | — | — | ✅ bpt |
