@@ -1,6 +1,7 @@
 //! B.A.S.E. RTL Generator — SIR → synthesizable Verilog.
 
 mod mips;
+mod x86;
 mod arm;
 mod aarch64;
 mod ppc;
@@ -39,7 +40,7 @@ pub fn generate_rtl(
         TargetIsa::M88k => m88k::generate(elf_path, output),
         TargetIsa::Ia64 => ia64::generate(elf_path, output),
         TargetIsa::I860 => i860::generate(elf_path, output),
-        TargetIsa::X86_64 => anyhow::bail!("x86_64 is the source ISA, not a target for RTL"),
+        TargetIsa::X86_64 => x86::generate(elf_path, output),
     }
 }
 
