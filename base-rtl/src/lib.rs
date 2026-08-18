@@ -6,6 +6,12 @@ mod aarch64;
 mod ppc;
 mod sparc;
 mod coldfire;
+mod superh;
+mod alpha;
+mod parisc;
+mod m88k;
+mod ia64;
+mod i860;
 pub mod verilog;
 mod pipeline;
 
@@ -27,7 +33,13 @@ pub fn generate_rtl(
         TargetIsa::Ppc => ppc::generate(elf_path, output),
         TargetIsa::Sparc => sparc::generate(elf_path, output),
         TargetIsa::ColdFire => coldfire::generate(elf_path, output),
-        _ => anyhow::bail!("RTL generation not yet implemented for {:?}", isa),
+        TargetIsa::SuperH(_) => superh::generate(elf_path, output),
+        TargetIsa::Alpha => alpha::generate(elf_path, output),
+        TargetIsa::PaRisc => parisc::generate(elf_path, output),
+        TargetIsa::M88k => m88k::generate(elf_path, output),
+        TargetIsa::Ia64 => ia64::generate(elf_path, output),
+        TargetIsa::I860 => i860::generate(elf_path, output),
+        TargetIsa::X86_64 => anyhow::bail!("x86_64 is the source ISA, not a target for RTL"),
     }
 }
 

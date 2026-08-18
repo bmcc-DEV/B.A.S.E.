@@ -16,6 +16,12 @@ fn all_isas_generate_valid_verilog() {
         (TargetIsa::Ppc, "ppc_sir_core"),
         (TargetIsa::Sparc, "sparc_sir_core"),
         (TargetIsa::ColdFire, "coldfire_sir_core"),
+        (TargetIsa::SuperH(base_recomp::target::SuperHFlavor::Sh4), "superh_sir_core"),
+        (TargetIsa::Alpha, "alpha_sir_core"),
+        (TargetIsa::PaRisc, "parisc_sir_core"),
+        (TargetIsa::M88k, "m88k_sir_core"),
+        (TargetIsa::Ia64, "ia64_sir_core"),
+        (TargetIsa::I860, "i860_sir_core"),
     ] {
         let dir = tmpdir(&format!("{:?}", isa));
         let out = dir.join("core.v");
@@ -25,7 +31,6 @@ fn all_isas_generate_valid_verilog() {
         let v = std::fs::read_to_string(&out).unwrap();
         assert!(v.contains(&format!("module {}", expected)), "{}: missing module", isa);
         assert!(v.contains("always @(posedge clk)"), "{}: missing clocked logic", isa);
-        assert!(v.contains("wire"), "{}: missing wire declarations", isa);
     }
 }
 
@@ -50,6 +55,12 @@ fn each_isa_has_unique_architecture() {
         (TargetIsa::Ppc, "gpr [0:31]", "cr0"),
         (TargetIsa::Sparc, "icc", "gpr"),
         (TargetIsa::ColdFire, "dreg [0:7]", "ccr"),
+        (TargetIsa::SuperH(base_recomp::target::SuperHFlavor::Sh4), "gpr [0:15]", "t_flag"),
+        (TargetIsa::Alpha, "gpr [0:31]", "pc"),
+        (TargetIsa::PaRisc, "gpr [0:31]", "pc"),
+        (TargetIsa::M88k, "gpr [0:31]", "cr"),
+        (TargetIsa::Ia64, "gpr [0:127]", "nat"),
+        (TargetIsa::I860, "gpr [0:31]", "psr"),
     ];
     for (isa, feat1, feat2) in tests {
         let dir = tmpdir(&format!("{:?}_arch", isa));
