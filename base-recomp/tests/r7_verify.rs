@@ -53,7 +53,7 @@ fn coverage_table_all_targets_honest() {
     for t in [TargetIsa::Ppc] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        assert_eq!(c.semantic_pct, 100, "{t}"); // 18/18 kinds round-trip (incl. cmp/test/bcond/trap)
+        assert_eq!(c.semantic_pct, 86, "{t}"); // 18/21 (no sysreg/eret encoder)
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
@@ -65,7 +65,7 @@ fn coverage_table_all_targets_honest() {
     for t in [TargetIsa::Mips, TargetIsa::SuperH(SuperHFlavor::Sh4)] {
         let c = coverage(t);
         assert!(c.has_decoder);
-        assert_eq!(c.semantic_pct, 100, "{t}"); // 18/18 kinds (trap + cmp/test/bcond)
+        assert_eq!(c.semantic_pct, 86, "{t}"); // 18/21 (no sysreg/eret encoder)
         assert!(c.covered.contains(&"nop"));
         assert!(c.covered.contains(&"ret"));
         assert!(c.covered.contains(&"mov_imm"));
@@ -77,16 +77,16 @@ fn coverage_table_all_targets_honest() {
 fn coverage_new_decoders() {
     // ISAs without flags: all 18 kinds (no cmp/test/bcond)
     let alpha = coverage(TargetIsa::Alpha);
-        assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (100, 100, 100)); // 18/18
+        assert_eq!((alpha.encoder_pct, alpha.decoder_pct, alpha.semantic_pct), (86, 86, 86)); // 18/21
 
     let parisc = coverage(TargetIsa::PaRisc);
-        assert_eq!(parisc.semantic_pct, 100, "{parisc:?}"); // 18/18
+        assert_eq!(parisc.semantic_pct, 86, "{parisc:?}"); // 18/21
     assert!(parisc.covered.contains(&"nop"));
     assert!(parisc.covered.contains(&"ret"));
 
     // ISAs with flags + conditional support: 17/17 = 100%
     let cf = coverage(TargetIsa::ColdFire);
-    assert_eq!(cf.semantic_pct, 100, "{cf:?}"); // 18/18 kinds incl. cmp/test/bcond/trap
+    assert_eq!(cf.semantic_pct, 86, "{cf:?}"); // 18/21 kinds
     assert!(cf.covered.contains(&"push"));
     assert!(cf.covered.contains(&"pop"));
     assert!(cf.covered.contains(&"ld_mem"));
@@ -106,8 +106,8 @@ fn pending_status_not_full() {
     let x = coverage(TargetIsa::X86_64);
     let x = coverage(TargetIsa::X86_64);
     // x86 encoder/decoder now covers all 18 kinds (incl. cmp/test/bcond/trap).
-    assert_eq!(x.status, "FULL");
-    assert_eq!(x.semantic_pct, 100, "{x:?}");
+    assert_eq!(x.status, "PARTIAL");
+    assert_eq!(x.semantic_pct, 86, "{x:?}");
     let m88k = coverage(TargetIsa::M88k);
     assert_eq!(m88k.status, "NONE");
 }
@@ -141,12 +141,12 @@ fn add3_differential_matches_behavior() {
 fn differential_coverage_separates_width_behavior() {
     // ISAs without flags: 15/18 = 83% differential (no cmp/test/bcond)
     let a = coverage(TargetIsa::Alpha);
-    assert_eq!(a.differential_pct, 100, "{a:?}"); // 18/18
+    assert_eq!(a.differential_pct, 86, "{a:?}"); // 18/21
 
     // ISAs with flags: 18/18 = 100% differential
     let c = coverage(TargetIsa::ColdFire);
-    assert_eq!(c.differential_pct, 100, "{c:?}"); // 18/18 kinds incl. conditional+trap
+    assert_eq!(c.differential_pct, 86, "{c:?}"); // 18/21 kinds
 
     let s = coverage(TargetIsa::SuperH(SuperHFlavor::Sh4));
-    assert_eq!(s.differential_pct, 100, "{s:?}"); // 18/18
+    assert_eq!(s.differential_pct, 86, "{s:?}"); // 18/21
 }

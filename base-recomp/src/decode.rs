@@ -1286,6 +1286,43 @@ fn decode_aarch64(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if w == 0xD69F03E0 {
+            ops.push(Op::ERet); // ERET
+            i += 4;
+            continue;
+        }
+        // MRS Xd, <sysreg> — 0xD5300000 | (op0<<19) | (op1<<16) | (CRn<<12) | (CRm<<8) | (op2<<5) | Rt
+        if (w & 0xFFD00000) == 0xD5300000 {
+            let rt = (w & 0x1F) as u32;
+            let crn = (w >> 12) & 0xF;
+            let crm = (w >> 8) & 0xF;
+            let op2 = (w >> 5) & 0x7;
+            let reg = match (crn, crm, op2) {
+                (0, 4, 0) => crate::sir::SysReg::Pstate,
+                (0, 0, 4) => crate::sir::SysReg::SpSel,
+                (4, 0, 1) => crate::sir::SysReg::Daif,
+                _ => crate::sir::SysReg::Other(w),
+            };
+            ops.push(Op::SysRegRead { dst: VReg(rt), reg });
+            i += 4;
+            continue;
+        }
+        // MSR <sysreg>, Xn — 0xD5100000 | (op0<<19) | (op1<<16) | (CRn<<12) | (CRm<<8) | (op2<<5) | Rt
+        if (w & 0xFFD00000) == 0xD5100000 {
+            let rt = (w & 0x1F) as u32;
+            let crn = (w >> 12) & 0xF;
+            let crm = (w >> 8) & 0xF;
+            let op2 = (w >> 5) & 0x7;
+            let reg = match (crn, crm, op2) {
+                (0, 4, 0) => crate::sir::SysReg::Pstate,
+                (0, 0, 4) => crate::sir::SysReg::SpSel,
+                (4, 0, 1) => crate::sir::SysReg::Daif,
+                _ => crate::sir::SysReg::Other(w),
+            };
+            ops.push(Op::SysRegWrite { reg, src: VReg(rt) });
+            i += 4;
+            continue;
+        }
         // str wX,[sp,#-4]! / ldr wX,[sp],#4 — single-word stack ops (llvm-mc verified).
         if (w & 0xFFFF_FFE0) == 0xB81F_CFE0 {
             ops.push(Op::Push { src: VReg(w & 0x1f) });

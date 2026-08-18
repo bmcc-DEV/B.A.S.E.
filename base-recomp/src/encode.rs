@@ -378,6 +378,29 @@ fn encode_aarch64(op: &Op) -> Result<Vec<u8>, EncodeError> {
             let imm19 = (*target as i64 >> 2) & 0x7FFFF;
             enc(0x54000000 | (cond_val << 24) | ((imm19 as u32) << 5))
         }
+        Op::ERet => enc(0xD69F03E0), // eret
+        Op::SysRegRead { dst, reg } => {
+            // MRS Xd, <sysreg> — 0xD5300000 | (op0<<19) | (op1<<16) | (CRn<<12) | (CRm<<8) | (op2<<5) | Rt
+            let rt = dst.0.min(30) as u32;
+            let (op0, op1, crn, crm, op2) = match reg {
+                crate::sir::SysReg::Pstate => (3, 0, 0, 4, 0), // MRS Xd, NZCV (or DAIFSet by alias)
+                crate::sir::SysReg::SpSel => (3, 0, 0, 0, 4), // MRS Xd, SPSel
+                crate::sir::SysReg::Daif => (3, 3, 4, 0, 1),  // MRS Xd, DAIF
+                _ => (3, 0, 0, 4, 0), // default to PSTATE
+            };
+            enc(0xD5300000 | (op0 << 19) | (op1 << 16) | (crn << 12) | (crm << 8) | (op2 << 5) | rt)
+        }
+        Op::SysRegWrite { reg, src } => {
+            // MSR <sysreg>, Xn — 0xD5100000 | (op0<<19) | (op1<<16) | (CRn<<12) | (CRm<<8) | (op2<<5) | Rt
+            let rt = src.0.min(30) as u32;
+            let (op0, op1, crn, crm, op2) = match reg {
+                crate::sir::SysReg::Pstate => (3, 0, 0, 4, 0),
+                crate::sir::SysReg::SpSel => (3, 0, 0, 0, 4),
+                crate::sir::SysReg::Daif => (3, 3, 4, 0, 1),
+                _ => (3, 0, 0, 4, 0),
+            };
+            enc(0xD5100000 | (op0 << 19) | (op1 << 16) | (crn << 12) | (crm << 8) | (op2 << 5) | rt)
+        }
         other => {
             return Err(EncodeError::Unsupported(
                 TargetIsa::AArch64,

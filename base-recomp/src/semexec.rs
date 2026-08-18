@@ -300,6 +300,19 @@ pub fn execute(
                 // No state change — the machine halts at this PC.
                 return Ok(());
             }
+            Op::SysRegRead { dst, reg } => {
+                // Read system register — in reference model, treat as identity (value = 0).
+                // Real ISA semantics would read actual register state.
+                st.gpr[dst.0 as usize % 32] = 0;
+            }
+            Op::SysRegWrite { reg, src } => {
+                // Write system register — in reference model, no-op.
+                // Real ISA semantics would update processor state.
+            }
+            Op::ERet => {
+                // Return from exception — restore PC from link register.
+                st.pc = st.gpr(LINK);
+            }
             other => return Err(ExecError::Unsupported(op_kind(other))),
         }
     }
@@ -329,6 +342,9 @@ fn op_kind(op: &Op) -> &'static str {
         Op::Test { .. } => "test",
         Op::BranchCond { .. } => "branch_cond",
         Op::Trap => "trap",
+        Op::SysRegRead { .. } => "sysreg_read",
+        Op::SysRegWrite { .. } => "sysreg_write",
+        Op::ERet => "eret",
         Op::Unknown { .. } => "gap",
         _ => unreachable!("executable ops handled in execute"),
     }

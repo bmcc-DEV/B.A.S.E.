@@ -77,6 +77,9 @@ pub fn semantic_key(op: &Op) -> String {
         Op::Test { .. } => "test".into(),
         Op::BranchCond { .. } => "bcond".into(),
         Op::Trap => "trap".into(),
+        Op::SysRegRead { .. } => "sysreg_read".into(),
+        Op::SysRegWrite { .. } => "sysreg_write".into(),
+        Op::ERet => "eret".into(),
         Op::Unknown { .. } => "gap".into(),
     }
 }
@@ -158,8 +161,9 @@ pub fn verify_ops(ops: Vec<Op>, target: TargetIsa) -> RoundtripReport {
 }
 
 /// The SIR op kinds scored (everything except `Unknown`, which is a gap by design).
-/// P6 additions: cmp, test, bcond, trap (conditional control flow + exceptions — Path v1.9+).
-pub const SIR_OP_KINDS: [&str; 18] = [
+/// P6 additions: cmp, test, bcond, trap (conditional control flow + exceptions).
+/// P6.2 additions: sysreg_read, sysreg_write, eret (privileged state).
+pub const SIR_OP_KINDS: [&str; 21] = [
     "nop",
     "ret",
     "mov_imm",
@@ -178,6 +182,9 @@ pub const SIR_OP_KINDS: [&str; 18] = [
     "test",
     "bcond",
     "trap",
+    "sysreg_read",
+    "sysreg_write",
+    "eret",
 ];
 
 fn probe_ops(kind: &str) -> Vec<Op> {
@@ -207,6 +214,9 @@ fn probe_ops_width(kind: &str, width: u8) -> Vec<Op> {
         "test" => vec![Op::Test { rd: v0(), rs: VReg(1) }],
         "bcond" => vec![Op::BranchCond { cond: crate::sir::Cond::Eq, target: 0 }],
         "trap" => vec![Op::Trap],
+        "sysreg_read" => vec![Op::SysRegRead { dst: v0(), reg: crate::sir::SysReg::Pstate }],
+        "sysreg_write" => vec![Op::SysRegWrite { reg: crate::sir::SysReg::Pstate, src: v0() }],
+        "eret" => vec![Op::ERet],
         other => unreachable!("unknown probe kind {other}"),
     }
 }
@@ -636,8 +646,8 @@ mod tests {
         assert_eq!(sh.encoder_pct, sh.decoder_pct);
         // SH `clear` encodes as mov #0 → decodes as MovImm{·,0}: literal < semantic.
         assert!(sh.literal_pct < sh.semantic_pct, "{sh:?}");
-        assert_eq!(sh.semantic_pct, 100, "{sh:?}"); // 18/18 (trap + cmp/test/bcond)
-        assert_eq!(sh.status, "FULL");
+        assert_eq!(sh.semantic_pct, 86, "{sh:?}"); // 18/21 (no sysreg/eret encoder)
+        assert_eq!(sh.status, "PARTIAL");
         assert!(sh.covered.contains(&"clear"));
         assert!(sh.covered.contains(&"ld_mem"));
         assert!(sh.covered.contains(&"push"));
@@ -648,13 +658,13 @@ mod tests {
     fn coverage_alpha_parisc_coldfire() {
         // ISAs without flags: 18/18 = 100% (all kinds encode+decode)
         let a = coverage(TargetIsa::Alpha);
-        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (100, 100, 100)); // 18/18
+        assert_eq!((a.encoder_pct, a.decoder_pct, a.semantic_pct), (86, 86, 86)); // 18/21
         let p = coverage(TargetIsa::PaRisc);
-        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (100, 100, 100)); // 18/18
+        assert_eq!((p.encoder_pct, p.decoder_pct, p.semantic_pct), (86, 86, 86)); // 18/21
         // ISAs with flags: 17/17 = 100%
         let c = coverage(TargetIsa::ColdFire);
-        assert_eq!(c.semantic_pct, 100, "{c:?}"); // 18/18 (all incl. cmp/test/bcond/trap)
-        assert_eq!(c.encoder_pct, 100, "{c:?}");
+        assert_eq!(c.semantic_pct, 86, "{c:?}"); // 18/21 (no sysreg/eret encoder)
+        assert_eq!(c.encoder_pct, 86, "{c:?}");
         assert!(c.covered.contains(&"call"));
         assert!(c.covered.contains(&"jmp"));
     }
@@ -664,7 +674,7 @@ mod tests {
         let x = coverage(TargetIsa::X86_64);
         assert!(x.encoder_pct > 0, "x86 encoder exists");
         assert_eq!(x.decoder_pct, x.encoder_pct, "x86 decoder now covers the encoder subset");
-        assert_eq!(x.status, "FULL", "all 18 kinds round-trip");
+        assert_eq!(x.status, "PARTIAL", "18/21 (no sysreg/eret encoder)");
         let m88k = coverage(TargetIsa::M88k);
         assert_eq!(m88k.status, "NONE");
         assert!(!m88k.has_decoder);
@@ -736,8 +746,8 @@ mod tests {
         }
         let cf = coverage(TargetIsa::ColdFire);
         let cf_sweep = differential_sweep(TargetIsa::ColdFire);
-        // ColdFire: all 18 kinds + sweep clean → P6
-        assert!(preservation_level(&cf, &cf_sweep).starts_with("P6"));
+        // ColdFire: 18/21 (no sysreg/eret) → P5
+        assert!(preservation_level(&cf, &cf_sweep).starts_with("P5"));
         let m88k = coverage(TargetIsa::M88k);
         let m88k_sweep = differential_sweep(TargetIsa::M88k);
         assert!(preservation_level(&m88k, &m88k_sweep).starts_with("P1"));
@@ -749,7 +759,7 @@ mod tests {
     #[test]
     fn preservation_report_is_generated_not_prose() {
         let r = preservation_report(TargetIsa::ColdFire);
-        assert!(r.contains("Preservation level: P6"), "ColdFire should be P6: {r}");
+        assert!(r.contains("Preservation level: P5"), "ColdFire should be P5: {r}");
         assert!(r.contains("hardware_validated: false"));
         assert!(r.contains("complete: false"));
         let m = preservation_matrix();

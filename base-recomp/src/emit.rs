@@ -172,6 +172,9 @@ fn emit_x86_64(op: &Op) -> String {
             };
             format!("  j{cond_str} 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mov %{}, %cr0\n", x64_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mov %cr0, %{}\n", x64_reg(*src)),
+        Op::ERet => "  iretq\n".into(),
         Op::Trap => "  ud2\n".into(),
     }
 }
@@ -256,6 +259,9 @@ fn emit_arm(op: &Op) -> String {
             };
             format!("  b{cond_str} 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mrs {}, CPSR\n", arm_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  msr CPSR, {}\n", arm_reg(*src)),
+        Op::ERet => "  movs pc, lr\n".into(),
         Op::Trap => "  bkpt #0\n".into(),
     }
 }
@@ -328,6 +334,9 @@ fn emit_aarch64(op: &Op) -> String {
             };
             format!("  b.{cond_str} 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mrs {}, #PSTATE\n", a64_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  msr #PSTATE, {}\n", a64_reg(*src)),
+        Op::ERet => "  eret\n".into(),
         Op::Trap => "  brk #0\n".into(),
     }
 }
@@ -409,6 +418,9 @@ fn emit_mips(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mfc0 {}, $12\n", mips_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mtc0 {}, $12\n", mips_reg(*src)),
+        Op::ERet => "  eret\n".into(),
         Op::Trap => "  break\n".into(),
     }
 }
@@ -482,6 +494,9 @@ fn emit_ppc(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mfmsr {}\n", ppc_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mtmsr {}\n", ppc_reg(*src)),
+        Op::ERet => "  rfi\n".into(),
         Op::Trap => "  trap\n".into(),
     }
 }
@@ -557,6 +572,9 @@ fn emit_sparc(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  rd %psr, {}\n", sparc_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  wr {}, %psr\n", sparc_reg(*src)),
+        Op::ERet => "  rett %o7+8\n".into(),
         Op::Trap => "  ta 1\n".into(),
     }
 }
@@ -624,6 +642,9 @@ fn emit_superh(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  stc sr, {}\n", sh_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  ldc {}, sr\n", sh_reg(*src)),
+        Op::ERet => "  rte\n".into(),
         Op::Trap => "  trapa #0\n".into(),
     }
 }
@@ -702,6 +723,9 @@ fn emit_alpha(op: &Op) -> String {
             };
             format!("  {cond_str} r0, 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mf {}\n", alpha_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mt {}\n", alpha_reg(*src)),
+        Op::ERet => "  ret $#0\n".into(),
         Op::Trap => "  call_pal 0x00\n".into(),
     }
 }
@@ -796,6 +820,9 @@ fn emit_parisc(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mfsp %sr0, {}\n", parisc_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mtsp {}, %sr0\n", parisc_reg(*src)),
+        Op::ERet => "  rfi\n".into(),
         Op::Trap => "  break 0,0\n".into(),
     }
 }
@@ -873,6 +900,9 @@ fn emit_m88k(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n  nop\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mov {}, cr\n", m88k_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mov cr, {}\n", m88k_reg(*src)),
+        Op::ERet => "  rte\n".into(),
         Op::Trap => "  trap 1\n".into(),
     }
 }
@@ -953,6 +983,9 @@ fn emit_ia64(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  mov {} = cr.ipsr\n", ia64_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  mov cr.ipsr = {}\n", ia64_reg(*src)),
+        Op::ERet => "  rfi\n".into(),
         Op::Trap => "  break.i 0\n".into(),
     }
 }
@@ -1005,6 +1038,9 @@ fn emit_i860(op: &Op) -> String {
         Op::Cmp { rd, rs } => format!("  sub {}, {}, {}\n", i860_reg(*rd), i860_reg(*rd), i860_reg(*rs)),
         Op::Test { rd, rs } => format!("  and {}, {}, {}\n", i860_reg(*rd), i860_reg(*rd), i860_reg(*rs)),
         Op::BranchCond { cond, target } => format!("  bc.t 0x{target:x}\n  nop\n"),
+        Op::SysRegRead { dst, .. } => format!("  rd %psr, {}\n", i860_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  wr {}, %psr\n", i860_reg(*src)),
+        Op::ERet => "  rfi\n".into(),
         Op::Trap => "  bpt\n".into(),
     }
 }
@@ -1072,6 +1108,9 @@ fn emit_coldfire(op: &Op) -> String {
             };
             format!("  {cond_str} 0x{target:x}\n")
         }
+        Op::SysRegRead { dst, .. } => format!("  move {}, CCR\n", coldfire_reg(*dst)),
+        Op::SysRegWrite { src, .. } => format!("  move CCR, {}\n", coldfire_reg(*src)),
+        Op::ERet => "  rte\n".into(),
         Op::Trap => "  illegal\n".into(),
     }
 }

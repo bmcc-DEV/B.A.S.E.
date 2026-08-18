@@ -59,9 +59,42 @@ pub enum Op {
     BranchCond { cond: Cond, target: u64 },
     /// Synchronous trap: invalid opcode, breakpoint, alignment fault, software interrupt.
     Trap,
+    /// Read system register: `dst := sysreg`.
+    SysRegRead { dst: VReg, reg: SysReg },
+    /// Write system register: `sysreg := src`.
+    SysRegWrite { reg: SysReg, src: VReg },
+    /// Return from exception: restores privilege level and state.
+    ERet,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SysReg {
+    /// AArch64 processor state (NZCV + exception level + interrupt mask).
+    Pstate,
+    /// AArch64 stack pointer select (EL0/EL1).
+    SpSel,
+    /// AArch64 interrupt disable flags.
+    Daif,
+    /// ARM current program status register.
+    Cpsr,
+    /// ARM saved program status register.
+    Spsr,
+    /// x86 flags register.
+    Rflags,
+    /// x86 control register 0.
+    Cr0,
+    /// MIPS coprocessor 0 status register.
+    Cop0Status,
+    /// PPC machine state register.
+    Msr,
+    /// SuperH status register.
+    Sr,
+    /// Generic: unknown system register (by numeric ID).
+    Other(u32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Cond {
     Eq,
