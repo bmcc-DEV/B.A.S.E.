@@ -210,6 +210,28 @@ fn decode_mips(bytes: &[u8]) -> Result<Vec<Op>, DecodeError> {
             i += 4;
             continue;
         }
+        if opc == 0x20 {
+            // lb $rt, imm($rs) — load byte (signed extend). LdMem width 1.
+            ops.push(Op::LdMem {
+                dst: v(rt),
+                base: v(rs),
+                offset: imm,
+                width: 1,
+            });
+            i += 4;
+            continue;
+        }
+        if opc == 0x24 {
+            // lbu $rt, imm($rs) — load byte unsigned. LdMem width 1.
+            ops.push(Op::LdMem {
+                dst: v(rt),
+                base: v(rs),
+                offset: imm,
+                width: 1,
+            });
+            i += 4;
+            continue;
+        }
         if opc == 0x2B {
             // sw $rt, imm($rs) — StMem (width 4).
             if rs == 29 {

@@ -2787,7 +2787,12 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
             name,
             target,
         } => {
-            let (text, module) = base_recomp::elf::lift_elf_text(input, name)?;
+            let (text, module) = if let Some(t) = target {
+                let isa: base_recomp::target::TargetIsa = t.parse()?;
+                base_recomp::elf::lift_elf_text_for_target(input, name, isa)?
+            } else {
+                base_recomp::elf::lift_elf_text(input, name)?
+            };
             let sir_path = output.join("recomp.sir.json");
             fs::write(&sir_path, serde_json::to_string_pretty(&module)?)?;
             tracing::info!(
@@ -2799,7 +2804,7 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
                 sir_path.display()
             );
             let md = format!(
-                "# ELF recomp (Path v1.8)\n\n- input: `{}`\n- section: `{}`\n- arch: `{}`\n- bytes: {}\n- vma: {:#x}\n- elf64: {}\n- gaps: {}\n\n{}{}\n",
+                "# ELF recomp (Path v1.8)\n\n- input: `{}`\n- section: `{}`\n- arch: `{}`\n- bytes: {}\n- vma: {:#x}\n- elf64: {}\n- gaps: {}\n- source_isa: {}\n\n{}{}\n",
                 text.path,
                 text.section_name,
                 text.architecture,
@@ -2807,17 +2812,18 @@ fn handle_recomp(action: &RecompCommand, output: &Path) -> Result<()> {
                 text.vma,
                 text.is_64,
                 module.lift_gaps,
+                module.source_isa,
                 base_recomp::gaps::gaps_markdown(&module),
                 base_recomp::honesty::markdown_section()
             );
             fs::write(output.join("RECOMP_REPORT.md"), md)?;
-            if let Some(t) = target {
-                let isa: base_recomp::target::TargetIsa = t.parse()?;
-                let asm = base_recomp::emit::emit_module(&module, isa);
-                let asm_path = output.join(format!("emit_{}.s", isa.as_str()));
-                fs::write(&asm_path, asm)?;
-                tracing::info!("ASM written {}", asm_path.display());
-            }
+            let emit_isa = target
+                .and_then(|t| t.parse::<base_recomp::target::TargetIsa>().ok())
+                .unwrap_or(base_recomp::target::TargetIsa::X86_64);
+            let asm = base_recomp::emit::emit_module(&module, emit_isa);
+            let asm_path = output.join(format!("emit_{}.s", emit_isa.as_str()));
+            fs::write(&asm_path, asm)?;
+            tracing::info!("ASM written {}", asm_path.display());
         }
         RecompCommand::Pe {
             input,
